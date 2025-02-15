@@ -1,0 +1,11 @@
+{
+	"id": "gestion-manager",
+	"name": "Gestion manager",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "",
+	"author": "Léo Dupont",
+	"authorUrl": "",
+	"fundingUrl": "",
+	"isDesktopOnly": false
+}
