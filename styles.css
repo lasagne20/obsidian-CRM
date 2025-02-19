@@ -6,3 +6,14 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+
+.fuzzy-hint {
+    font-size: 20px;
+    color: var(--text-muted);
+    padding: 5px;
+    text-align: center; /* Centre le texte */
+    border-bottom: 1px solid var(--background-modifier-border);
+    margin-bottom: 5px;
+    width: 100%; /* Prend toute la largeur */
+}

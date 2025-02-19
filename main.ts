@@ -1,101 +1,111 @@
 import { Plugin, MarkdownView, TFile, App } from 'obsidian';
-import { Vault } from "Classes/Vault";
+import { GestionManagerSettingTab } from 'settings';
+import { MyVault } from "Utils/MyVault";
+
+
+const DEFAULT_SETTINGS: Settings = {
+  templateFolder: "Outils/Obsidian/Templates", // Dossier par défaut
+};
 
 export default class GestionManager extends Plugin {
+  public vault: MyVault;
+  public settings = DEFAULT_SETTINGS;
+
   async onload() {
-    this.vault = new Vault();
+    this.vault = new MyVault(this.app, this.settings);
 
     // Enregistrer un événement pour ajouter dynamiquement un DataviewJS chaque fois qu'un fichier est ouvert
-    this.registerEvent(
-      this.app.workspace.on("editor-change", this.vault.updateFile.bind(this))
-    );
-	this.registerEvent(
-		this.app.workspace.on("active-leaf-change", this.vault.updateFile.bind(this))
-	  );
+    let inUpdate = false;
+    this.addSettingTab(new GestionManagerSettingTab(this.app, this));
+    this.loadSettings();
 
-  
+    this.app.workspace.on("editor-change", async () => {
+      if (inUpdate) {return}
+      inUpdate = true;
+      // waiting for the cache to be updated
+      const onResolved = async () => {
+        this.app.metadataCache.off('resolved', onResolved);
+        await this.updateFile()
+      };
+      this.app.metadataCache.on('resolved', onResolved);
+      inUpdate = false;
+    });
+
+    this.app.workspace.on('active-leaf-change', async () => {
+      if (inUpdate) {return}
+      inUpdate = true;
+      await this.updateFile(true)
+      inUpdate = false;
+    });
+
+    document.addEventListener("click", async (event) => {
+      if (inUpdate) {return}
+      inUpdate = true;
+      const target = event.target as HTMLElement;
+      // Vérifie si l'élément cliqué est un lien local et non résolu
+      if (target.classList.contains("internal-link") || target.classList.contains("is-unresolved")) {
+        event.preventDefault();
+        const linkUrl = (target as HTMLAnchorElement).href;
+        if (target.textContent){
+          await this.createNewFile(target.textContent, linkUrl);
+        }
+      }
+      inUpdate = false;
+    });
+
+    this.app.vault.on('rename', async (file) => {
+      if (inUpdate) {return}
+      inUpdate = true;
+      if (!(file instanceof TFile)) return;
+      let classe = this.vault.getFromFile(file)
+      classe.updateParent()
+      inUpdate = false;
+    });
+
   }
 
-  async updateFile(file){
-    this.vault.updateFile(fi)
-  }
-
-  async handleFileMoveAndCreateFolder(file: TFile, oldPath: string, app: App) {
-    console.log(`Fichier déplacé : ${oldPath} → ${file.path}`);
-  
-    // Vérifier que c'est bien un fichier et non un dossier
-    if (!(file instanceof TFile)) return;
-  
-    // Lire les métadonnées du fichier
-    const metadata = app.metadataCache.getFileCache(file)?.frontmatter;
-    if (!metadata || metadata["Classe"] !== "Institutions") {
-      console.log(`Ignoré : Métadonnée "Classe" absente ou différente de "Institutions"`);
-      return;
-    }
-  
-    // Déterminer le dossier à créer (même nom que le fichier sans extension)
-    const newFolderPath = file.path.substring(0, file.path.lastIndexOf("."));
-  
-    try {
-      await app.vault.createFolder(newFolderPath);
-      console.log(`Dossier créé : ${newFolderPath}`);
-      // Déplacer le fichier dans le dossier
-      const newFilePath = `${newFolderPath}/${file.name}`;
-      await app.vault.rename(file, newFilePath);
-    } catch (error) {
-      console.warn(`Le dossier existe déjà ou erreur de création : ${error}`);
-    }
-  }
-  
-
-
-
-  // Fonction pour ajouter dynamiquement un DataviewJS au début de la vue active
-  async addDataviewJsToUI(file) {
-    // Vérifier si le fichier ouvert est un fichier Markdown
+  async createNewFile(name : string, path : string) {
+    console.log("Create new object")
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (!activeView) return;
 
-    // Vérifier si le conteneur de Dataview existe déjà dans la vue active
-    let container = activeView.contentEl.querySelector("#dataviewjs-container");
-    if (!container) {
-      // Si le conteneur n'existe pas, créez un nouveau conteneur
-      container = document.createElement("div");
-      container.id = "dataviewjs-container";
+    const file = activeView.file; // Récupère le fichier actif
+    if (!file) return;
 
-      // Accéder au cache des métadonnées du fichier
-      const metadataCache = this.app.metadataCache.getFileCache(file);
+    if (!(file instanceof TFile)) return;
 
-      if (metadataCache && metadataCache.frontmatter) {
-		const frontmatter = metadataCache.frontmatter;
-		console.log("Frontmatter récupéré:", frontmatter);
-		// Exemple : Utiliser le frontmatter pour afficher une valeur spécifique
-	   if (frontmatter.title) {
-	     console.log("Titre du document:", frontmatter.title);
-		}
-	 }
-      // Insérer le conteneur avant l'éditeur
-	  const metadataContainer = activeView.contentEl.querySelector(".metadata-container");
-      metadataContainer.parentNode.insertAfter(container, metadataContainer);
-	  console.log(activeView.contentEl)
-      // Ajouter un bloc DataviewJS au conteneur
-      this.renderDataviewJs(container);
-    }
+    await this.vault.createLinkFile(file, name)
   }
 
-  // Fonction pour rendre dynamiquement le DataviewJS
-  renderDataviewJs(container) {
-    const dv = this.app.plugins.plugins["dataview"]?.api;
-    if (!dv) {
-      container.innerHTML = "<p style='color:red;'>Le plugin Dataview n'est pas chargé.</p>";
-      return;
+  private inUpdate : boolean = false;
+
+  async updateFile(check: boolean = false) {
+    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!activeView) return;
+
+    const file = activeView.file; // Récupère le fichier actif
+    if (!file) return;
+
+    if (!(file instanceof TFile)) return;
+
+    console.log("Update objects")
+    if (check){
+      // Validate the content of the file
+      await this.vault.checkFile(file)
     }
-    // Testez avec du contenu supplémentaire pour rendre le test plus visible
-    const testContent = document.createElement("div");
-	console.log(document)
-    testContent.innerHTML = "<p><strong>Ceci est un test supplémentaire</strong> pour vérifier si le contenu est correctement rendu.</p>";
-    container.appendChild(testContent);
+    await this.vault.updateFile(file)
+    console.log("Object updated")
+
   }
+
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+  
+  async saveSettings() {
+    await this.saveData(this.settings);
+  }
+
 
   onunload() {
     console.log("Plugin unloaded");
