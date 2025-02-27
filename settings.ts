@@ -1,13 +1,10 @@
 import { App, PluginSettingTab, Setting, TFile } from "obsidian";
-import GestionManager from "./main";
-import { Institution } from "Classes/Institution";
-import { Personne } from "Classes/Personne";
-import { Lieu } from "Classes/Lieux";
+import CRM from "./main";
 
-export class GestionManagerSettingTab extends PluginSettingTab {
-  plugin: GestionManager;
+export class CRMSettingTab extends PluginSettingTab {
+  plugin: CRM;
 
-  constructor(app: App, plugin: GestionManager) {
+  constructor(app: App, plugin: CRM) {
     super(app, plugin);
     this.plugin = plugin;
   }

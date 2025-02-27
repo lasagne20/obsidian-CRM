@@ -1,6 +1,6 @@
 import { Classe } from 'Classes/Classe';
 import { Plugin, MarkdownView, TFile, App, TFolder, Menu, TAbstractFile } from 'obsidian';
-import { GestionManagerSettingTab } from 'settings';
+import { CRMSettingTab } from 'settings';
 import { TopDisplay } from 'Utils/Display/TopDisplay';
 import { MyVault } from "Utils/MyVault";
 import { waitForMetaDataCacheUpdate } from 'Utils/Utils';
@@ -10,7 +10,7 @@ const DEFAULT_SETTINGS: Settings = {
   templateFolder: "Outils/Obsidian/Templates", // Dossier par défaut
 };
 
-export default class GestionManager extends Plugin {
+export default class CRM extends Plugin {
   public vault: MyVault;
   public settings = DEFAULT_SETTINGS;
   private inUpdate = false;
@@ -21,7 +21,7 @@ export default class GestionManager extends Plugin {
 
    
     let inUpdate = false;
-    this.addSettingTab(new GestionManagerSettingTab(this.app, this));
+    this.addSettingTab(new CRMSettingTab(this.app, this));
     this.loadSettings();
     
     // Editor change
