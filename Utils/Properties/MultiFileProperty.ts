@@ -24,17 +24,18 @@ export class MultiFileProperty extends FileProperty{
             }
         }
     }
-  
+
 
     getLink(file : File){
-      this.check(file)
-      let values = this.read(file);
-      if (values){
-        const fileName = values[0].slice(2, -2); // Enlève les [[ et ]]
-        // Rechercher le fichier dans la vault
+      let list = this.read(file)
+      if (typeof list === "string"){return file.getFromLink(list.slice(2, -2))}
+      if (list && list.length){
+        const fileName = list[0].slice(2, -2) // Enlève les [[ et ]]
         return file.getFromLink(fileName)
-      }
+      }  
+      return null
     }
+
 
 
 }

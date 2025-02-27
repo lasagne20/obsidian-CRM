@@ -17,7 +17,7 @@ export class FileProperty extends Property{
     async check(file: File){
         // Check if it is a file link
         let value = this.read(file)
-        if (value && !file.linkRegex.test(value)) {
+        if (value && value.length && !file.linkRegex.test(value)) {
           // rajoute les [[ ]]
           if (value.length){
               value = `"[[${value}]]"`
@@ -31,7 +31,6 @@ export class FileProperty extends Property{
    }
 
     getLink(file : File){
-      this.check(file)
       const fileName = this.read(file)?.slice(2, -2); // Enlève les [[ et ]]
       // Rechercher le fichier dans la vault
       return file.getFromLink(fileName)

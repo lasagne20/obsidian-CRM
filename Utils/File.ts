@@ -1,4 +1,4 @@
-import { App, TFile } from "obsidian";
+import { App, TAbstractFile, TFile, TFolder } from "obsidian";
 import { MyVault } from "./MyVault";
 
 export class File {
@@ -17,24 +17,69 @@ export class File {
       this.file = file;
     }
 
-    getName(){
-      return this.file.name
+    getFolderPath(){
+      return this.file.path.substring(0, this.file.path.lastIndexOf("/"))
     }
 
-    getPath(){
+    isFolderFile(){
+      // Return true if the file is also a folder
+      return this.file.path.substring(0, this.file.path.lastIndexOf("/")).endsWith(this.getName().replace(".md", ""))
+    }
+
+    getFolderFilePath(){
+      // Return the folderFile path
+      let path = this.getFolderPath()
+      if (this.isFolderFile()){
+        return path
+      }
+      return path + "/" + this.getName(false)
+    }
+
+    getParentFolderPath(){
+      let path = this.getFolderPath()
+      if (this.isFolderFile()){
+        path = path.substring(0, path.lastIndexOf("/"))
+      }
+      return path
+    }
+
+    getName(md=true){
+      if (md){
+        return this.file.name
+      }
+      return this.file.name.replace(".md","")
+    }
+
+    getFilePath(){
+      // Return the file path
       return this.file.path
     }
 
     getLink(){
-      return `[[${this.getName().replace(".md","")}]]`
+      return `[[${this.getName(false)}]]`
     }
 
-    async move(folderPath: string) {
-      const newFilePath = `${folderPath}/${this.getName()}`;
-      console.log(newFilePath);
-      
+    async move(targetFolderPath: string) {
+      // Check if the folder of the target pathname exist
+      let subtargetPath = targetFolderPath + "/" + this.getName(false)
+      const folder = this.app.vault.getAbstractFileByPath(subtargetPath);
+      if (folder) {
+        targetFolderPath = subtargetPath;
+      }
+
+      // Check if we need to move the file or the folder
+      let moveFile : TAbstractFile = this.file
+      let newFilePath = `${targetFolderPath}/${this.getName()}`;
+      if (this.isFolderFile()){
+        let folder = this.app.vault.getAbstractFileByPath(this.getFolderPath())
+        if (folder){
+          moveFile = folder
+          newFilePath = newFilePath.replace(".md","")
+        }
+      }
+
       // Vérification si le fichier cible existe déjà
-      const existingFile = await this.app.vault.getAbstractFileByPath(newFilePath);
+      const existingFile = this.app.vault.getAbstractFileByPath(newFilePath);
       if (existingFile) {
           console.log('Le fichier existe déjà, impossible de déplacer.');
           return;
@@ -42,25 +87,25 @@ export class File {
   
       try {
           // Essayer de déplacer le fichier
-          await this.app.vault.rename(this.file, newFilePath);
+          await this.app.vault.rename(moveFile, newFilePath);
           console.log(`Fichier déplacé vers ${newFilePath}`);
       } catch (error) {
           console.error('Erreur lors du déplacement du fichier :', error);
       }
   }
-  
 
     getMetadata(){
-      return this.app.metadataCache.getFileCache(this.file)?.frontmatter;
+      let metadata = this.app.metadataCache.getFileCache(this.file)?.frontmatter;
+      return metadata
     }
 
-    getFromLink(name:  string){
+    getFromLink(name:  string) : any{
       return this.vault.getFromLink(name)
     }
 
   
     async updateMetadata(key: string, value: any) {
-      console.log("Update metadata : " + key + " --> " + value)
+      console.log("Update metadata on " + this.getName() +" : " + key + " --> " + value)
       const frontmatter = this.getMetadata();
       if (!frontmatter) return;
   
@@ -88,7 +133,7 @@ export class File {
     
         // Reformater le frontmatter
         const newFrontmatter = this.formatFrontmatter(frontmatter);
-        const filteredExtraProperties = extraProperties.filter(prop => prop.trim() !== "");
+        const filteredExtraProperties = extraProperties.filter(prop => prop && prop.trim() !== "");
         const extraText = filteredExtraProperties.length > 0 ? `\n${filteredExtraProperties.join("\n")}` : "";
 
         
@@ -124,7 +169,7 @@ export class File {
         });
         
         Object.keys(frontmatter).forEach(prop => {
-            if (!propertiesOrder.includes(prop)) {
+            if (!propertiesOrder.includes(prop) && frontmatter[prop]) {
                 extraProperties.push(`${prop}: ${JSON.stringify(frontmatter[prop])}`);
             }
         });

@@ -35,6 +35,17 @@ export class GestionManagerSettingTab extends PluginSettingTab {
         });
       })
       .setClass("folder-path-selector"); // Ajoute une classe pour le style (facultatif)
+
+    new Setting(containerEl)
+      .setName("Refresh vault")
+      .setDesc("Recharge tous les fichiers de la vault")
+      .addButton( (button) => {
+            button.setButtonText("Refresh vault")
+            .setCta() // Rend le bouton plus visible
+            .onClick(async () => {
+                 await this.plugin.refreshVault();
+            })
+      })
   }
 
   // Afficher les suggestions des dossiers dans Obsidian

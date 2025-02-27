@@ -11,6 +11,9 @@
     "importHelpers": true,
     "isolatedModules": true,
     "strictNullChecks": true,
+    "paths": {
+      "Utils/*": ["Utils/*"]
+    },
     "lib": [
       "DOM",
       "ES5",
@@ -21,4 +24,5 @@
   "include": [
     "**/*.ts"
   ]
+  
 }

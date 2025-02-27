@@ -1,10 +1,10 @@
-import { App, TFile } from "obsidian";
+import { App, FuzzySuggestModal, TFile } from "obsidian";
 import { FileSearchModal } from "./FileSearchModal";
 import { SelectModal } from "./SelectModal";
 import { Classe } from "Classes/Classe";
 import { MyVault } from "Utils/MyVault";
 
-export async function selectFile(vault: MyVault, classe: typeof Classe, title: string): Promise<Classe> {
+export async function selectFile(vault: MyVault, classe: typeof Classe, title: string): Promise<Classe | undefined>  {
     return new Promise((resolve) => {
         const modal = new FileSearchModal(vault, async (selectedFile: TFile|string) => {
             if (selectedFile instanceof TFile){
@@ -13,19 +13,23 @@ export async function selectFile(vault: MyVault, classe: typeof Classe, title: s
              }
              else if (typeof selectedFile === "string"){
                let file = await vault.createFile(classe, selectedFile+".md")
-               let object = vault.getFromFile(file)
+               if (!file){resolve(undefined); return}
+               let object = vault.getFromFile(file) 
                resolve(object);
              }
-        }, classe, title);
+             else {
+                resolve(undefined)
+             }
+        },classe, title);
         modal.open();
     });
 }
 
-export async function selectClass(vault : MyVault, title: string) : Promise<typeof Classe> {
+export async function selectClass(vault : MyVault, title: string) : Promise<typeof Classe| null> {
     return new Promise((resolve) => {
         const modal = new SelectModal(vault.app, (classe) => {
             resolve(classe);
-        }, MyVault.classes, title);
+        }, () => {resolve(null)}, MyVault.classes, title);
         modal.open();
     });
 }
