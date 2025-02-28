@@ -10,6 +10,7 @@ import { SelectModal } from "./Modals/SelectModal";
 import { selectClass, selectFile } from "./Modals/Modals";
 import { waitForMetaDataCacheUpdate } from "./Utils";
 import { Action } from "Classes/Action";
+import { Settings } from "./Settings";
 
 
 export class MyVault {
@@ -131,6 +132,7 @@ export class MyVault {
         }
         
         await waitForMetaDataCacheUpdate(this.app, async () => {
+          if (!file) {return}
           let classe = this.getFromFile(file);
           await classe?.populate(...args);
         });

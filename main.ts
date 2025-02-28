@@ -3,6 +3,7 @@ import { Plugin, MarkdownView, TFile, App, TFolder, Menu, TAbstractFile } from '
 import { CRMSettingTab } from 'settings';
 import { TopDisplay } from 'Utils/Display/TopDisplay';
 import { MyVault } from "Utils/MyVault";
+import { Settings } from 'Utils/Settings';
 import { waitForMetaDataCacheUpdate } from 'Utils/Utils';
 
 

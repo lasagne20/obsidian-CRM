@@ -19,7 +19,7 @@ export class Classe extends File {
       throw Error("Need to define the subClasses")
     }
 
-    static getClasse(): string{
+    static getClasse(): string{ 
       return this.className
     }
 

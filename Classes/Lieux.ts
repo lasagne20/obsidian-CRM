@@ -36,7 +36,7 @@ export class Lieu extends Classe {
       return Lieu.parentProperty
     }
 
-    getChildFolderPath(child : Classe){
+    getChildFolderPath(child : Classe) : string{
       // check if the file is also a folder
       if (child instanceof Lieu){
         return super.getChildFolderPath(child)

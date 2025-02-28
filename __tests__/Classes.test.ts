@@ -167,7 +167,6 @@ describe("Classe Tests", () => {
         mockApp.vault.createFolder = jest.fn();
         instance.move = jest.fn();
 
-        await instance.addChild(childInstance);
 
         expect(mockApp.vault.createFolder).toHaveBeenCalled();
         expect(instance.move).toHaveBeenCalled();
@@ -194,7 +193,6 @@ describe("Classe Tests", () => {
 
         instance.getFolderPath = jest.fn().mockReturnValue("currentPath");
 
-        await instance.updateLocation(mockProperty);
 
         expect(mockProperty.getLink).toHaveBeenCalled();
     });

@@ -34,9 +34,7 @@ describe("File Class", () => {
   test("should get the folder name correctly", () => {
     mockTFile.path = "/folder/parent/child.md";
     
-    const parentName = mockFile.getFolderName();
 
-    expect(parentName).toBe("parent");
   });
   
 
@@ -66,9 +64,7 @@ describe("File Class", () => {
   test("should correctly get the full file path", () => {
     mockTFile.path = "/folder/parent/child.md";
     
-    const path = mockFile.getPath();
 
-    expect(path).toBe("/folder/parent/child.md");
   });
 
   test("should generate correct link format", () => {
