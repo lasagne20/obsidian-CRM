@@ -1,22 +1,40 @@
-import {TFile, App, TAbstractFile, TFolder} from 'obsidian';
+import {TFile, App, TAbstractFile, TFolder, FrontMatterCache} from 'obsidian';
 import { MyVault } from '../Utils/MyVault';
 import { File } from '../Utils/File';
 import { Property } from '../Utils/Properties/Property';
 import { FileProperty } from '../Utils/Properties/FileProperty';
 import { MultiFileProperty } from '../Utils/Properties/MultiFileProperty';
+import { SubClassProperty } from 'Utils/Properties/SubClassProperty';
+import { SubClass } from './SubClasses/SubClass';
+
+interface Data {
+  [key: string]: any;
+}
 
 export class Classe extends File {
     public static className : string = "";
+    public static classIcon : string = "box";
     
     public static parentProperty : FileProperty|MultiFileProperty ;
+    public static subClassesProperty : SubClassProperty;
     public static get Properties(): { [key: string]: Property } { return {}};
+
+    public static async getItems(): Promise<string[]> { return []}
 
     constructor(app : App, vault:MyVault, file : TFile) {
       super(app, vault, file)
     }
+    
+    getConstructor(){
+      return Classe
+    }
 
     getClasse() : string{
-      throw Error("Need to define the subClasses")
+      return this.getConstructor().className
+    }
+
+    readProperty(name : string){
+      return this.getProperties()[name].read(this)
     }
 
     static getClasse(): string{ 
@@ -24,7 +42,15 @@ export class Classe extends File {
     }
 
     getparentProperties() : FileProperty| MultiFileProperty{
-      throw Error("Need to define the subClasses")
+      return this.getConstructor().parentProperty
+    }
+
+    getParentValue() : string{
+      let value = this.getparentProperties().read(this)
+      if (value && value.length){
+        return value
+      }
+      return ""
     }
 
     static getparentProperties(){
@@ -32,11 +58,73 @@ export class Classe extends File {
     }
 
     async populate(...args : any[]){
-      throw Error("Need to define the subClasses")
+      throw Error("Need to define the Classes")
     }
 
     static getProperties(){
       return Classe.Properties
+    }
+
+    getMetadataValue(name : string): FrontMatterCache | undefined {
+      let metadata = super.getMetadata()
+
+      let data : Data | null = this.vault.getFileData(this)
+      
+      let value = metadata ? metadata[name] : undefined
+      if (!value && data && Object.keys(data).contains(name)){
+        return data[name]
+      }
+      return value;
+    }
+
+
+    getProperties(){
+      return this.getConstructor().Properties
+    }
+
+    getSubProperties(){
+      let subProperties: { [key: string]: Property } = {};
+      for (const prop of Object.values(this.getProperties())) {
+        if (prop instanceof SubClassProperty) {
+          const subClass = prop.getSubClass(this);
+          if (subClass) {
+            Object.assign(subProperties, subClass.getProperties());
+          }
+        }
+      }
+      return subProperties;
+    }
+
+    getSelectedSubClasses() : SubClass[]{
+      let subClasses : SubClass[]= []
+      for (const prop of Object.values(this.getProperties())) {
+        if (prop instanceof SubClassProperty) {
+          let subclass = prop.getSubClass(this)
+          if (subclass) {subClasses.push(subclass)}
+        }
+      }
+      return subClasses;
+    }
+
+    getSubPropertiesValues() {
+      let subPropertiesValues: { [key: string]: any } = {};
+      for (const [key, prop] of Object.entries(this.getSubProperties())) {
+        subPropertiesValues[key] = prop.read(this);
+      }
+      return subPropertiesValues;
+    }
+
+    getAllProperties(){
+      let properties: { [key: string]: any } = {};
+      for (const prop of Object.values(this.getProperties())) {
+        if (prop instanceof SubClassProperty) {
+          for (const subClass of prop.subClasses){
+            Object.assign(properties, (subClass as unknown as SubClass).getProperties());
+          }
+          
+        }
+      }
+      return {...properties, ...this.getProperties()};
     }
 
     findPropertyFromValue(content : string, link = false){
@@ -52,18 +140,21 @@ export class Classe extends File {
       return null; 
     }
 
+    async getParent() : Promise<Classe |undefined>{
+      return this.getparentProperties().getFile(this)
+    }
+
     async updateLocation(){
         // Check if the file are right place, move it if needed
         console.log("Update Location")
-        let property = this.getparentProperties()
-        let parent = property.getLink(this)
+        let parent = await this.getParent()
         if (!parent || parent === undefined){
           // Le fichier n'existe pas
           console.error("Le parent n'existe pas")
         } 
-        else if(property.getClasse() && parent.getClasse() != property.getClasse()){
+        else if(this.getparentProperties().getClasses() && !this.getparentProperties().getClasses().includes(parent.getClasse())){
           // ce n'est pas la bonne classe
-          console.error("Mauvaise classe pour cette propiété: " + parent.getClasse() + " au lieu de "+ property.getClasse())
+          console.error("Mauvaise classe pour cette propiété: " + parent.getClasse() + " au lieu de "+ this.getparentProperties().getClasses())
         }
         else {
           // Check if the path is correct, else move it
@@ -71,8 +162,6 @@ export class Classe extends File {
           if (this.getParentFolderPath() != correctPath){
             await parent.checkChildFolder(this)
             // Move the child to the childFolder
-            console.log("folder path : " + this.getFolderPath())
-            console.log("correctPath : " + correctPath)
             await this.move(correctPath)
           }
         }
@@ -87,18 +176,28 @@ export class Classe extends File {
       if (!parentfolder) {
           // If the folder doesn't exist create it and move the file into it
           console.log("Create Parent Folder Path : " + parentFolderPath)
-          await this.app.vault.createFolder(parentFolderPath);
-          await this.move(parentFolderPath)
+          try {
+            await this.app.vault.createFolder(parentFolderPath);
+            await this.move(parentFolderPath)
+          }
+          catch (e){
+            console.error(e)
+          }
+          
       }
 
       // Create the Child folder if doesn't exist
       const childFolderPath = this.getChildFolderPath(child);
-      console.log(childFolderPath)
       const childFolder = this.app.vault.getAbstractFileByPath(childFolderPath);
       if (!childFolder) {
           // If the folder doesn't exist create it and move the file into it
           console.log("Create child Folder Path : " + childFolderPath)
-          await this.app.vault.createFolder(childFolderPath);
+          try {
+            await this.app.vault.createFolder(childFolderPath);
+          }
+          catch (e){
+            console.error(e)
+          }
       }
     }
 
@@ -152,7 +251,15 @@ export class Classe extends File {
       return children;
     }
 
-    getTopDisplayContent(){
+    getTopDisplayContent() : any{
+      const container =  document.createElement("div");
+      const properties = document.createElement("div");
+      //Display the properties
+      for (let property of Object.values(this.getProperties())){
+        properties.appendChild(property.getDisplay(this))
+      }
+      container.appendChild(properties)
+      return container
     }
 
     async check(){

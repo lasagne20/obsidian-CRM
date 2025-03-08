@@ -9,6 +9,8 @@ import { waitForMetaDataCacheUpdate } from 'Utils/Utils';
 
 const DEFAULT_SETTINGS: Settings = {
   templateFolder: "Outils/Obsidian/Templates", // Dossier par défaut
+  dataFile: "Outils/Obsidian/Data/geo.json", // Dossier par défaut
+  additionalFiles : [],
 };
 
 export default class CRM extends Plugin {
@@ -18,23 +20,24 @@ export default class CRM extends Plugin {
   public topDisplay: TopDisplay;
 
   async onload() {
-    this.vault = new MyVault(this.app, this.settings);
-
-   
-    let inUpdate = false;
     this.addSettingTab(new CRMSettingTab(this.app, this));
-    this.loadSettings();
+    await this.loadSettings();
+    this.vault = new MyVault(this.app, this.settings);
     
     // Editor change
     this.app.workspace.on("editor-change", async () => {
-      this.topDisplay.show();
+      await this.handleMetadataUpdate(async () => {
+        await this.topDisplay.show();
+      });
       this.handleUpdate()
     });
 
     // Tab change
     this.app.workspace.on("active-leaf-change", async () => {
-      this.topDisplay.show();
-        this.handleMetadataUpdate(async () => this.handleUpdate());
+      await this.topDisplay.show();
+      await this.handleMetadataUpdate( async () => {
+        await this.handleUpdate()
+      });
     });
 
     // Click on lick

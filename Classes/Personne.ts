@@ -7,34 +7,47 @@ import { FileProperty } from "Utils/Properties/FileProperty";
 import { SelectProperty } from "Utils/Properties/SelectProperty";
 import { MultiFileProperty } from "Utils/Properties/MultiFileProperty";
 import { Institution } from "./Institution";
-import { Lieu } from "./Lieux";
+import { Lieu } from "./Lieu";
 import { selectFile } from "Utils/Modals/Modals";
+import { ClasseProperty } from "Utils/Properties/ClasseProperty";
+import { EmailProperty } from "Utils/Properties/EmailProperty";
+import { PhoneProperty } from "Utils/Properties/PhoneProperty";
+import { LinkProperty } from "Utils/Properties/LinkProperty";
+import { ObjectProperty } from "Utils/Properties/ObjectProperty";
+import { RatingProperty } from "Utils/Properties/RatingProperty";
+import { MultiSelectProperty } from "Utils/Properties/MultiSelectProperty";
+import { DateProperty } from "Utils/Properties/DateProperty";
+import { AdressProperty } from "Utils/Properties/AdressProperty";
+import { isArray } from "util";
 
 export class Personne extends Classe {
 
     public static className : string = "Personnes";
+    public static classIcon : string = "circle-user-round";
 
-    public static parentProperty: FileProperty  = new MultiFileProperty("Institutions", Institution);
+    public static parentProperty: FileProperty  = new FileProperty("Institution", [Institution, Lieu], Institution.classIcon);
 
-    public static get Properties() {
+    public static get Properties() : { [key: string]: Property } {
       return {
-      classe : new Property("Classe"),
-      mail : new Property("Email"),
-      telephone : new Property("Téléphone"),
-      poste : new Property("Poste"),
-      linkedin : new Property("Linkedin"),
-      institutions : this.parentProperty,
-      relation : new Property("Type de relation"),
-      etat:  new Property("Etat"),
-      interlocuteur : new Property("Interlocuteur"),
-      tache : new Property("Prochaine tache"),
-      lastContact: new Property("Dernier contact"),
-      nextContact : new Property("Prochain contact"),
+      classe : new ClasseProperty("Classe", this.classIcon),
+      email : new EmailProperty("Email"),
+      phone : new PhoneProperty("Téléphone"),
+      portable : new PhoneProperty("Portable", "smartphone"),
+      linkedin : new LinkProperty("Linkedin", "linkedin"),
+      postes : new ObjectProperty("Postes", "", 
+        {institution : this.parentProperty,
+         poste : new Property("Poste", "")}),
+      relation : new MultiSelectProperty("Type de relation", ["client", "vecteur", "expert", "soutien"]),
+      etat:  new SelectProperty("Etat", ["Pas encore contacté", "Prise de contact en cours", "Suivie d'affaire", "En attente de soliciation"]),
+      interlocuteur : new MultiSelectProperty("Interlocuteur", ["Sylvie", "Léo"]),
+      tache : new SelectProperty("Prochaine tache", ["Prise de contact", "Relance 1", "Relance 2", "Faire le point", "Valider point"]),
+      lastContact: new DateProperty("Dernier contact", ["today"]),
+      nextContact : new DateProperty("Prochain contact", ["next-week"]),
       introduit : new Property("Introduit par"),
-      adresse : new Property("Adresse"),
+      adresse : new AdressProperty("Adresse", "map-pin-house"),
       codePostal : new Property("Code postale"),
-      Lieu : new FileProperty("Lieux", Lieu),
-      prioriété : new Property("Priorité"),
+      lieu : new FileProperty("Lieux", [Lieu], Lieu.classIcon),
+      prioriété : new RatingProperty("Priorité"),
       liens : new Property("Liens")
     }
   }
@@ -43,21 +56,38 @@ export class Personne extends Classe {
       super(app, vault, file)
     }
 
-    getClasse(){
-      return Personne.className
-    }
-
-    getPoste(){
-      return Personne.Properties.poste.read(this)
+    getConstructor(){
+      return Personne
     }
 
     getparentProperties() : FileProperty| MultiFileProperty{
       // If we have a lieu and no Institution, parent is the lieu
-      if (!Personne.parentProperty.read(this) && Personne.Properties.Lieu.read(this)){
-           return Personne.Properties.Lieu
+      if (!Personne.parentProperty.read(this) && Personne.Properties.lieu.read(this)){
+           return (Personne.Properties.lieu as FileProperty)
       }
       return Personne.parentProperty
     }
+
+    async getParent() : Promise<Classe |undefined>{
+      return this.getparentProperties().getFile(this)
+    }
+
+    getParentValue() : string{
+      let parent = this.getparentProperties()
+      let value = parent.read(this)
+      if (value) {
+        if (typeof value === "string") {
+          return value.slice(2, -2)
+        } else {
+          return value[0].slice(2, -2)
+        }
+      }
+      return ""
+      
+
+
+    }
+
 
     static getProperties(){
       return Personne.Properties
@@ -65,25 +95,92 @@ export class Personne extends Classe {
 
     async populate(...args : any[]){
         //get the parent
-      let parent = await selectFile(this.vault, Personne.parentProperty.classe, "Selectionner une institution")
+      let parent = await selectFile(this.vault, Personne.parentProperty.classes, "Selectionner une institution")
       if (!parent){
          // try with the lieu
-         parent = await selectFile(this.vault, Personne.Properties.Lieu.classe, "Selectionner un lieu")
+         parent = await selectFile(this.vault, (Personne.Properties.lieu as FileProperty).classes, "Selectionner un lieu")
          if (!parent) {return}
-         await this.updateMetadata(Personne.Properties.Lieu.name, parent.getLink())
+         await this.updateMetadata(Personne.Properties.lieu.name, parent.getLink())
       }
       else {
-        await this.updateMetadata(Personne.parentProperty.name, parent.getLink())
+        await (Personne.Properties.postes as ObjectProperty).updateObject(this, 0, Personne.parentProperty, parent.getLink())
       }
       await this.update()
     }
 
+
+    getTopDisplayContent() : any{
+      const container =  document.createElement("div");
+
+      container.appendChild(Personne.Properties.classe.getDisplay(this))
+      
+      const firstContainer = document.createElement("div");
+      firstContainer.classList.add("metadata-line");
+      firstContainer.appendChild(Personne.Properties.email.getDisplay(this))
+      firstContainer.appendChild(Personne.Properties.phone.getDisplay(this))
+      firstContainer.appendChild(Personne.Properties.portable.getDisplay(this))
+      firstContainer.appendChild(Personne.Properties.linkedin.getDisplay(this))
+      container.appendChild(firstContainer)
+
+      const secondContainer = document.createElement("div");
+      secondContainer.classList.add("metadata-line");
+      secondContainer.appendChild(Personne.Properties.postes.getDisplay(this))
+      const leftContainer = document.createElement("div");
+      leftContainer.classList.add("metadata-column");
+      leftContainer.appendChild(Personne.Properties.prioriété.getDisplay(this))
+      leftContainer.appendChild(Personne.Properties.relation.getDisplay(this))
+      secondContainer.appendChild(leftContainer)
+      container.appendChild(secondContainer)
+
+      const thirdContainer = document.createElement("div");
+      thirdContainer.classList.add("metadata-line");
+      thirdContainer.appendChild(Personne.Properties.etat.getDisplay(this))
+      thirdContainer.appendChild(Personne.Properties.interlocuteur.getDisplay(this))
+      thirdContainer.appendChild(Personne.Properties.tache.getDisplay(this))
+      thirdContainer.appendChild(Personne.Properties.lastContact.getDisplay(this))
+      thirdContainer.appendChild(Personne.Properties.nextContact.getDisplay(this))
+      container.appendChild(thirdContainer)
+
+      const fourthContainer = document.createElement("div");
+      fourthContainer.classList.add("metadata-line");
+      fourthContainer.appendChild(Personne.Properties.lieu.getDisplay(this))
+      fourthContainer.appendChild(Personne.Properties.adresse.getDisplay(this))
+      fourthContainer.appendChild(Personne.Properties.codePostal.getDisplay(this))
+      container.appendChild(fourthContainer)
+
+      
+      return container
+    }
+
     // Validate that the file content is standart
     async check(){
-      // Check si le l'institution est correct
-      await Personne.Properties.institutions.check(this)
-      await this.reorderMetadata(Object.values(Personne.Properties).map(p => p.name));
-
+      // Ajust properties metadata
+      const metadata = this.getMetadata();
+      if (metadata && "Institutions" in metadata){
+        if (metadata["Institutions"]){
+          let instit = metadata["Institutions"]
+          if (!Array.isArray(instit)){
+            instit = [instit]
+          }
+          let object = instit.map((instit : any, index: any) => {
+            let poste = ""
+            if (metadata["Poste"]?.length > index){
+              poste = metadata["Poste"][index]
+            }
+              return {"Institution" : instit, "Poste" : poste}
+           });
+           await this.updateMetadata(Personne.Properties.postes.name, object)
+        }
+        else {
+          await this.updateMetadata(Personne.Properties.postes.name, [])
+        }
+         await this.removeMetadata("Institutions")
+         await this.removeMetadata("Poste")
+      }
+      if (metadata && !(Personne.Properties.prioriété.name in metadata)){
+        await this.updateMetadata(Personne.Properties.prioriété.name, "")
+      }
+      await this.reorderMetadata(Object.values(Personne.Properties).map(prop => prop.name))
     }
+    
   }
-  

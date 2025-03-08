@@ -1,5 +1,6 @@
-import { App, TAbstractFile, TFile, TFolder } from "obsidian";
+import { App, parseYaml, TAbstractFile, TFile, TFolder } from "obsidian";
 import { MyVault } from "./MyVault";
+import { waitForMetaDataCacheUpdate } from "./Utils";
 
 export class File {
     /*
@@ -93,36 +94,61 @@ export class File {
           console.error('Erreur lors du déplacement du fichier :', error);
       }
   }
+  getFromLink(name:  string) : any{
+    return this.vault.getFromLink(name)
+  }
 
     getMetadata(){
       let metadata = this.app.metadataCache.getFileCache(this.file)?.frontmatter;
       return metadata
     }
 
-    getFromLink(name:  string) : any{
-      return this.vault.getFromLink(name)
-    }
-
   
     async updateMetadata(key: string, value: any) {
       console.log("Update metadata on " + this.getName() +" : " + key + " --> " + value)
+      const fileContent = await this.app.vault.read(this.file);
+      const { body } = this.extractFrontmatter(fileContent);
+    
+      const { existingFrontmatter } = this.extractFrontmatter(fileContent);
+
+      if (!existingFrontmatter) return;
+
+      try {
+          let frontmatter = parseYaml(existingFrontmatter);
+
+          if (!frontmatter) return;
+          frontmatter[key] = value;
+          const newFrontmatter = this.formatFrontmatter(frontmatter);
+
+          const newContent = `---\n${newFrontmatter}\n---\n${body}`; //${extraText}
+          await this.app.vault.modify(this.file, newContent);
+          await waitForMetaDataCacheUpdate(this.app, () => {return})
+          console.log("Metdata updated")
+
+      } catch (error) {
+          console.error("❌ Erreur lors du parsing du frontmatter:", error);
+      }
+
+    }
+
+  
+
+    async removeMetadata(key: string) {
+      console.log("Remove metadata " + key)
       const frontmatter = this.getMetadata();
       if (!frontmatter) return;
-  
-      // Mise à jour de la valeur
-      frontmatter[key] = value;
+      delete frontmatter[key]
       await this.saveFrontmatter(frontmatter);
     }
     
     async reorderMetadata(propertiesOrder: string[]) {
-        
         const frontmatter = this.getMetadata();
         if (!frontmatter) return;
 
-        if (JSON.stringify(propertiesOrder) === JSON.stringify(Object.keys(frontmatter))){return}
-      
-        console.log("Re-order metadata")
-        // Trier les propriétés et extraire celles en plus
+        if (JSON.stringify(propertiesOrder) === JSON.stringify(Object.keys(frontmatter))) return;
+
+        console.log("Re-order metadata");
+        // Sort properties and extract extra ones
         const { sortedFrontmatter, extraProperties } = this.sortFrontmatter(frontmatter, propertiesOrder);
         await this.saveFrontmatter(sortedFrontmatter, extraProperties);
     }
@@ -134,11 +160,11 @@ export class File {
         // Reformater le frontmatter
         const newFrontmatter = this.formatFrontmatter(frontmatter);
         const filteredExtraProperties = extraProperties.filter(prop => prop && prop.trim() !== "");
-        const extraText = filteredExtraProperties.length > 0 ? `\n${filteredExtraProperties.join("\n")}` : "";
+        //const extraText = filteredExtraProperties.length > 0 ? `\n${filteredExtraProperties.join("\n")}` : "";
 
         
         // Sauvegarde du fichier
-        const newContent = `---\n${newFrontmatter}\n---\n${body}${extraText}`;
+        const newContent = `---\n${newFrontmatter}\n---\n${body}`; //${extraText}
         await this.app.vault.modify(this.file, newContent);
         console.log("Updated file")
     }
@@ -162,14 +188,13 @@ export class File {
         propertiesOrder.forEach(prop => {
             if (prop in frontmatter) {
                 sortedFrontmatter[prop] = frontmatter[prop];
-            }
-            else {
-              sortedFrontmatter[prop] = null
+            } else {
+                sortedFrontmatter[prop] = null;
             }
         });
         
         Object.keys(frontmatter).forEach(prop => {
-            if (!propertiesOrder.includes(prop) && frontmatter[prop]) {
+            if (!propertiesOrder.includes(prop)) {
                 extraProperties.push(`${prop}: ${JSON.stringify(frontmatter[prop])}`);
             }
         });
@@ -178,11 +203,47 @@ export class File {
     }
     
     // Convertir le frontmatter en string YAML
-    formatFrontmatter(frontmatter: Record<string, any>) {
-        return Object.entries(frontmatter)
-            .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
-            .join("\n");
-    }
+    formatFrontmatter(frontmatter: Record<string, any>): string {
+      let frontmatterStr = '';  // Début du frontmatter YAML
+  
+      for (const [key, value] of Object.entries(frontmatter)) {
+          if (Array.isArray(value)) {
+              // Si la valeur est un tableau, on les affiche sous forme de liste
+              frontmatterStr += `${key}:\n`;
+              for (const item of value) {
+                  if (typeof item === 'object') {
+                      // Si l'élément est un objet, on le transforme en YAML
+                      frontmatterStr += '  - ';
+                      let indent = false;
+                      for (const [objKey, objValue] of Object.entries(item)) {
+                          frontmatterStr += `${indent ? "    " :"" }${objKey}: "${objValue}"\n`;
+                          indent = true
+                      }
+                  } else {
+                      // Sinon, l'élément est une valeur simple (chaîne, nombre, etc.)
+                      frontmatterStr += `  - "${item}"\n`;
+                  }
+              }
+          } else if (typeof value === 'object') {
+              // Si la valeur est un objet, on la convertit en sous-bloc YAML
+              frontmatterStr += `${key}:\n`;
+              if (value){
+                for (const [subKey, subValue] of Object.entries(value)) {
+                  frontmatterStr += `  ${subKey}: "${subValue}"\n`;
+              }
+              }
+          } else {
+              // Sinon, on affiche la clé avec sa valeur
+              frontmatterStr += `${key}: "${value}"\n`;
+          }
+      }
+      return frontmatterStr;
+  }
+  
+  
+  
+  
+  
   
 
 }

@@ -7,6 +7,127 @@ If your plugin does not need CSS, delete this file.
 
 */
 
+.settings-line {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-evenly; /* Répartition équitable des éléments */
+    padding: 6px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    gap: 8px;
+}
+
+
+.metadata-line {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-evenly; /* Répartition équitable des éléments */
+    padding: 6px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    gap: 8px;
+}
+
+.metadata-line > * {
+    flex: 1;  /* Chaque élément prend une part égale de l'espace disponible */
+    min-width: 0; /* Permet au texte de ne pas forcer la taille */
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap; /* Empêche le retour à la ligne */
+    text-align: center; /* Centre le texte à l'intérieur des éléments */
+}
+
+
+.metadata-column {
+    display: flex;
+    flex-direction: column; /* Organisation en colonne */
+    width: 100%;
+    align-items: center; /* Centre les éléments horizontalement */
+    justify-content: center; /* Centre verticalement si nécessaire */
+    padding: 6px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    gap: 4px; /* Espacement entre les éléments */
+    text-align: center; /* Centre le texte */
+}
+
+.metadata-column > * {
+    width: 100%; /* Les éléments prennent toute la largeur */
+    text-overflow: ellipsis; /* Affiche "..." si le texte dépasse */
+    overflow: hidden; /* Cache le dépassement */
+    white-space: nowrap; /* Empêche le retour à la ligne (peut être modifié) */
+    text-align: center; /* Centre le texte à l'intérieur des éléments */
+}
+
+.metadata-field-email,
+.metadata-field {
+    display: flex;
+    align-items: center;  /* Aligne verticalement les éléments */
+    padding: 2px 4px;  /* Réduit l'espace intérieur */
+    gap: 4px;  /* Réduit l'espacement entre les éléments */
+}
+.metadata-field-email label,
+.metadata-field label {
+    flex: 0 0 auto; 
+    width: auto;
+    max-width: 800px;
+    font-weight: bold;
+    color: var(--text-muted);
+    word-wrap: break-word;  
+    overflow-wrap: break-word; 
+    white-space: normal; 
+}
+.metadata-field-email input,
+.metadata-field input {
+    flex: 0 0 auto;  /* Ajuste la taille automatiquement */
+    padding: 3px 6px;
+    font-size: 14px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    border-radius: 4px;
+    width: auto;  
+    min-width: 100px; 
+    max-width: 300px; 
+    word-wrap: break-word;  
+    overflow-wrap: break-word; 
+    white-space: normal; 
+}
+
+.field-link {
+    margin: 0;  /* Enlève toute marge */
+    padding: 0;  /* Enlève tout espacement interne */
+    display: flex;
+    align-items: center;  /* Aligne verticalement avec le champ */
+    justify-content: flex-start;
+    max-width: 300px;
+    word-wrap: break-word;  
+    overflow-wrap: break-word; 
+    white-space: normal; 
+}
+
+.icon-container {
+    display: flex;
+    align-items: center; /* Aligne l'icône avec le texte */
+    justify-content: center; /* Centre l'icône dans son conteneur */
+    margin-right: 8px;  /* Espace entre l'icône et le champ */
+}
+
+.field-container{
+    flex: 1;
+    display: flex;
+    align-items: center;  /* Aligne l'input ou le lien avec l'icône */
+    gap: 4px;
+}
+
+.field-container-column{
+    flex: 1;
+    flex-direction: column;
+    display: flex;
+    align-items: center;  /* Aligne l'input ou le lien avec l'icône */
+    gap: 4px;
+}
+
+
 
 .fuzzy-hint {
     font-size: 20px;
@@ -17,3 +138,255 @@ If your plugin does not need CSS, delete this file.
     margin-bottom: 5px;
     width: 100%; /* Prend toute la largeur */
 }
+
+
+/* Conteneur principal : utilise une grille pour bien aligner les éléments */
+.metadata-field-email,
+.metadata-object-container {
+    flex: 1.4;
+}
+
+
+
+
+/* Ligne des en-têtes : les titres des champs */
+.metadata-header-row {
+    display: grid;
+    grid-template-columns: 2fr 3fr 1fr; /* Colonnes : En-tête, Contenu, Bouton */
+    font-weight: bold;
+    background-color: var(--background);
+    text-align: center;
+    color: var(--text-accent);
+}
+
+.metadata-header {
+    font-weight: bold;
+    background-color: var(--background);
+    text-align: center;
+    color: var(--text-accent);
+}
+
+/* Lignes des objets (les champs dynamiques) : alignement des données */
+.metadata-object-row {
+    display: grid;
+    grid-template-columns: 3fr 3fr 1fr; /* Colonnes : En-tête, Contenu, Bouton */
+    gap: 10px;
+    align-items: center; /* Aligne les champs avec les en-têtes */
+    padding: 8px;
+    border-radius: 5px;
+    background-color: var(--background-secondary);
+    transition: background-color 0.2s ease-in-out, transform 0.2s;
+    cursor: grab; /* Pour le drag & drop */
+}
+
+/* Effet au survol d'une ligne */
+.metadata-object-row:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+/* Effet lorsqu'un élément est en train d'être déplacé */
+.metadata-object-row.dragging {
+    opacity: 0.5;
+    transform: scale(1.03);
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Style du bouton de suppression et d'ajout */
+.metadata-delete-button,
+.metadata-add-button {
+    background: var(--background-modifier-error);
+    color: var(--text-on-accent);
+    width: 50px; /* Largeur spécifique */
+    height: 30px; /* Hauteur spécifique */
+    border: none;
+    padding: 5px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.metadata-delete-button:hover,
+.metadata-add-button:hover {
+    background: var(--background-modifier-error-hover);
+}
+
+/* Styles pour intégrer le conteneur dans une autre frame (scroll et mise en page fluide) */
+.metadata-object-container-frame {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    overflow-y: auto;
+    max-height: 400px; /* Hauteur maximale pour le défilement */
+    background-color: var(--background-modifier-overlay);
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-m);
+}
+
+/* Conteneur des étoiles */
+.star-rating {
+    display: flex;
+    gap: 8px;
+    cursor: pointer;
+    padding: 5px;
+    align-items: center; /* Centre les éléments horizontalement */
+    justify-content: center; /* Centre verticalement si nécessaire */
+}
+
+/* Style par défaut des étoiles */
+.star {
+    width: 28px;
+    height: 28px;
+    color: var(--text-faint); /* Couleur du texte secondaire du thème */
+    transition: color 0.2s ease-in-out, transform 0.1s ease-in-out;
+}
+
+/* Étoiles remplies après sélection */
+.star.filled {
+    color: var(--interactive-accent); /* Couleur principale du thème */
+    transform: scale(1.1); /* Effet léger d'agrandissement */
+}
+
+/* Étoiles au survol */
+.star.hovered {
+    color: var(--interactive-accent); /* Couleur d'accentuation du survol */
+    transform: scale(1.2); /* Effet d'agrandissement plus visible */
+}
+
+/* Effet de clic */
+.star:active {
+    transform: scale(0.9); /* Effet de pression lorsqu'on clique */
+}
+
+/* Conteneur des boutons */
+.multi-select-container {
+    display: flex;
+    align-items: center; /* Centre les éléments horizontalement */
+    justify-content: center;
+    flex-wrap: wrap;
+    border: none;
+    gap: 6px;
+    padding: 5px;
+}
+
+/* Boutons de sélection */
+.multi-select-button {
+    padding: 6px 12px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+/* Effet au survol */
+.multi-select-button:hover {
+    background: var(--background-modifier-hover);
+    transform: scale(1.05);
+}
+
+/* Bouton sélectionné */
+.multi-select-button.selected {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+    font-weight: bold;
+}
+
+/* Effet de clic */
+.multi-select-button:active {
+    transform: scale(0.95);
+
+}
+
+.select-dropdown{
+    font-weight: bold;
+    text-align: center;
+    padding: 6px 12px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.2s, transform 0.1s;;
+}
+
+.select-dropdown:hover{
+    padding: 6px 12px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.2s, transform 0.1s;;
+}
+
+.select-dropdown-option {
+    font-weight: normal;
+    padding: 6px 12px;
+    background-color: var(--background-secondary);
+    color: var(--text-normal);
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.select.select-dropdown-option option:hover {
+    /* TODO */
+    background-color: red;
+    color: var(--text-on-accent);
+}
+
+/* Styles d'option survolée (ce n'est pas appliqué nativement, mais peut être simulé via JS ou des éléments personnalisés) */
+.select-dropdown:focus option:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-on-accent);
+}
+
+
+/* Style des boutons de sélection rapide */
+.quick-select-container button {
+    margin: 2px;
+    padding: 4px 8px;
+    cursor: pointer;
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.quick-select-container button:hover {
+    transform: scale(1.05);
+}
+
+.date-field-link{
+    padding: 6px 12px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.new-link {
+    color: var(--text-faint); /* Couleur pour les liens non existants */
+    text-decoration: underline; /* Souligne le texte pour indiquer un lien */
+    cursor: pointer; /* Change le curseur pour indiquer un lien cliquable */
+    transition: color 0.2s ease-in-out; /* Transition douce pour le changement de couleur */
+}
+
+.new-link:hover {
+    color: var(--text-accent); /* Couleur au survol */
+}
+/* Style pour le bouton de BooleanProperty */
+.boolean-property-button-active {
+    color: var(--interactive-accent);
+}
+

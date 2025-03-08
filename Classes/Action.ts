@@ -7,22 +7,26 @@ import { FileProperty } from "Utils/Properties/FileProperty";
 import { SelectProperty } from "Utils/Properties/SelectProperty";
 import { MultiFileProperty } from "Utils/Properties/MultiFileProperty";
 import { Institution } from "./Institution";
-import { Lieu } from "./Lieux";
+import { Lieu } from "./Lieu";
 import { selectFile } from "Utils/Modals/Modals";
 import { Personne } from "./Personne";
+import { ObjectProperty } from "Utils/Properties/ObjectProperty";
 
 export class Action extends Classe {
 
     public static className : string = "Actions";
 
-    public static parentProperty: FileProperty |MultiFileProperty = new MultiFileProperty("Clients", Institution);
+    public static parentProperty: FileProperty |MultiFileProperty = new MultiFileProperty("Clients", [Institution], "hand");
 
     public static get Properties() {
       return {
       classe : new Property("Classe"),
       clients : this.parentProperty,
-      financeurs : new MultiFileProperty("Financeurs", Institution),
-      contacts : new MultiFileProperty("Contact", Personne),
+      financeurs : new ObjectProperty("Financeurs", "receipt-euro", {
+        institution : new FileProperty(Institution.className, [Institution]),
+        montant: new Property("Montant")
+      }),
+      contacts : new MultiFileProperty("Contact",  [Personne]),
       date : new Property("Date"),
       etat : new Property("Etat"),
     }
@@ -32,21 +36,18 @@ export class Action extends Classe {
       super(app, vault, file)
     }
 
-    getClasse(){
-      return Action.className
-    }
-
-    getparentProperties() : FileProperty| MultiFileProperty{
-      return Action.parentProperty
+    getConstructor(){
+      return Action
     }
 
     static getProperties(){
       return Action.Properties
     }
 
+
     async populate(...args : any[]){
         //get the parent
-      let parent = await selectFile(this.vault, Action.parentProperty.classe, "Selectionner un client")
+      let parent = await selectFile(this.vault, Action.parentProperty.classes, "Selectionner un client")
       if (!parent) {return}
 
 

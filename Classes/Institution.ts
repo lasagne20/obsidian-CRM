@@ -5,29 +5,38 @@ import { File } from "Utils/File";
 import { Property } from "Utils/Properties/Property";
 import { FileProperty } from "Utils/Properties/FileProperty";
 import { SelectProperty } from "Utils/Properties/SelectProperty";
-import { Lieu } from "./Lieux";
+import { Lieu } from "./Lieu";
 import { MultiFileProperty } from "Utils/Properties/MultiFileProperty";
 import { selectFile } from "Utils/Modals/Modals";
+import { ClasseProperty } from "Utils/Properties/ClasseProperty";
+import { LinkProperty } from "Utils/Properties/LinkProperty";
+import { EmailProperty } from "Utils/Properties/EmailProperty";
+import { PhoneProperty } from "Utils/Properties/PhoneProperty";
+import { AdressProperty } from "Utils/Properties/AdressProperty";
+import { RatingProperty } from "Utils/Properties/RatingProperty";
+import { MultiSelectProperty } from "Utils/Properties/MultiSelectProperty";
+import { generateTableFromClasses } from "Utils/Display/Utils";
 
 export class Institution extends Classe {
 
   public static className : string = "Institutions";
+  public static classIcon : string = "building-2";
 
-  public static parentProperty: FileProperty| MultiFileProperty  = new FileProperty("Lieu", Lieu);
+  public static parentProperty: FileProperty| MultiFileProperty  = new FileProperty("Lieu", [Lieu]);
 
   public static get Properties() : { [key: string]: Property } { 
     return {
-      classe : new Property("Classe"),
-      type: new Property("Type institution"),
-      groupe: new FileProperty("Groupe", Institution),
-      site: new Property("Site web"),
-      mail : new Property("Email"),
-      telephone : new Property("Telephone"),
-      relation: new SelectProperty("Type de relation", ["financeurs", "vecteurs", "clients", "support"]),
+      classe : new ClasseProperty("Classe", this.classIcon),
+      type: new SelectProperty("Type institution", ["entreprise", "association", "école", "collège", "lycée", "centre de loisir", "mairie", "université"]),
+      groupe: new FileProperty("Groupe", [Institution], Institution.classIcon),
+      site: new LinkProperty("Site web", "globe"),
+      mail : new EmailProperty("Email"),
+      telephone : new PhoneProperty("Telephone"),
+      relation: new MultiSelectProperty("Type de relation", ["financeurs", "vecteur", "clients", "support"]),
       lieu: this.parentProperty,
-      domaine: new Property("Domaine"),
-      addresse : new Property("Adresse"), 
-      prioriété : new Property("Priorité"),
+      domaine: new MultiSelectProperty("Domaine", ["santé", "éducation", "culture", "sport", "social", "environnement", "économie", "numérique"]),
+      adresse : new AdressProperty("Adresse"), 
+      priority : new RatingProperty("Priorité"),
       personnes : new Property("Personnes"),
       liens : new Property("Liens")
       }
@@ -37,18 +46,14 @@ export class Institution extends Classe {
       super(app, vault, file)
     }
 
-    getClasse(){
-      return Institution.className
+    getConstructor(){
+      return Institution
     }
+
 
     static getProperties(){
       return Institution.Properties
     }
-
-    getparentProperties(): FileProperty| MultiFileProperty{
-      return Institution.parentProperty
-    }
-
 
     getChildFolderPath(child : Classe){
       return super.getChildFolderPath(child) + "/" +  child.getClasse()
@@ -56,85 +61,56 @@ export class Institution extends Classe {
 
     async populate(...args : any[]){
       //get the parent
-      let parent = await selectFile(this.vault, Institution.parentProperty.classe, "Selectionner le lieux parent")
+      let parent = await selectFile(this.vault, Institution.parentProperty.classes, "Selectionner le lieux parent")
       if (parent){
         await this.updateMetadata(Institution.parentProperty.name, parent.getLink())
       }
       await this.update()
     }
 
-    getTopDisplayContent() {
+    getTopDisplayContent() : any {
+      const container =  document.createElement("div");
+
+      container.appendChild(Institution.Properties.classe.getDisplay(this))
+      
+      const firstContainer = document.createElement("div");
+      firstContainer.classList.add("metadata-line");
+      firstContainer.appendChild(Institution.Properties.type.getDisplay(this))
+      firstContainer.appendChild(Institution.Properties.relation.getDisplay(this))
+      firstContainer.appendChild(Institution.Properties.groupe.getDisplay(this))
+      firstContainer.appendChild(Institution.Properties.lieu.getDisplay(this))
+      firstContainer.appendChild(Institution.Properties.priority.getDisplay(this))
+      
+      container.appendChild(firstContainer)
+
+      const secondContainer = document.createElement("div");
+      secondContainer.classList.add("metadata-line");
+      secondContainer.appendChild(Institution.Properties.site.getDisplay(this))
+      secondContainer.appendChild(Institution.Properties.mail.getDisplay(this))
+      
+      secondContainer.appendChild(Institution.Properties.domaine.getDisplay(this))
+      secondContainer.appendChild(Institution.Properties.adresse.getDisplay(this))
+      container.appendChild(secondContainer)
+
       const content = document.createElement("div");
+      container.appendChild(content);
   
-      // Récupérer la liste des personnes
-      let personnes : any[]= this.getChildren().filter(value => value.getClasse() === "Personnes")
-      console.log(personnes)
+      let people : any[]= this.getChildren().filter(value => value.getClasse() === "Personnes")
+              if (people.length !== 0) {
+                  let table = generateTableFromClasses(this.vault, people[0], people,
+                      {"Poste" : `
+                          for(let el of postes){
+                              if (el.institution === "[[${this.getName(false)}]]"){
+                                  return el.poste
+                              }
+                          }
+                          return  ""
+                      `})
+                  content.appendChild(table);
+              }
   
-      if (!personnes || personnes.length === 0) {
-          content.innerHTML = "<p>Aucune personne enregistrée dans cette institution.</p>";
-          return content;
-      }
-  
-      // Créer une table
-      const table = document.createElement("table");
-      table.style.width = "100%";
-      table.style.borderCollapse = "collapse";
-  
-      // Ajouter un en-tête avec une nouvelle colonne
-      const thead = document.createElement("thead");
-      const headerRow = document.createElement("tr");
-  
-      // Ajouter les entêtes de colonnes (Nom et Rôle)
-      headerRow.innerHTML = "<th style='border: 1px solid black; padding: 8px;'>Nom</th><th style='border: 1px solid black; padding: 8px;'>Poste</th>";
-      thead.appendChild(headerRow);
-      table.appendChild(thead);
-  
-      // Ajouter les personnes sous forme de liens
-      const tbody = document.createElement("tbody");
-  
-      personnes.forEach((person) => {
-          const row = document.createElement("tr");
-  
-          // Colonne 1: Nom (lien cliquable)
-          const nameCell = document.createElement("td");
-          nameCell.style.border = "1px solid black";
-          nameCell.style.padding = "8px";
-  
-          const link = document.createElement("a");
-          link.onclick = (event) => {
-              event.preventDefault();
-              this.app.workspace.getLeaf().openFile(person.file);
-          }
-          link.textContent = person.getName(false);
-          link.target = "_blank"; // Ouvre dans Obsidian
-          link.style.textDecoration = "none";
-          link.style.color = "blue";
-  
-          nameCell.appendChild(link);
-          row.appendChild(nameCell);
-  
-          // Colonne 2: Rôle (ajout d'une donnée fictive ou d'une propriété à afficher)
-          const roleCell = document.createElement("td");
-          roleCell.style.border = "1px solid black";
-          roleCell.style.padding = "8px";
-  
-          // Exemple de rôle (tu peux remplacer cette ligne par une propriété réelle si nécessaire)
-          const role = person.getPoste() || "Non spécifié"; // Remplacer 'role' par une vraie propriété si elle existe
-          roleCell.textContent = role;
-          row.appendChild(roleCell);
-  
-          tbody.appendChild(row);
-      });
-  
-      table.appendChild(tbody);
-      content.appendChild(table);
-  
-      return content;
+      return container;
   }
-  
-  
-
-
     // Validate that the file content is standart
     async check(){
       // Check si le lieu est correct

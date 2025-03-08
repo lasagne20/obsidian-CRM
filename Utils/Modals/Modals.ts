@@ -4,15 +4,16 @@ import { SelectModal } from "./SelectModal";
 import { Classe } from "Classes/Classe";
 import { MyVault } from "Utils/MyVault";
 
-export async function selectFile(vault: MyVault, classe: typeof Classe, title: string): Promise<Classe | undefined>  {
+export async function selectFile(vault: MyVault, classes: typeof Classe[], title: string): Promise<Classe | undefined>  {
     return new Promise((resolve) => {
-        const modal = new FileSearchModal(vault, async (selectedFile: TFile|string) => {
+        const modal = new FileSearchModal(vault, async (selectedFile: TFile|string, classe: typeof Classe |null) => {
             if (selectedFile instanceof TFile){
                 let object = vault.getFromFile(selectedFile)
                 resolve(object)
              }
              else if (typeof selectedFile === "string"){
                let file = await vault.createFile(classe, selectedFile+".md")
+               console.log(file)
                if (!file){resolve(undefined); return}
                let object = vault.getFromFile(file) 
                resolve(object);
@@ -20,7 +21,7 @@ export async function selectFile(vault: MyVault, classe: typeof Classe, title: s
              else {
                 resolve(undefined)
              }
-        },classe, title);
+        },classes, title);
         modal.open();
     });
 }
