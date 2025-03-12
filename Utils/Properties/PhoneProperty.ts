@@ -5,7 +5,7 @@ import { Property } from "./Property";
 
 export class PhoneProperty extends LinkProperty{
 
-
+  public type : string = "phone";
     // Used for property hidden for the user
     constructor(name : string, icon: string = "phone",  staticProperty : boolean=false) {
       super(name, icon, staticProperty)

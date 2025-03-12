@@ -1,6 +1,7 @@
 import { App, parseYaml, TAbstractFile, TFile, TFolder } from "obsidian";
 import { MyVault } from "./MyVault";
 import { waitForMetaDataCacheUpdate } from "./Utils";
+import { dump } from 'js-yaml';
 
 export class File {
     /*
@@ -9,6 +10,7 @@ export class File {
     public vault : MyVault;
     public app : App;
     public file: TFile;
+    private lock : boolean;
     
     public linkRegex = /^"?\[\[(.*?)\]\]"?$/;
 
@@ -16,6 +18,7 @@ export class File {
       this.app = app;
       this.vault = vault;
       this.file = file;
+      this.lock = false
     }
 
     getFolderPath(){
@@ -51,6 +54,10 @@ export class File {
       return this.file.name.replace(".md","")
     }
 
+    getID(): string {
+      return this.file.path.replace(/[^a-zA-Z0-9]/g, '_');
+    }
+
     getFilePath(){
       // Return the file path
       return this.file.path
@@ -61,6 +68,13 @@ export class File {
     }
 
     async move(targetFolderPath: string) {
+      if (this.lock) {
+        while (this.lock) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          console.log("Waiting for lock")
+        }
+      };
+      this.lock = true;
       // Check if the folder of the target pathname exist
       let subtargetPath = targetFolderPath + "/" + this.getName(false)
       const folder = this.app.vault.getAbstractFileByPath(subtargetPath);
@@ -83,6 +97,7 @@ export class File {
       const existingFile = this.app.vault.getAbstractFileByPath(newFilePath);
       if (existingFile) {
           console.log('Le fichier existe déjà, impossible de déplacer.');
+          this.lock = false;
           return;
       }
   
@@ -92,6 +107,9 @@ export class File {
           console.log(`Fichier déplacé vers ${newFilePath}`);
       } catch (error) {
           console.error('Erreur lors du déplacement du fichier :', error);
+      }
+      finally {
+          this.lock = false;
       }
   }
   getFromLink(name:  string) : any{
@@ -105,20 +123,27 @@ export class File {
 
   
     async updateMetadata(key: string, value: any) {
+      if (this.lock) {
+        while (this.lock) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          console.log("Waiting for lock")
+        }
+      };
+      this.lock = true;
       console.log("Update metadata on " + this.getName() +" : " + key + " --> " + value)
       const fileContent = await this.app.vault.read(this.file);
       const { body } = this.extractFrontmatter(fileContent);
     
       const { existingFrontmatter } = this.extractFrontmatter(fileContent);
 
-      if (!existingFrontmatter) return;
+      if (!existingFrontmatter) {this.lock = false; return;}
 
       try {
           let frontmatter = parseYaml(existingFrontmatter);
 
-          if (!frontmatter) return;
+          if (!frontmatter) {this.lock = false; return;};
           frontmatter[key] = value;
-          const newFrontmatter = this.formatFrontmatter(frontmatter);
+          const newFrontmatter = dump(frontmatter);
 
           const newContent = `---\n${newFrontmatter}\n---\n${body}`; //${extraText}
           await this.app.vault.modify(this.file, newContent);
@@ -128,7 +153,9 @@ export class File {
       } catch (error) {
           console.error("❌ Erreur lors du parsing du frontmatter:", error);
       }
-
+      finally {
+          this.lock = false;
+      }
     }
 
   
@@ -158,7 +185,7 @@ export class File {
         const { body } = this.extractFrontmatter(fileContent);
     
         // Reformater le frontmatter
-        const newFrontmatter = this.formatFrontmatter(frontmatter);
+        const newFrontmatter = dump(frontmatter);
         const filteredExtraProperties = extraProperties.filter(prop => prop && prop.trim() !== "");
         //const extraText = filteredExtraProperties.length > 0 ? `\n${filteredExtraProperties.join("\n")}` : "";
 
@@ -201,49 +228,4 @@ export class File {
         
         return { sortedFrontmatter, extraProperties };
     }
-    
-    // Convertir le frontmatter en string YAML
-    formatFrontmatter(frontmatter: Record<string, any>): string {
-      let frontmatterStr = '';  // Début du frontmatter YAML
-  
-      for (const [key, value] of Object.entries(frontmatter)) {
-          if (Array.isArray(value)) {
-              // Si la valeur est un tableau, on les affiche sous forme de liste
-              frontmatterStr += `${key}:\n`;
-              for (const item of value) {
-                  if (typeof item === 'object') {
-                      // Si l'élément est un objet, on le transforme en YAML
-                      frontmatterStr += '  - ';
-                      let indent = false;
-                      for (const [objKey, objValue] of Object.entries(item)) {
-                          frontmatterStr += `${indent ? "    " :"" }${objKey}: "${objValue}"\n`;
-                          indent = true
-                      }
-                  } else {
-                      // Sinon, l'élément est une valeur simple (chaîne, nombre, etc.)
-                      frontmatterStr += `  - "${item}"\n`;
-                  }
-              }
-          } else if (typeof value === 'object') {
-              // Si la valeur est un objet, on la convertit en sous-bloc YAML
-              frontmatterStr += `${key}:\n`;
-              if (value){
-                for (const [subKey, subValue] of Object.entries(value)) {
-                  frontmatterStr += `  ${subKey}: "${subValue}"\n`;
-              }
-              }
-          } else {
-              // Sinon, on affiche la clé avec sa valeur
-              frontmatterStr += `${key}: "${value}"\n`;
-          }
-      }
-      return frontmatterStr;
-  }
-  
-  
-  
-  
-  
-  
-
 }

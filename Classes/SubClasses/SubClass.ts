@@ -3,6 +3,7 @@ import { MyVault } from '../../Utils/MyVault';
 import { Property } from '../../Utils/Properties/Property';
 import { Classe } from 'Classes/Classe';
 import { Data } from 'Utils/Data/Data';
+import { v4 as uuidv4 } from 'uuid';
 
 
 export class SubClass {
@@ -13,12 +14,14 @@ export class SubClass {
     public vault: MyVault;
     public classe: typeof Classe;
     
-    public Properties: {[key: string]: Property};
+    public static Properties: {[key: string]: Property} = {};
     public data : Data | null;
+    public id : string;
 
     constructor(classe : typeof Classe, data : Data | null = null) {
       this.data = data
       this.classe = classe
+      this.id = uuidv4()
     }
 
     getConstructor(){
@@ -30,10 +33,17 @@ export class SubClass {
     }
 
     getName(): string{
-      if (this.data){
+      if (this.data instanceof Data){
         return this.data.getName()
       }
+      else if (this.data && this.data["name"]){
+        return this.data["name"]
+      }
       return "";
+    }
+
+    getID(): string{
+      return this.id
     }
 
     getMetadata(){
@@ -42,23 +52,51 @@ export class SubClass {
       }
     }
 
+    getProperty(name : string) : [SubClass, Property | null]{
+      if (Object.keys(this.getAllProperties()).contains(name)){
+        return [this, this.getAllProperties()[name]]
+      }
+      if (name.startsWith("parent.")){
+        let propertyName = name.split(".").slice(1).join(".")
+        if (this.data && this.data["parent"] instanceof SubClass){
+          let parent = this.data["parent"]
+          return parent.getProperty(propertyName)
+        }
+      }
+      return [this, null]
+    }
+
     async populate(...args : any[]){
     }
 
-    getProperties(){
-      return this.Properties
+    updateParent(vault: MyVault){
+      this.vault = vault;
+      Object.values(this.getAllProperties()).forEach((property) => property.setVault(vault))
+      if (this.data && (this.data["parent"] instanceof Data)){
+        const parentClassName = this.data["parent"].getClasse();
+        if (typeof parentClassName !== 'string') {
+            throw new Error('Parent class name must be a string');
+        }
+        let [parentClass, parentSubClass] = vault.getSubClasseFromName(parentClassName);
+        this.data["parent"] =  new (parentSubClass.getConstructor())(parentClass.getConstructor(), this.data["parent"])
+        this.data["parent"].updateParent(vault)
+      }
     }
+
+    getMetadataValue(name : string): any{
+        let metadata = this.getMetadata()
+        if (metadata && metadata[name]){
+          return metadata[name]
+        }
+        return undefined;
+      }
 
     getAllProperties(){
-      return {
-      ...this.classe.Properties,
-      ...this.getProperties()
-      };
+      return {...this.getConstructor().Properties, ...this.classe.Properties}
     }
 
-
-    getSubProperties(){
-      return {}
+    getProperties(){
+      return this.getConstructor().Properties
     }
 
     async update(){

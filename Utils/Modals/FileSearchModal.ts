@@ -7,14 +7,14 @@ import { Classe } from "Classes/Classe";
  * Modale pour rechercher et sélectionner un fichier dans Obsidian.
  */
 export class FileSearchModal extends FuzzySuggestModal<TFile|string> {
-    private onChoose: (file: TFile|string|null, classe:  typeof Classe|null) => void;
-    private classes : typeof Classe[];
-    private hint : string;
-    private vault: MyVault
-    private choosed : string | TFile | null
-    private choosedClass : typeof Classe | null
-    private items : string[] = [];
-    private classItems : {[key : string]: typeof Classe} = {};
+    public onChoose: (file: TFile|string|null, classe:  typeof Classe|null) => void;
+    public classes : typeof Classe[];
+    public hint : string;
+    public vault: MyVault;
+    public choosed : string | TFile | null;
+    public choosedClass : typeof Classe | null;
+    public items : string[] = [];
+    public classItems : {[key : string]: typeof Classe} = {};
 
     constructor(vault : MyVault, onChoose: (file: TFile|string|null, classe: typeof Classe|null) => void, classes : typeof Classe[] = [], hint: string="") {
         super(vault.app);

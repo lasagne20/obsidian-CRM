@@ -1,13 +1,11 @@
-import { App } from "obsidian";
-import { SubClass } from "./SubClass";
-import { MyVault } from "Utils/MyVault";
+import { SubClass } from "../SubClass";
 import { Data } from "Utils/Data/Data";
 import { Classe } from "Classes/Classe";
 
 
-export class National extends SubClass {
+export class Entreprise extends SubClass {
 
-    public subClassName : string = "National";
+    public subClassName : string = "Entreprise";
     public subClassIcon : string = "box";
 
     constructor(classe : typeof Classe, data : Data | null = null) {
@@ -16,6 +14,6 @@ export class National extends SubClass {
     }
 
     getConstructor(){
-        return National
+        return Entreprise
       }
 }

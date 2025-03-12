@@ -32,9 +32,21 @@ If your plugin does not need CSS, delete this file.
     flex: 1;  /* Chaque élément prend une part égale de l'espace disponible */
     min-width: 0; /* Permet au texte de ne pas forcer la taille */
     text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap; /* Empêche le retour à la ligne */
+    overflow: visible; /* Permet au contenu de dépasser */
+    white-space: normal; /* Permet le retour à la ligne */
     text-align: center; /* Centre le texte à l'intérieur des éléments */
+}
+
+.metadata-object-property{
+    display: flex;
+    flex-direction: column; /* Organisation en colonne */
+    width: 100%;
+    align-items: center; /* Centre les éléments horizontalement */
+    justify-content: center; /* Centre verticalement si nécessaire */
+    padding: 6px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    gap: 4px; /* Espacement entre les éléments */
+    text-align: center; /* Centre le texte */
 }
 
 
@@ -166,15 +178,23 @@ If your plugin does not need CSS, delete this file.
     color: var(--text-accent);
 }
 
+
+.metadata-object-header-row {
+    display: flex;
+    align-items: left;
+    gap: 8px;
+}
+
 /* Lignes des objets (les champs dynamiques) : alignement des données */
 .metadata-object-row {
     display: grid;
-    grid-template-columns: 3fr 3fr 1fr; /* Colonnes : En-tête, Contenu, Bouton */
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Colonnes dynamiques */
     gap: 10px;
     align-items: center; /* Aligne les champs avec les en-têtes */
     padding: 8px;
     border-radius: 5px;
     background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-hover);
     transition: background-color 0.2s ease-in-out, transform 0.2s;
     cursor: grab; /* Pour le drag & drop */
 }
@@ -207,6 +227,7 @@ If your plugin does not need CSS, delete this file.
     justify-content: center;
     align-items: center;
 }
+
 
 .metadata-delete-button:hover,
 .metadata-add-button:hover {
@@ -390,3 +411,108 @@ If your plugin does not need CSS, delete this file.
     color: var(--interactive-accent);
 }
 
+
+.date-field-link {
+    padding: 6px 12px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--text-accent);
+    color: var(--text-normal);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    white-space: nowrap; /* Empêche le retour à la ligne */
+    overflow: hidden; /* Cache le dépassement */
+    text-overflow: ellipsis; /* Affiche "..." si le texte dépasse */
+    max-width: 100%; /* Ajuste la largeur maximale */
+}
+
+
+.metadata-multiFiles-container {
+    display: flex;
+    flex-wrap: wrap; /* Permet le retour à la ligne si nécessaire */
+    gap: 2px;
+}
+
+.metadata-multiFiles-row-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.metadata-multiFiles-property-inline {
+    flex: 1;
+    min-width: 150px; /* Largeur minimale pour les propriétés */
+}
+
+.metadata-delete-button-inline-small {
+    background: var(--background-modifier-error);
+    color: var(--text-on-accent);
+    width: 17px; /* Largeur spécifique */
+    height: 17px; /* Hauteur spécifique */
+    border: none;
+    padding: 5px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.metadata-delete-button-inline-small:hover {
+    background: var(--background-modifier-error-hover);
+}
+
+.metadata-add-button-inline-small {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    width: 30px; /* Largeur spécifique */
+    height: 30px; /* Hauteur spécifique */
+    border: none;
+    padding: 5px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 8px; /* Espace au-dessus du bouton */
+    align-self: flex-end; /* Aligne le bouton à la fin de la dernière ligne */
+}
+
+.metadata-add-button-inline-small:hover {
+    background: var(--interactive-accent-hover);
+}
+
+
+/* Style for the TABLE */
+.dynamic-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.dynamic-table th, .dynamic-table td {
+    border: 1px solid var(--background-modifier-border);
+    padding: 8px;
+    text-align: center;
+}
+
+.dynamic-table th {
+    background-color: var(--background-secondary);
+    font-weight: bold;
+    color: var(--text-accent);
+}
+
+.dynamic-table tbody tr:nth-child(even) {
+    background-color: var(--background-modifier-hover);
+}
+
+.dynamic-table tbody tr:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.total-row {
+    font-weight: bold;
+    color: var(--interactive-accent);
+}

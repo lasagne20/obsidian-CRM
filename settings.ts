@@ -145,6 +145,7 @@ export class CRMSettingTab extends PluginSettingTab {
 
     // Ajouter les classes pour l'affichage en ligne
     nameSetting.settingEl.addClass("inline-setting");
+    subClassSetting.settingEl.addClass("inline-setting");
     pathSetting.settingEl.addClass("inline-setting");
     deleteButton.settingEl.addClass("inline-setting");
   }
@@ -156,15 +157,15 @@ export class CRMSettingTab extends PluginSettingTab {
   getSubClassOptions(classe : string){
     if (!classe){return []}
     let properties = MyVault.classes[classe].Properties
-    console.log(properties)
     const subClasses: string[] = [];
     for (const property in properties) {
       if (properties[property] instanceof SubClassProperty) {
         properties[property].subClasses.forEach((subClass : any) => {
-          subClasses.push(subClass.getName());
+          subClasses.push(subClass.getsubClassName());
         });
       }
     }
+    console.log(subClasses) 
     return subClasses;
   }
 

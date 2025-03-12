@@ -6,37 +6,27 @@ import { Notice, setIcon, TFile } from "obsidian";
 import { selectFile } from "Utils/Modals/Modals";
 import { LinkProperty } from "./LinkProperty";
 import { val } from "cheerio/dist/commonjs/api/attributes";
+import { assert } from "console";
 
 
 export class FileProperty extends LinkProperty{
 
-    public classes : typeof Classe[];
+    public classes : string[];
+    public type : string = "file";
     // Used for property with a single file
-    constructor(name : string, classes: typeof Classe[], icon: string = "file", staticProperty : boolean=false) {
+    constructor(name : string, classes: string[], icon: string = "file", staticProperty : boolean=false) {
       super(name, icon, staticProperty);
       this.classes = classes;
     }
 
-    async check(file: File){
-        // Check if it is a file link
-        let value = this.read(file)
-        if (value && value.length && !file.linkRegex.test(value)) {
-          // rajoute les [[ ]]
-          if (value.length){
-              value = `"[[${value}]]"`
-          }
-          await file.updateMetadata(this.name, value);
-        }
+    getClasses() : string[] {
+      return this.classes
     }
 
-    getClasses(){
-      return this.classes.map((classe: typeof Classe) => classe.getClasse())
-    }
-
-    getFile(file : File){
-      const fileName = this.read(file)?.slice(2, -2); // Enlève les [[ et ]]
-      // Rechercher le fichier dans la vault
-      return file.getFromLink(fileName)
+    // Used by the ClasseProperty to get the parent value
+    getParentValue(values : any){
+      console.log(values)
+      return values?.slice(2, -2); // Enlève les [[ et ]]
     }
 
     validate(value: string): string {
@@ -66,15 +56,18 @@ export class FileProperty extends LinkProperty{
       iconContainer.addEventListener("click", async (event) => await this.handleIconClick(update, event));
     }
     
-
     return iconContainer;
     }
 
     // Fonction pour gérer le clic sur l'icône
     async handleIconClick(update: (value: string) => Promise<void>, event: Event) {
-        let selectedFile = await selectFile(this.vault, this.classes, "Choisissez un fichier " + this.getClasses())
+        let selectedFile = await selectFile(this.vault, this.classes, "Choisissez un fichier " + this.getClasses().join(" ou "));
         if (selectedFile){
           await update(selectedFile.getLink())
+          const link = (event.target as HTMLElement).closest('.metadata-field')?.querySelector('.field-link') as HTMLElement;
+            if (link) {
+              link.textContent = selectedFile.getLink().slice(2, -2);
+            }
         }
     }
 
@@ -84,7 +77,7 @@ export class FileProperty extends LinkProperty{
       let currentField = link.textContent
       if (!currentField){return}
       event.preventDefault();
-      console.log("currentField", currentField)
+     
       const classe = this.vault.getFromLink(currentField);
       if (classe) {
           const leaf = this.vault.app.workspace.getLeaf();
@@ -93,9 +86,6 @@ export class FileProperty extends LinkProperty{
         new Notice(`Le fichier ${currentField}.md n'existe pas`)
       }
     }
-
-
-
     // Fonction pour créer le conteneur principal pour l'field
     createFieldContainerContent(update: (value: string) => Promise<void>, value: string) {
         const fieldContainer = document.createElement("div");

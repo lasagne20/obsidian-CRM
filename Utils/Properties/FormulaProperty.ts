@@ -4,6 +4,7 @@ import { Property } from './Property';
 export class FormulaProperty extends Property {
 
     public formula : string;
+    public type : string = "formula";
 
     constructor(name : string, formula: string, icon : string = "") {
         super(name, icon, true);
@@ -11,27 +12,22 @@ export class FormulaProperty extends Property {
     }
 
     read(file: Classe) : any {
-        
-            const properties = Object.fromEntries(
-                Object.entries(file.getProperties()).map(
-                    ([name, p]: [string, Property]) => [name, p.read(file)]
-                )
-            );
-            const subProperties = Object.fromEntries(
-                Object.entries(file.getSubProperties()).map(
-                    ([name, p]: [string, Property]) => [name, p.read(file)]
-                )
-            );
-
-            const allProperties = { ...properties, ...subProperties };
-            
+        const allProperties = Object.values(file.getAllProperties()).map((property) => {
+            return {
+                [property.name]: property.read(file)
+            };
+        }).reduce((acc, prop) => ({ ...acc, ...prop }), {});
+        console.log(allProperties);
         try {
-            const formulaFunction = new Function(
+            const formulaContent = 
                 `
-                    const { ${Object.keys(allProperties).join(", ")} } = ${JSON.stringify(allProperties)};
-                    ${this.formula.contains("return") ? "\n" : "return " }${this.formula};
-                `
-            );
+                    const properties = ${JSON.stringify(allProperties)};
+                    const { ${Object.keys(allProperties).join(", ")} } = properties;
+                    ${this.formula.includes("return") ? "\n" : "return " }${this.formula};
+                `;
+            console.log(formulaContent);
+            const formulaFunction = new Function(formulaContent);
+            console.log("Résultat : ", formulaFunction());
             return formulaFunction();
         } catch (error) {
             if (error instanceof ReferenceError){

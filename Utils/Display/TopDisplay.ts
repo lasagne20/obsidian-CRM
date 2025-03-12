@@ -39,6 +39,19 @@ export class TopDisplay {
     }
   }
 
+  async update() {
+    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!activeView) return;
+    const file = activeView.file;
+    if (!file) return;
+    if (!(file instanceof TFile)) return;
+
+    let classe = this.vault.getFromFile(file);
+    if (classe) {
+      await classe.reloadTopDisplayContent();
+    }
+  }
+
   getContainer(activeView: any) {
     let container = activeView.contentEl.querySelector("#dataviewjs-container");
     if (!container) {

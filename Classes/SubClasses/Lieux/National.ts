@@ -1,0 +1,29 @@
+import { App } from "obsidian";
+import { SubClass } from "../SubClass";
+import { MyVault } from "Utils/MyVault";
+import { Data } from "Utils/Data/Data";
+import { Classe } from "Classes/Classe";
+
+
+export class National extends SubClass {
+
+    public subClassName : string = "National";
+    public subClassIcon : string = "box";
+
+    constructor(classe : typeof Classe, data : Data | null = null) {
+        super(classe, data);
+
+    }
+
+    getConstructor(){
+        return National
+      }
+
+     getTopDisplayContent(classe: Classe) : any{
+            const container = document.createElement("div");
+    
+    
+            return container
+    
+        }
+}

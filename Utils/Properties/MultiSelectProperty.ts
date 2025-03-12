@@ -4,15 +4,14 @@ import { MyVault } from "Utils/MyVault";
 
 export class MultiSelectProperty extends Property {
     public options: string[];
+    public type : string = "multiSelect";
 
     constructor(name: string, options: string[], icon: string = "list") {
         super(name, icon);
         this.options = options;
     }
 
-    fillDisplay(vault: MyVault, value : any, update: (value: string[]) => Promise<void>) {
-        console.log("Fill display")
-        this.vault = vault;
+    fillDisplay(value : any, update: (value: string[]) => Promise<void>) {
         const field = this.createFieldContainer();
         const fieldContainer = document.createElement("div");
         fieldContainer.classList.add("field-container-column");

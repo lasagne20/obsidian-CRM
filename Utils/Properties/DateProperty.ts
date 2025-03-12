@@ -1,9 +1,11 @@
+import { SubClass } from "Classes/SubClasses/SubClass";
 import { Property } from "./Property";
 import { File } from "Utils/File";
 import { MyVault } from "Utils/MyVault";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/l10n/fr.js"; 
 import { setIcon } from "obsidian";
+import { Classe } from "Classes/Classe";
 
 const iconMap : {[key: string] : string}= { 
     "yesterday" : "calendar-arrow-down",
@@ -15,6 +17,7 @@ const iconMap : {[key: string] : string}= {
 export class DateProperty extends Property {
 
     private quickSelectIcons: string[];
+    public type : string = "date";
 
     constructor(name: string, quickSelectIcons: string[]) {
         super(name);
@@ -22,9 +25,9 @@ export class DateProperty extends Property {
         
     }
 
+
     // Crée l'affichage du champ date
-    fillDisplay(vault: MyVault, value : any, update: (value: string) => Promise<void>) {
-        this.vault = vault;
+    fillDisplay(value : any, update: (value: string) => Promise<void>) {
         const fieldContainer = document.createElement("div");
         fieldContainer.classList.add("field-container-column");
 
@@ -33,11 +36,13 @@ export class DateProperty extends Property {
         const dateContainer = this.createFieldContainerContent(update, value);
         field.appendChild(dateContainer);
 
-        const header = document.createElement("div");
-        header.classList.add("metadata-header");
-        header.textContent = this.name
-
-        fieldContainer.appendChild(header);
+        if (this.title) {
+            const header = document.createElement("div");
+            header.classList.add("metadata-header");
+            header.textContent = this.name
+            fieldContainer.appendChild(header);
+        }
+        
         fieldContainer.appendChild(field);
 
         return fieldContainer;
@@ -48,12 +53,12 @@ export class DateProperty extends Property {
     createFieldDate(value: string, update: (value: string) => Promise<void>, link: HTMLDivElement) {
         const input = document.createElement("input");
         input.type = "text";
-        input.value = value || this.formatDateForStorage(new Date());  // Formaté en "YYYY-MM-DD" pour le stockage
+        input.value = value || "";  // Formaté en "YYYY-MM-DD" pour le stockage
         input.classList.add("field-input");
     
         flatpickr(input, {
             dateFormat: "Y-m-d",  // Stocker en "YYYY-MM-DD"
-            defaultDate: value || new Date().toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric' }),
+            defaultDate: value || "",
             locale: "fr",  // Utilisation de la langue française pour l'affichage
             onChange: async (selectedDates: Date[]) => {
                 const selectedDate = selectedDates[0];
@@ -97,7 +102,7 @@ export class DateProperty extends Property {
     }
     
     // Ajoute les options "Aujourd'hui", "Demain", "Semaine prochaine"
-    createQuickSelect(value: string, update: (value: string) => Promise<void>) {
+    createQuickSelect(value: string, update: (value: string) => Promise<void>, link: HTMLElement, input: HTMLInputElement) {
         const quickSelectContainer = document.createElement("div");
         quickSelectContainer.classList.add("quick-select-container");
 
@@ -108,7 +113,10 @@ export class DateProperty extends Property {
             button.addEventListener("click", async () => {
                 const date = this.getDateForOption(option);  // Obtenir la date pour l'option choisie
                 await update(this.formatDateForStorage(date));
-            });
+                link.textContent = this.formatDateForDisplay(this.formatDateForStorage(date));
+                link.style.display = "block";
+                input.style.display = "none";
+            }); 
     
             quickSelectContainer.appendChild(button);
         });
@@ -131,6 +139,7 @@ export class DateProperty extends Property {
     createFieldContainerContent(update: (value: string) => Promise<void>, value: string): HTMLDivElement {
         const fieldContainer = document.createElement("div");
         fieldContainer.classList.add("field-container");
+        fieldContainer.classList.add("metadata-field");
 
         const currentField = value;
         const link = this.createFieldLink(currentField);
@@ -147,7 +156,7 @@ export class DateProperty extends Property {
         }
 
         // Créer un conteneur avec les boutons de sélection rapide
-        const quickSelectContainer = this.createQuickSelect(currentField, update);
+        const quickSelectContainer = this.createQuickSelect(currentField, update, link, input);
 
         fieldContainer.appendChild(link);
         fieldContainer.appendChild(input);
@@ -169,4 +178,6 @@ export class DateProperty extends Property {
             await update(input.value);
         }
     }
+
+
 }

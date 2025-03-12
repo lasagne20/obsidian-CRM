@@ -10,19 +10,19 @@ import { Institution } from "./Institution";
 import { ClasseProperty } from "Utils/Properties/ClasseProperty";
 import { SelectProperty } from "Utils/Properties/SelectProperty";
 import { SubClassProperty } from "Utils/Properties/SubClassProperty";
-import { Commune } from "./SubClasses/Commune";
-import { EPCI } from "./SubClasses/EPCI";
-import { Departement } from "./SubClasses/Departement";
-import { Region } from "./SubClasses/Region";
-import { National } from "./SubClasses/National";
+import { Commune } from "./SubClasses/Lieux/Commune";
+import { EPCI } from "./SubClasses/Lieux/EPCI";
+import { Departement } from "./SubClasses/Lieux/Departement";
+import { Region } from "./SubClasses/Lieux/Region";
+import { National } from "./SubClasses/Lieux/National";
 
 export class Lieu extends Classe {
 
-    public static className : string = "Lieux";
+    public static className : string = "Lieu";
     public static classIcon : string = "map-pin";
     public data : any = null;
 
-    public static parentProperty : FileProperty| MultiFileProperty  = new FileProperty("Parent", [Lieu], "map-pin", true);
+    public static parentProperty : FileProperty  = new FileProperty("Parent", ["Lieu"], "map-pin", true);
     public static subClassesProperty: SubClassProperty = 
         new SubClassProperty("Type", [
                         new Commune(Lieu),
@@ -31,13 +31,11 @@ export class Lieu extends Classe {
                         new Region(Lieu),
                         new National(Lieu)
                       ], "landmark", true);
-    public static get Properties() : { [key: string]: Property } {
-      return {
+    public static Properties : { [key: string]: Property } = {
         classe : new ClasseProperty("Classe", this.classIcon),
         type : this.subClassesProperty,
         parent : this.parentProperty,
       }
-    }
 
     public static async getItems(){
       return MyVault.geoData.getAllNames()
@@ -47,12 +45,13 @@ export class Lieu extends Classe {
       super(app, vault, file)
     }
 
-    getConstructor(){
+
+    static getConstructor(){
       return Lieu
     }
 
-    static getProperties(){
-      return Lieu.Properties
+    getConstructor(){
+      return Lieu
     }
 
     getChildFolderPath(child : Classe) : string{
@@ -104,6 +103,7 @@ export class Lieu extends Classe {
 
     // Validate that the file content is standart
     async check(){
+      await super.check()
       await this.getParent()
       await this.getSubClass()
       await this.reorderMetadata([

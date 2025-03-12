@@ -4,12 +4,13 @@ import { setIcon } from 'obsidian';
 
 export class BooleanProperty extends Property {
 
+    public type : string = "boolean";
+
     constructor(name: string, icon: string = "align-left", staticProperty: boolean = false) {
         super(name, icon, staticProperty)
     }
 
-     fillDisplay(vault: MyVault, value: any, update: (value: any) => Promise<void>) {
-            this.vault = vault;
+     fillDisplay(value: any, update: (value: any) => Promise<void>) {
             const container = document.createElement('div');
             const button = document.createElement('span');
             setIcon(button, this.icon)

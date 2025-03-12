@@ -15,22 +15,36 @@ import { PhoneProperty } from "Utils/Properties/PhoneProperty";
 import { AdressProperty } from "Utils/Properties/AdressProperty";
 import { RatingProperty } from "Utils/Properties/RatingProperty";
 import { MultiSelectProperty } from "Utils/Properties/MultiSelectProperty";
-import { generateTableFromClasses } from "Utils/Display/Utils";
+import { SubClassProperty } from "Utils/Properties/SubClassProperty";
+import { Entreprise } from "./SubClasses/Institutions/Entreprise";
+import { CentreAere } from "./SubClasses/Institutions/CentreAere";
+import { Association } from "./SubClasses/Institutions/Association";
+import { College } from "./SubClasses/Institutions/College";
+import { Lycee } from "./SubClasses/Institutions/Lycee";
+import { Ecole } from "./SubClasses/Institutions/Ecole";
+import { DynamicTable } from "Utils/Display/DynamicTable";
 
 export class Institution extends Classe {
 
-  public static className : string = "Institutions";
+  public static className : string = "Institution";
   public static classIcon : string = "building-2";
 
-  public static parentProperty: FileProperty| MultiFileProperty  = new FileProperty("Lieu", [Lieu]);
+  public static parentProperty: FileProperty  = new FileProperty("Lieu", ["Lieu"]);
+  public static subClassesProperty : SubClassProperty = new SubClassProperty("Type institution", [
+                            new Entreprise(Institution),
+                            new CentreAere(Institution),
+                            new Association(Institution),
+                            new College(Institution),
+                            new Lycee(Institution),
+                            new Ecole(Institution)
+                          ]);
 
-  public static get Properties() : { [key: string]: Property } { 
-    return {
+  public static Properties : { [key: string]: Property } = {
       classe : new ClasseProperty("Classe", this.classIcon),
-      type: new SelectProperty("Type institution", ["entreprise", "association", "école", "collège", "lycée", "centre de loisir", "mairie", "université"]),
-      groupe: new FileProperty("Groupe", [Institution], Institution.classIcon),
+      type: this.subClassesProperty,
+      groupe: new FileProperty("Groupe", ["Institution"], Institution.classIcon),
       site: new LinkProperty("Site web", "globe"),
-      mail : new EmailProperty("Email"),
+      email : new EmailProperty("Email"),
       telephone : new PhoneProperty("Telephone"),
       relation: new MultiSelectProperty("Type de relation", ["financeurs", "vecteur", "clients", "support"]),
       lieu: this.parentProperty,
@@ -39,7 +53,6 @@ export class Institution extends Classe {
       priority : new RatingProperty("Priorité"),
       personnes : new Property("Personnes"),
       liens : new Property("Liens")
-      }
     }
     
     constructor(app : App, vault:MyVault, file : TFile) {
@@ -50,9 +63,8 @@ export class Institution extends Classe {
       return Institution
     }
 
-
-    static getProperties(){
-      return Institution.Properties
+    static getConstructor(){
+      return Institution
     }
 
     getChildFolderPath(child : Classe){
@@ -86,7 +98,8 @@ export class Institution extends Classe {
       const secondContainer = document.createElement("div");
       secondContainer.classList.add("metadata-line");
       secondContainer.appendChild(Institution.Properties.site.getDisplay(this))
-      secondContainer.appendChild(Institution.Properties.mail.getDisplay(this))
+      secondContainer.appendChild(Institution.Properties.email.getDisplay(this))
+      secondContainer.appendChild(Institution.Properties.telephone.getDisplay(this))
       
       secondContainer.appendChild(Institution.Properties.domaine.getDisplay(this))
       secondContainer.appendChild(Institution.Properties.adresse.getDisplay(this))
@@ -95,24 +108,25 @@ export class Institution extends Classe {
       const content = document.createElement("div");
       container.appendChild(content);
   
-      let people : any[]= this.getChildren().filter(value => value.getClasse() === "Personnes")
-              if (people.length !== 0) {
-                  let table = generateTableFromClasses(this.vault, people[0], people,
-                      {"Poste" : `
-                          for(let el of postes){
-                              if (el.institution === "[[${this.getName(false)}]]"){
-                                  return el.poste
-                              }
-                          }
-                          return  ""
-                      `})
-                  content.appendChild(table);
+      let people : any[]= this.getChildren().filter(value => value.getClasse() === "Personne")
+      if (people.length !== 0) {
+          let table = new DynamicTable(this.vault, this.vault.getClasseFromName("Personne"), people)
+          table.addColumn("Poste",  `
+              for(let el of postes){
+                  if (el.institution === "[[${this.getName(false)}]]"){
+                      return el.poste
+                  }
               }
-  
+              return  ""
+          `)
+          content.appendChild(table.getTable());
+      }
+
       return container;
   }
     // Validate that the file content is standart
     async check(){
+      await super.check()
       // Check si le lieu est correct
       await Institution.Properties.lieu.check(this)
       // Remet les propriétés dans l'ordre

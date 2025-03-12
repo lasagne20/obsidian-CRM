@@ -7,6 +7,7 @@ import { Classe } from 'Classes/Classe';
 export class SubClassProperty extends SelectProperty {
 
     public subClasses: SubClass[];
+    public type : string = "subClass";
 
     constructor(name: string, subClasses: SubClass[], icon: string = "list",  staticProperty : boolean=false) {
         super(name, subClasses.map(subClass => subClass.getsubClassName()), icon, staticProperty);

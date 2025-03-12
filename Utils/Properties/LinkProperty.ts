@@ -6,6 +6,7 @@ import { setIcon } from "obsidian";
 
 export class LinkProperty extends Property{
 
+  public type : string = "link";
 
     // Used for property hidden for the user
     constructor(name : string, icon: string = "square-arrow-out-up-right",  staticProperty : boolean=false) {

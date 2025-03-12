@@ -6,17 +6,19 @@ import { Classe } from "Classes/Classe";
 
 export class ClasseProperty extends Property{
 
+     public type : string = "class";
+
     // Used for property hidden for the user
     constructor(name : string, icon: string = "") {
       super(name, icon)
     }
 
-    getDisplay(file : File) {
+    fillDisplay(value: any, update: (value: any) => Promise<void>)  {
           const field = document.createElement("div");
           field.classList.add("metadata-field");
       
           const label = document.createElement("label");
-          label.textContent = this.read(file);
+          label.textContent = value;
 
           if (this.icon){
             const icon = document.createElement("div"); 

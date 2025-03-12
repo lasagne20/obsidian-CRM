@@ -3,8 +3,9 @@ import { FileSearchModal } from "./FileSearchModal";
 import { SelectModal } from "./SelectModal";
 import { Classe } from "Classes/Classe";
 import { MyVault } from "Utils/MyVault";
+import { MediaSearchModal } from "./MediaSearchModal";
 
-export async function selectFile(vault: MyVault, classes: typeof Classe[], title: string): Promise<Classe | undefined>  {
+export async function selectFile(vault: MyVault, classes: string[], title: string): Promise<Classe | undefined>  {
     return new Promise((resolve) => {
         const modal = new FileSearchModal(vault, async (selectedFile: TFile|string, classe: typeof Classe |null) => {
             if (selectedFile instanceof TFile){
@@ -21,7 +22,7 @@ export async function selectFile(vault: MyVault, classes: typeof Classe[], title
              else {
                 resolve(undefined)
              }
-        },classes, title);
+        },classes.map(name => vault.getClasseFromName(name)), title);
         modal.open();
     });
 }
@@ -31,6 +32,20 @@ export async function selectClass(vault : MyVault, title: string) : Promise<type
         const modal = new SelectModal(vault.app, (classe) => {
             resolve(classe);
         }, () => {resolve(null)}, MyVault.classes, title);
+        modal.open();
+    });
+}
+
+export async function selectMedia(vault: MyVault, title: string): Promise<TFile | undefined>  {
+    return new Promise((resolve) => {
+        const modal = new MediaSearchModal(vault, async (selectedFile: TFile|string) => {
+            if (selectedFile instanceof TFile){
+                resolve(selectedFile)
+             }
+             else {
+                resolve(undefined)
+             }
+        }, title);
         modal.open();
     });
 }

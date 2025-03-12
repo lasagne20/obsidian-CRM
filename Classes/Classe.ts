@@ -6,6 +6,7 @@ import { FileProperty } from '../Utils/Properties/FileProperty';
 import { MultiFileProperty } from '../Utils/Properties/MultiFileProperty';
 import { SubClassProperty } from 'Utils/Properties/SubClassProperty';
 import { SubClass } from './SubClasses/SubClass';
+import { ObjectProperty } from 'Utils/Properties/ObjectProperty';
 
 interface Data {
   [key: string]: any;
@@ -15,22 +16,31 @@ export class Classe extends File {
     public static className : string = "";
     public static classIcon : string = "box";
     
-    public static parentProperty : FileProperty|MultiFileProperty ;
+    public static parentProperty : FileProperty | MultiFileProperty | ObjectProperty;
     public static subClassesProperty : SubClassProperty;
-    public static get Properties(): { [key: string]: Property } { return {}};
+    public static Properties: { [key: string]: Property };
 
     public static async getItems(): Promise<string[]> { return []}
 
     constructor(app : App, vault:MyVault, file : TFile) {
       super(app, vault, file)
+      Object.values(this.getAllProperties()).forEach((property) => property.setVault(vault))
     }
     
-    getConstructor(){
-      return Classe
+    getConstructor() : typeof Classe{
+      throw Error("Need to define the Classes")
+    }
+
+    static getConstructor() : typeof Classe{
+      throw Error("Need to define the Classes")
     }
 
     getClasse() : string{
       return this.getConstructor().className
+    }
+
+    getID(): string {
+      return this.file.basename
     }
 
     readProperty(name : string){
@@ -41,19 +51,19 @@ export class Classe extends File {
       return this.className
     }
 
-    getparentProperties() : FileProperty| MultiFileProperty{
+    getparentProperty() : FileProperty | MultiFileProperty | ObjectProperty{
       return this.getConstructor().parentProperty
     }
 
     getParentValue() : string{
-      let value = this.getparentProperties().read(this)
+      let value = this.getparentProperty().read(this)
       if (value && value.length){
         return value
       }
       return ""
     }
 
-    static getparentProperties(){
+    static getparentProperty(){
       return this.parentProperty;
     }
 
@@ -62,12 +72,15 @@ export class Classe extends File {
     }
 
     static getProperties(){
-      return Classe.Properties
+      return this.getConstructor().Properties
+    }
+
+    getSubClassFromName(name : string){
+      return this.getConstructor().subClassesProperty.getSubClassFromName(name)
     }
 
     getMetadataValue(name : string): FrontMatterCache | undefined {
       let metadata = super.getMetadata()
-
       let data : Data | null = this.vault.getFileData(this)
       
       let value = metadata ? metadata[name] : undefined
@@ -77,54 +90,72 @@ export class Classe extends File {
       return value;
     }
 
-
-    getProperties(){
+    getProperties(): { [key: string]: Property } {
       return this.getConstructor().Properties
     }
 
-    getSubProperties(){
-      let subProperties: { [key: string]: Property } = {};
-      for (const prop of Object.values(this.getProperties())) {
-        if (prop instanceof SubClassProperty) {
-          const subClass = prop.getSubClass(this);
-          if (subClass) {
-            Object.assign(subProperties, subClass.getProperties());
-          }
-        }
-      }
-      return subProperties;
-    }
-
-    getSelectedSubClasses() : SubClass[]{
-      let subClasses : SubClass[]= []
-      for (const prop of Object.values(this.getProperties())) {
-        if (prop instanceof SubClassProperty) {
-          let subclass = prop.getSubClass(this)
-          if (subclass) {subClasses.push(subclass)}
-        }
-      }
-      return subClasses;
-    }
-
-    getSubPropertiesValues() {
-      let subPropertiesValues: { [key: string]: any } = {};
-      for (const [key, prop] of Object.entries(this.getSubProperties())) {
-        subPropertiesValues[key] = prop.read(this);
-      }
-      return subPropertiesValues;
-    }
-
     getAllProperties(){
-      let properties: { [key: string]: any } = {};
-      for (const prop of Object.values(this.getProperties())) {
-        if (prop instanceof SubClassProperty) {
-          for (const subClass of prop.subClasses){
-            Object.assign(properties, (subClass as unknown as SubClass).getProperties());
-          }
-          
+      return {...this.getProperties(), ...this.getSelectedSubClasse()?.getProperties()}
+    }
+
+    getProperty(name : string) : [Classe, Property | null]{
+      // Basic properties
+      if (Object.keys(this.getAllProperties()).contains(name)){  
+        return [this, this.getAllProperties()[name]]
+      }
+      if (Object.values(this.getAllProperties()).map(prop => prop.name).contains(name)){  
+        return [this, this.getAllProperties()[name]]
+      }
+
+      // Parent property
+      if (name.startsWith("parent.")){
+        let parentProperty = this.getparentProperty()
+        let fileName = parentProperty.getParentValue(parentProperty.read(this))
+        let parent =  this.getFromLink(fileName)
+        if (parent){
+          return parent.getProperty(name.split(".").slice(1).join("."))
         }
       }
-      return {...properties, ...this.getProperties()};
+
+      // Object properties (only one level)
+      //TODO : How to choose the right index ?
+      /*let names = name.split(".")
+      if (names.length > 1){
+        let propParent = this.getAllProperties()[names[0]]
+        if(propParent && propParent.type === "object"){
+            let property = (propParent as any).properties[names[1]]
+            if (property){
+              return [propParent.read(this)[0], property]
+          }
+        }
+      }*/
+
+      return [this, null]
+    }
+
+    getIncomingLinks(): Classe[] {
+      const incomingLinks: Classe[] = [];
+      const files = this.app.vault.getFiles();
+      
+      for (const file of files) {
+      const links = this.app.metadataCache.resolvedLinks[file.path];
+      if (links && links[this.file.path]) {
+        const linkedClasse = this.vault.getFromFile(file);
+        if (linkedClasse) {
+        incomingLinks.push(linkedClasse);
+        }
+      }
+      }
+      
+      return incomingLinks;
+    }
+
+    getSelectedSubClasse() : SubClass | undefined{
+      let subClassesProperty = this.getConstructor().subClassesProperty
+      if (subClassesProperty){
+        return subClassesProperty.getSubClass(this)
+      }
+      return undefined
     }
 
     findPropertyFromValue(content : string, link = false){
@@ -140,8 +171,10 @@ export class Classe extends File {
       return null; 
     }
 
-    async getParent() : Promise<Classe |undefined>{
-      return this.getparentProperties().getFile(this)
+    async getParent(): Promise<Classe | undefined>{
+      let parentProperty = this.getparentProperty()
+      let fileName = parentProperty.getParentValue(parentProperty.read(this))
+      return this.getFromLink(fileName)
     }
 
     async updateLocation(){
@@ -152,9 +185,10 @@ export class Classe extends File {
           // Le fichier n'existe pas
           console.error("Le parent n'existe pas")
         } 
-        else if(this.getparentProperties().getClasses() && !this.getparentProperties().getClasses().includes(parent.getClasse())){
+        else if(this.getparentProperty().getClasses() &&
+          !this.getparentProperty().getClasses().includes(parent.getClasse())){
           // ce n'est pas la bonne classe
-          console.error("Mauvaise classe pour cette propiété: " + parent.getClasse() + " au lieu de "+ this.getparentProperties().getClasses())
+          console.error("Mauvaise classe pour cette propiété: " + parent.getClasse() + " au lieu de "+ this.getparentProperty().getClasses())
         }
         else {
           // Check if the path is correct, else move it
@@ -219,7 +253,7 @@ export class Classe extends File {
           // Update the parent from the current folder
           if (parentfile && parentfile instanceof TFile) {
             let parent = this.vault.getFromFile(parentfile)
-            await this.updateMetadata(this.getparentProperties().name, parent?.getLink())
+            await this.updateMetadata(this.getparentProperty().name, parent?.getLink())
             await this.update() // To move it if it is not the right subfolder
             return
           }
@@ -262,8 +296,13 @@ export class Classe extends File {
       return container
     }
 
-    async check(){
+    async reloadTopDisplayContent(){  
+      for (let property of Object.values(this.getProperties())){
+        await property.reloadDynamicContent(this)
+      }
+    }
 
+    async check(){
     }
   }
   

@@ -19,37 +19,39 @@ import { MultiSelectProperty } from "Utils/Properties/MultiSelectProperty";
 import { DateProperty } from "Utils/Properties/DateProperty";
 import { AdressProperty } from "Utils/Properties/AdressProperty";
 import { isArray } from "util";
+import { Partenariat } from "./Partenariat";
 
 export class Personne extends Classe {
 
-    public static className : string = "Personnes";
+    public static className : string = "Personne";
     public static classIcon : string = "circle-user-round";
 
-    public static parentProperty: FileProperty  = new FileProperty("Institution", [Institution, Lieu], Institution.classIcon);
+    public static parentProperty = new ObjectProperty("Postes", "", 
+      {institution : new FileProperty("Institution", ["Institution", "Lieu"], Institution.classIcon),
+       poste : new Property("Poste", "")});
 
-    public static get Properties() : { [key: string]: Property } {
-      return {
+    
+    public static Properties : { [key: string]: Property } ={
       classe : new ClasseProperty("Classe", this.classIcon),
       email : new EmailProperty("Email"),
       phone : new PhoneProperty("Téléphone"),
       portable : new PhoneProperty("Portable", "smartphone"),
       linkedin : new LinkProperty("Linkedin", "linkedin"),
-      postes : new ObjectProperty("Postes", "", 
-        {institution : this.parentProperty,
-         poste : new Property("Poste", "")}),
-      relation : new MultiSelectProperty("Type de relation", ["client", "vecteur", "expert", "soutien"]),
+      postes : this.parentProperty,
+      relation : new MultiSelectProperty("Type de relation", ["client", "vecteur", "expert", "Ambassadeur"]),
       etat:  new SelectProperty("Etat", ["Pas encore contacté", "Prise de contact en cours", "Suivie d'affaire", "En attente de soliciation"]),
       interlocuteur : new MultiSelectProperty("Interlocuteur", ["Sylvie", "Léo"]),
       tache : new SelectProperty("Prochaine tache", ["Prise de contact", "Relance 1", "Relance 2", "Faire le point", "Valider point"]),
       lastContact: new DateProperty("Dernier contact", ["today"]),
       nextContact : new DateProperty("Prochain contact", ["next-week"]),
-      introduit : new Property("Introduit par"),
-      adresse : new AdressProperty("Adresse", "map-pin-house"),
-      codePostal : new Property("Code postale"),
-      lieu : new FileProperty("Lieux", [Lieu], Lieu.classIcon),
+      introduit : new FileProperty("Introduit par", ["Personne"], Personne.classIcon, false),
+      adresse : new AdressProperty("Adresse", "house"),
+      codePostal : new Property("Code postale", ),
+      lieu : new FileProperty("Lieux", ["Lieu"], Lieu.classIcon),
       prioriété : new RatingProperty("Priorité"),
-      liens : new Property("Liens")
-    }
+      liens : new ObjectProperty("Liens", "", 
+        { lien : new MultiFileProperty("Lien", ["Lieu", "Personne", "Institution", "Partenariat"], "link"),
+          description: new Property("Description")})
   }
     
     constructor(app : App, vault:MyVault, file : TFile) {
@@ -60,42 +62,24 @@ export class Personne extends Classe {
       return Personne
     }
 
-    getparentProperties() : FileProperty| MultiFileProperty{
+    static getConstructor(){
+      return Personne
+    }
+
+    getparentProperty() : FileProperty | MultiFileProperty | ObjectProperty{
       // If we have a lieu and no Institution, parent is the lieu
-      if (!Personne.parentProperty.read(this) && Personne.Properties.lieu.read(this)){
+      if (!Personne.parentProperty.read(this)&& Personne.Properties.lieu.read(this)){
+        return (Personne.Properties.lieu as FileProperty)
+      }
+      if (Personne.parentProperty.read(this) && Personne.parentProperty.read(this).length === 0 && Personne.Properties.lieu.read(this)){
            return (Personne.Properties.lieu as FileProperty)
       }
       return Personne.parentProperty
     }
-
-    async getParent() : Promise<Classe |undefined>{
-      return this.getparentProperties().getFile(this)
-    }
-
-    getParentValue() : string{
-      let parent = this.getparentProperties()
-      let value = parent.read(this)
-      if (value) {
-        if (typeof value === "string") {
-          return value.slice(2, -2)
-        } else {
-          return value[0].slice(2, -2)
-        }
-      }
-      return ""
-      
-
-
-    }
-
-
-    static getProperties(){
-      return Personne.Properties
-    }
-
+    
     async populate(...args : any[]){
         //get the parent
-      let parent = await selectFile(this.vault, Personne.parentProperty.classes, "Selectionner une institution")
+      let parent = await selectFile(this.vault, Personne.parentProperty.getClasses(), "Selectionner une institution")
       if (!parent){
          // try with the lieu
          parent = await selectFile(this.vault, (Personne.Properties.lieu as FileProperty).classes, "Selectionner un lieu")
@@ -103,7 +87,8 @@ export class Personne extends Classe {
          await this.updateMetadata(Personne.Properties.lieu.name, parent.getLink())
       }
       else {
-        await (Personne.Properties.postes as ObjectProperty).updateObject(this, 0, Personne.parentProperty, parent.getLink())
+        let values = (Personne.Properties.postes as ObjectProperty).formatParentValue(parent.getLink())
+        await this.updateMetadata(Personne.Properties.postes.name, values)
       }
       await this.update()
     }
@@ -137,16 +122,21 @@ export class Personne extends Classe {
       thirdContainer.appendChild(Personne.Properties.etat.getDisplay(this))
       thirdContainer.appendChild(Personne.Properties.interlocuteur.getDisplay(this))
       thirdContainer.appendChild(Personne.Properties.tache.getDisplay(this))
-      thirdContainer.appendChild(Personne.Properties.lastContact.getDisplay(this))
-      thirdContainer.appendChild(Personne.Properties.nextContact.getDisplay(this))
+      thirdContainer.appendChild(Personne.Properties.lastContact.getDisplay(this, false, "Dernier contact : "))
+      thirdContainer.appendChild(Personne.Properties.nextContact.getDisplay(this, false, "Prochain contact : "))
       container.appendChild(thirdContainer)
 
       const fourthContainer = document.createElement("div");
       fourthContainer.classList.add("metadata-line");
-      fourthContainer.appendChild(Personne.Properties.lieu.getDisplay(this))
-      fourthContainer.appendChild(Personne.Properties.adresse.getDisplay(this))
-      fourthContainer.appendChild(Personne.Properties.codePostal.getDisplay(this))
+      fourthContainer.appendChild(Personne.Properties.lieu.getDisplay(this, false, "Lieu : "))
+      fourthContainer.appendChild(Personne.Properties.adresse.getDisplay(this, false, "Adresse : "))
+      fourthContainer.appendChild(Personne.Properties.codePostal.getDisplay(this, false, "Code postal : "))
+      fourthContainer.appendChild(Personne.Properties.introduit.getDisplay(this, false, "Introduit par : "))
       container.appendChild(fourthContainer)
+
+      let liensContainer = Personne.Properties.liens.getDisplay(this)
+
+      container.appendChild(liensContainer)
 
       
       return container
@@ -154,31 +144,21 @@ export class Personne extends Classe {
 
     // Validate that the file content is standart
     async check(){
+      await super.check()
       // Ajust properties metadata
       const metadata = this.getMetadata();
-      if (metadata && "Institutions" in metadata){
-        if (metadata["Institutions"]){
-          let instit = metadata["Institutions"]
-          if (!Array.isArray(instit)){
-            instit = [instit]
-          }
-          let object = instit.map((instit : any, index: any) => {
-            let poste = ""
-            if (metadata["Poste"]?.length > index){
-              poste = metadata["Poste"][index]
+      if (metadata && "Liens" in metadata){
+        if (metadata["Liens"]){
+          let liens= metadata["Liens"]
+          if (liens)
+            for (let lien of liens){
+              console.log(lien)
+              if ((JSON.stringify(lien["Lien"]).contains("link"))){
+                liens[liens.indexOf(lien)] = {Lien: [lien["Lien"][0]["link"]], Description: ""}
+              }
             }
-              return {"Institution" : instit, "Poste" : poste}
-           });
-           await this.updateMetadata(Personne.Properties.postes.name, object)
+            await this.updateMetadata(Personne.Properties.liens.name, liens)
         }
-        else {
-          await this.updateMetadata(Personne.Properties.postes.name, [])
-        }
-         await this.removeMetadata("Institutions")
-         await this.removeMetadata("Poste")
-      }
-      if (metadata && !(Personne.Properties.prioriété.name in metadata)){
-        await this.updateMetadata(Personne.Properties.prioriété.name, "")
       }
       await this.reorderMetadata(Object.values(Personne.Properties).map(prop => prop.name))
     }

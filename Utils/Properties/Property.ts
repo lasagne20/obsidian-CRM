@@ -3,6 +3,7 @@ import { MyVault } from "Utils/MyVault";
 import { setIcon } from "obsidian";
 import { ObjectProperty } from "./ObjectProperty";
 import { Classe } from "Classes/Classe";
+import { SubClass } from "Classes/SubClasses/SubClass";
 
 
 export class Property {
@@ -10,7 +11,9 @@ export class Property {
     public icon: string;
     public vault: MyVault;
     public static: boolean;
-    public parent: ObjectProperty | null = null;
+    public title: string;
+
+    public type : string = "text";
 
     constructor(name: string, icon: string = "align-left", staticProperty: boolean = false) {
         this.name = name;
@@ -18,15 +21,15 @@ export class Property {
         this.static = staticProperty;
     }
 
-    read(file: Classe | File): any {
-        if (this.parent) {
-            return this.parent.getPropertyValue(file, this);
-        }
-        if (file instanceof Classe){
+    setVault(vault: MyVault) {
+        this.vault = vault;
+    }
+
+    read(file: Classe | SubClass | File): any {
+        if (file instanceof Classe || file instanceof SubClass) {
             return file.getMetadataValue(this.name)
         }
         return file.getMetadata()?.[this.name];
-
     }
 
     check(file: File) {
@@ -41,14 +44,24 @@ export class Property {
         return value;
     }
 
-    getDisplay(file: any) {
+    getDisplay(file: any, staticMode : boolean | null =null, title = "") {
+        if (staticMode != null) {this.static = staticMode}
+        this.title = title;
         let value = this.read(file);
-        return this.fillDisplay(file.vault, value, async (value) => await file.updateMetadata(this.name, value));
+        return this.fillDisplay(value, async (value) => await file.updateMetadata(this.name, value));
     }
 
-    fillDisplay(vault: MyVault, value: any, update: (value: any) => Promise<void>) {
-        this.vault = vault;
+    fillDisplay(value: any, update: (value: any) => Promise<void>) {
+        
         const field = this.createFieldContainer();
+
+        if (this.title) {
+            const title = document.createElement("div");
+            title.textContent = this.title;
+            title.classList.add("metadata-title");
+            field.appendChild(title);
+        }
+
         const iconContainer = this.createIconContainer(update);
         const fieldContainer = this.createFieldContainerContent(update, value);
 
@@ -84,7 +97,7 @@ export class Property {
         if (link && input) {
             link.style.display = "none";
             input.style.display = "block";
-            input.focus();
+            input.focus(); 
         }
     }
 
@@ -152,18 +165,18 @@ export class Property {
     }
 
     async updateField(update: (value: string) => Promise<void>, input: HTMLInputElement, link: HTMLElement) {
-        let value = this.validate(input.value);
+        let value = input.value;
         if (value) {
             await update(value);
             input.style.display = "none";
-            link.textContent = input.value;
+            link.textContent = value;
             link.style.display = "block";
         } else {
             await update(input.value);
         }
     }
 
-    async reloadDynamicContent(file: File) {
+    async reloadDynamicContent(file: Classe | SubClass) {
         const field = document.querySelector('.metadata-field');
         if (field) {
             const newValue = this.read(file);

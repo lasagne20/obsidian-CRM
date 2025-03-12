@@ -17,7 +17,7 @@ export class EPCIData extends Data {
             communeData.codesPostaux,
             communeData.population,
             communeData.siren,
-            this.getName()
+            this
         ));
     }
 
@@ -48,6 +48,10 @@ export class EPCIData extends Data {
 
     public getList(classeName: string) : any[]{
         if (classeName == CommuneData.getClasse()){return this.communes}
+        for (let com of this.communes){
+            let element = com.getList(classeName)
+            if (element){return element}
+        }
         return []
     }
 

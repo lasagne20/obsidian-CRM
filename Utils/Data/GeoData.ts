@@ -83,6 +83,8 @@ export class GeoData {
         for (let setting of generativeSettings){
             await this.loadGenerativeData(setting.path, setting.subClass)
         }
+        console.log("GeoData loaded");
+        console.log(this.data)
     }
 
     private async loadGenerativeData(filePath: string, subclassName : string){
@@ -92,8 +94,17 @@ export class GeoData {
             const parsedData = JSON.parse(rawData);
             for (let name of Object.keys(parsedData)){
                 let geo = this.data.find(name)
-                if (geo?.getClasse() == subclassName){
-                    Object.assign(geo, parsedData[name]);
+                if (geo) {
+                    if (geo.getClasse() == subclassName) {
+                        Object.assign(geo, parsedData[name]);
+                    } else {
+                        let value: { [key: string]: any } = {}
+                        value[subclassName] = parsedData[name]
+                        for (let el of value[subclassName]){
+                            el["parent"] = geo
+                        }
+                        Object.assign(geo, value);
+                    }
                 }
             }
         } catch (error) {
@@ -105,13 +116,23 @@ export class GeoData {
         return this.data.find(name)
     }
 
-    public getGeoDataList(location: string, type: string) {
-        return this.data.find(location)?.getList(type) || []
+    public getGeoDataList(location: string, locationType: string, subclassName: string): any[] {
+        let locations = this.data.find(location)?.getList(locationType) || []
+        if (subclassName != locationType){
+            console.log("Subclass : ", subclassName)
+            locations = locations.map((location: any) => location.getList(subclassName)).flat()
+        }
+        return locations
     }
 
     public getAllNames(): string[] {
         return this.data.getAllNames()
     }
+
+    public getAllClasseNames(className: string): string[] {
+        return this.data.find("National")?.getList(className).map((x: any) => x.getName()) || []
+    }
+
 
     public getParent(formattedName: string): string | null {
         const parentName = this.data.getParent(formattedName)?.getName();

@@ -4,22 +4,26 @@ import { MyVault } from "Utils/MyVault";
 
 export class SelectProperty extends Property {
     public options: string[];
+    public type : string = "select";
 
     constructor(name: string, options: string[], icon: string = "list",  staticProperty : boolean=false) {
         super(name, icon, staticProperty);
         this.options = options;
     }
 
-    fillDisplay(vault: MyVault, value : any, update: (value: string) => Promise<void>) {
-        this.vault = vault;
+    fillDisplay(value : any, update: (value: string) => Promise<void>) {
         const field = this.createFieldContainer();
         const fieldContainer = document.createElement("div");
         fieldContainer.classList.add("field-container-column");
 
-        const header = document.createElement("div");
-        header.classList.add("metadata-header");
-        header.textContent = this.name;
-        fieldContainer.appendChild(header);
+        if (this.title) {
+            const header = document.createElement("div");
+            header.classList.add("metadata-header");
+            header.textContent = this.title;
+            fieldContainer.appendChild(header);
+        }
+
+        
 
         
         const selectElement = this.createSelectWidget(value, update);

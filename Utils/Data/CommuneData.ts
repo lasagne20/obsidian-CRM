@@ -10,7 +10,7 @@ export class CommuneData extends Data{
         public codesPostaux: string[],
         public population: number,
         public siren : string,
-        public parent: string,
+        public parent: any,
     ) {super(name)}
 
     public getName(){
@@ -27,6 +27,9 @@ export class CommuneData extends Data{
 
 
     public getList(classeName: string) : any[]{
+        if (classeName in this){
+            return this[classeName]
+        }
         return []
     }
 }

@@ -27,7 +27,7 @@ export default class CRM extends Plugin {
     // Editor change
     this.app.workspace.on("editor-change", async () => {
       await this.handleMetadataUpdate(async () => {
-        await this.topDisplay.show();
+        //await this.topDisplay.update();
       });
       this.handleUpdate()
     });

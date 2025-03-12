@@ -1,19 +1,16 @@
 import { setIcon } from "obsidian";
 import { Property } from "./Property";
-import { File } from "Utils/File";
-import { MyVault } from "Utils/MyVault";
+
 
 export class RatingProperty extends Property {
-    public name: string;
-    public icon: string;
-    public vault: MyVault;
+
+    public type : string = "rating";
 
     constructor(name: string, icon: string = "star") {
         super(name, icon); 
     }
 
-    fillDisplay(vault: MyVault, value : any, update: (value: string) => Promise<void>) {
-        this.vault = vault;
+    fillDisplay(value : any, update: (value: string) => Promise<void>) {
         const field = this.createFieldContainer();
         const fieldContainer = document.createElement("div");
         fieldContainer.classList.add("field-container-column");

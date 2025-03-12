@@ -1,34 +1,110 @@
-import { File } from "Utils/File";
-import { Property } from "./Property";
-import { App, Notice } from "obsidian";
+
+import { ObjectProperty } from "./ObjectProperty";
 import { FileProperty } from "./FileProperty";
-import { Classe } from "Classes/Classe";
+import { setIcon } from "obsidian";
+import { selectFile } from "Utils/Modals/Modals";
+import { File } from "Utils/File";
+import { MyVault } from "Utils/MyVault";
 
 
-export class MultiFileProperty extends FileProperty{
-    // Used for property with a single file
-    constructor(name : string, classes : typeof Classe[], icon : string = "", staticProperty : boolean=false) {
-      super(name, classes, icon, staticProperty)
+export class MultiFileProperty extends ObjectProperty {
+
+    public type : string = "multiFile";
+    public classes: string[];
+    public property : FileProperty;
+
+
+    constructor(name: string, classes : string[], icon?: string, staticMode: boolean = false) {
+        super(name, icon, {}, staticMode);
+        this.classes = classes;
+        this.property = new FileProperty(name, classes, icon, staticMode);
     }
 
-      // Fonction pour créer le conteneur principal pour l'field
-      createFieldContainerContent(update: (value: string) => Promise<void>, value: string) {
-        const fieldContainer = document.createElement("div");
-        fieldContainer.classList.add("field-container");
-        if (!value) {
-            return fieldContainer;
+    getClasses(): string[] {
+        return this.classes;
+    }
+
+    setVault(vault: MyVault) {
+        this.vault = vault;
+        this.property.setVault(vault);
+    }
+
+    getParentValue(values : any) : File | undefined{
+        return this.property.getParentValue(values)
+    }
+
+    formatParentValue(value : string){
+        return [value]
+    }
+
+    // Méthode principale pour obtenir l'affichage
+    fillDisplay(values: any, update: (value: any) => Promise<void>) {
+        const container = document.createElement("div");
+        container.classList.add("metadata-multiFiles-container-"+this.name.toLowerCase());
+        container.classList.add("metadata-multiFiles-container");
+
+        // Créer les lignes d'objet
+        this.createObjects(values, update, container);
+
+        const addButton = this.createAddButton(values, update, container);
+        container.appendChild(addButton);
+
+        return container;
+    }
+
+    createObjects(values: any, update: (value: any) => Promise<void>, container: HTMLDivElement) {
+        if (!values) return;
+        values.forEach((objects: any, index: number) => {
+            const row = this.createObjectRow(values, update, objects, index, container);
+            container.appendChild(row);
+        });
+    }
+
+    createObjectRow(values: any, update: (value: any) => Promise<void>, value: any, index: number, container: HTMLDivElement): HTMLDivElement {
+        const row = document.createElement("div");
+        row.classList.add("metadata-multiFiles-row-inline");
+
+        // Ajouter le bouton de suppression
+        const deleteButton = this.createDeleteButton(values, update, index, container);
+        row.appendChild(deleteButton);
+
+
+ 
+        let propertyContainer = document.createElement("div");
+        propertyContainer.classList.add("metadata-multiFiles-property-inline");
+        propertyContainer.appendChild(this.property.fillDisplay(value, async (value) => await this.updateObject(values, update, index, this.property, value)));
+        row.appendChild(propertyContainer);
+
+        return row;
+    }
+
+    createDeleteButton(values: any, update: (value: any) => Promise<void>, index: number, container: HTMLDivElement): HTMLButtonElement {
+        const deleteButton = document.createElement("button");
+        setIcon(deleteButton, "minus");
+        deleteButton.classList.add("metadata-delete-button-inline-small");
+        deleteButton.onclick = async () => await this.removeProperty(values, update, index, container);
+        return deleteButton;
+    }
+
+    async addProperty(values: any, update: (value: any) => Promise<void>, container: HTMLDivElement) {
+        let newFile = await selectFile(this.vault, this.classes, "Choisissez un fichier " + this.getClasses().join(" ou "));
+        if (newFile) {
+            if (!values){values = []}
+            values.push(newFile.getLink());
+            await update(values);
+            await this.reloadObjects(values, update)
         }
-        const currentField = value[0]?.slice(2, -2);
-        const link = document.createElement("a");
-        link.href = "#";
-        link.addEventListener("click", async (event) => await this.modifyField(event));
-        link.textContent = currentField || "";
-        link.classList.add("field-link");
-        link.style.display = "block"
-        fieldContainer.appendChild(link);
-
-        return fieldContainer;
     }
 
+    createAddButton(values: any, update: (value: any) => Promise<void>, container: HTMLDivElement): HTMLButtonElement {
+        const addButton = document.createElement("button");
+        setIcon(addButton, "plus");
+        addButton.classList.add("metadata-add-button-inline-small");
+        addButton.onclick = async () => await this.addProperty(values, update, container);
+        return addButton;
+    }
 
+    enableDragAndDrop() {
+        // Disable drag and drop
+    }
 }

@@ -26,7 +26,7 @@ export class DepartementData extends Data{
             commune.codesPostaux,
             commune.population,
             commune.siren,
-            this.getName()
+            this
         ));
     }
 
@@ -78,6 +78,10 @@ export class DepartementData extends Data{
         }
         for (let epci of this.epci){
             let element = epci.getList(classeName)
+            if (element){return element}
+        }
+        for (let com of this.communes){
+            let element = com.getList(classeName)
             if (element){return element}
         }
         return []

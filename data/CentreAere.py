@@ -228,6 +228,40 @@ def remove_duplicate_centers(file_path, geo_file, output_file):
     print(f"Les centres en double ont été supprimés et les adresses validées. Résultats enregistrés dans {output_file}.")
     return unique_centers
 
-remove_duplicate_centers(centre_aere_file, geo_file, "unique_centres.json")
+#remove_duplicate_centers(centre_aere_file, geo_file, "unique_centres.json")
 
 #correct_json_encoding(centre_aere_file)
+
+
+
+def replace_commune_codes_with_names(geo_file_path, centre_aere_file_path):
+    """Remplace les codes de communes dans centre_aere_file par le nom de la commune avec son premier code postal."""
+    with open(geo_file_path, "r", encoding="utf-8") as geo_file:
+        geo_data = json.load(geo_file)
+
+    with open(centre_aere_file_path, "r", encoding="utf-8") as centre_aere_file:
+        centre_data = json.load(centre_aere_file)
+
+    def get_commune_name_and_postal_code(commune_code):
+        for region_data in geo_data["National"].values():
+            for departement_data in region_data["departements"].values():
+                for epci_data in departement_data["epci"].values():
+                    for commune in epci_data["communes"]:
+                        if commune["code"] == commune_code:
+                            return commune["codesPostaux"][0] + " - " + commune["nom"]
+        return None
+
+    updated_centre_data = {}
+    for commune_code, centers in centre_data.items():
+        commune_name_and_postal_code = get_commune_name_and_postal_code(commune_code)
+        if commune_name_and_postal_code:
+            updated_centre_data[commune_name_and_postal_code] = centers
+
+    with open(centre_aere_file_path, "w", encoding="utf-8") as centre_aere_file:
+        json.dump(updated_centre_data, centre_aere_file, ensure_ascii=False, indent=4)
+
+    print(f"Les codes de communes ont été remplacés par les noms de communes avec leur premier code postal dans {centre_aere_file_path}.")
+    return updated_centre_data
+
+# Exemple d'utilisation
+replace_commune_codes_with_names("geo.json", "unique_centres.json")

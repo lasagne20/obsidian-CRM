@@ -14,11 +14,10 @@ import { Settings } from "./Settings";
 import { Partenariat } from "Classes/Partenariat";
 import { GeoData } from "./Data/GeoData";
 import { SubClass } from "Classes/SubClasses/SubClass";
-import { National } from "Classes/SubClasses/National";
-import { Region } from "Classes/SubClasses/Region";
-import { generateTableFromClasses } from "./Display/Utils";
-import { DataProperty } from "./Properties/DataProperty";
+import { National } from "Classes/SubClasses/Lieux/National";
+import { Region } from "Classes/SubClasses/Lieux/Region";
 import { Data } from "./Data/Data";
+import { Evenement } from "Classes/Evenement";
 
 export class MyVault {
     /*
@@ -33,7 +32,8 @@ export class MyVault {
         [Personne.getClasse()]: Personne,
         [Lieu.getClasse()]: Lieu,
         [Action.getClasse()]: Action,
-        [Partenariat.getClasse()]: Partenariat
+        [Partenariat.getClasse()]: Partenariat,
+        [Evenement.getClasse()]: Evenement
     };
 
     public static geoData: GeoData;
@@ -45,23 +45,21 @@ export class MyVault {
         MyVault.geoData = new GeoData(app, settings.dataFile,settings.additionalFiles);
     }
 
-    generateTable(locationClass : Classe, locationSubclass: string,  targetClass : string, targetSubclass : string, propertiesnames: {[key : string] : any}): HTMLElement{
-        let data = this.getData(locationClass, locationSubclass, targetClass, targetSubclass)
-        return generateTableFromClasses(this, this.getClasseFromName(targetClass), data.filter((item): item is Classe | SubClass => item !== undefined), propertiesnames)
-
-    }
-
     getFileData(classe: Classe): Data | null {
         return MyVault.geoData.getGeoData(classe.getName(false)) ||null;
     }
 
-    getData(locationClass : Classe, locationSubclass: string,  targetClass : string, targetSubclass : string) {
-        let geodata : Data[]= MyVault.geoData.getGeoDataList(locationClass.getName(false), locationSubclass);
-        
+    getGeoData(locationClass : Classe, locationSubclass: string,  targetClass : string, targetSubclass : string) {
+        let geodata : Data[]= MyVault.geoData.getGeoDataList(locationClass.getName(false), locationSubclass, targetSubclass);
+        console.log(locationClass)
+        console.log("Geodata : ", geodata)
         let existing : Classe[]= locationClass.getChildren().filter(child => {
                     return child.getClasse() === targetClass 
-                        && child.getSelectedSubClasses().map(x => x.getsubClassName()).includes(targetSubclass)})
-        
+                        && child.getSelectedSubClasse()?.getsubClassName() === targetSubclass})
+        console.log("Existing : ", existing)
+        if (geodata.length === 0){
+            return existing
+        }
         let data = geodata.map(data => {
             let exist = existing.find(file => file.getName(false) === data.getName())
             if (exist) {return exist}
@@ -69,7 +67,9 @@ export class MyVault {
             let subClass = classe.subClassesProperty.getSubClassFromName(targetSubclass)
             if (subClass){
                 let constructor = subClass.getConstructor()
-                return new constructor(classe, data)
+                let newSubClass = new constructor(classe, data)
+                newSubClass.updateParent(this)
+                return newSubClass
             }
         }).sort((a, b) => {
             if (a && b) {
@@ -78,7 +78,20 @@ export class MyVault {
             return 0;
         })
         console.log("Data : ", data)
-        return data
+        return data.filter((item: Classe | SubClass | undefined): item is Classe | SubClass => item !== undefined);
+    }
+
+    getSubClasseFromName(name: string) : [Classe, SubClass]{
+        for (let classeName in MyVault.classes) {
+            let classe = MyVault.classes[classeName];
+            if (classe.subClassesProperty) {
+            let subClass = classe.subClassesProperty.getSubClassFromName(name);
+            if (subClass) {
+                return [classe, subClass];
+            }
+            }
+        }
+        throw new Error(`SubClass with name ${name} not found`);
     }
 
     getClasseFromName(name: string) : typeof Classe{
@@ -109,17 +122,18 @@ export class MyVault {
         }
     }
 
-    getFromLink(name: string) {
+    getFromLink(name: string, log=true) {
         const file = this.app.vault.getFiles().find(f => f.name === `${name}.md`);
         if (file) {
             if (file.path in Object.keys(this.files)) {
                 return this.files[file.path];
             }
             return this.createClasse(file);
-        } else {
-            console.error("Fichier non trouvé : " + name);
-            return null;
         }
+        if (log) {
+            console.error("Fichier non trouvé : " + name);
+        }
+        return null;
     }
 
     getFromFolder(folder: TFolder) {
@@ -165,7 +179,7 @@ export class MyVault {
         let parent = this.getFromFile(parentFile);
         let property: any = parent?.findPropertyFromValue(name, true);
         if (property instanceof FileProperty) {
-            await this.createFile(property.classes[0], name);
+            await this.createFile(this.getClasseFromName(property.classes[0]), name);
             await parent?.update();
         }
     }
@@ -177,44 +191,48 @@ export class MyVault {
             if (!classeType) { return; }
         }
         if (!name) {
-            let classe = await selectFile(this, [classeType], "Entrer un nom pour ce fichier");
+            let classe = await selectFile(this, [classeType.getClasse()], "Entrer un nom pour ce fichier");
             // Select File call createFile if the file doesn't exist
             // No need to continue
             return classe?.file;
         }
         let templatePath = this.settings.templateFolder + "/" + classeType.getClasse() + ".md";
         const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
-        if (templateFile instanceof TFile) {
-            const templateContent = await this.app.vault.read(templateFile);
-            const newFilePath = name.includes(".md") ? name : `${name}.md`;
-            try {
-                await this.app.vault.create(newFilePath, templateContent);
-                console.log("Nouveau fichier créer : " + newFilePath);
-            } catch (error) {
-                // modidy the file if it already exist
-                let file = this.app.vault.getAbstractFileByPath(newFilePath);
-                if (file instanceof TFile) {
-                    await this.app.vault.modify(file, templateContent);
-                    console.log("Fichier modifier : " + newFilePath);
-                }
-                else {
-                    throw Error("La template n'a pas pu se créer : " + newFilePath);
-                }
-            }
-            let file = this.app.vault.getFiles().find(f => f.name === newFilePath);
-            if (!file) {
-                throw Error("Le fichier n'existe pas : " + newFilePath);
-            }
+        const newFilePath = name.includes(".md") ? name : `${name}.md`;
+        let templateContent = "---\nClasse: " + classeType.getClasse() + "\n---\n";
 
-            await waitForMetaDataCacheUpdate(this.app, async () => {
-                if (!file) { return; }
-                let classe = this.getFromFile(file);
-                await classe?.populate(...args);
-            });
-            return file;
+        if (templateFile instanceof TFile) {
+            templateContent = await this.app.vault.read(templateFile);
         } else {
-            throw Error("Le fichier template n'existe pas :" + templatePath);
+            console.warn("Le fichier template n'existe pas :" + templatePath + ". Un fichier vide sera créé.");
         }
+
+        try {
+            await this.app.vault.create(newFilePath, templateContent);
+            console.log("Nouveau fichier créé : " + newFilePath);
+        } catch (error) {
+            // Modifier le fichier s'il existe déjà
+            let file = this.app.vault.getAbstractFileByPath(newFilePath);
+            if (file instanceof TFile) {
+            await this.app.vault.modify(file, templateContent);
+            console.log("Fichier modifié : " + newFilePath);
+            } else {
+            throw Error("Le fichier n'a pas pu être créé ou modifié : " + newFilePath);
+            }
+        }
+
+        let file = this.app.vault.getFiles().find(f => f.name === newFilePath);
+        if (!file) {
+            throw Error("Le fichier n'existe pas : " + newFilePath);
+        }
+
+        await waitForMetaDataCacheUpdate(this.app, async () => {
+            if (!file) { return; }
+            let classe = this.getFromFile(file);
+            await classe?.check();
+            await classe?.populate(...args);
+        });
+        return file;
     }
 
     async refreshAll() {
