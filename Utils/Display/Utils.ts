@@ -27,52 +27,13 @@ export function addFold(parentContainer: HTMLElement, childContainer: HTMLElemen
     });
 }
 
-export function generateTabs(elements: { [key: string]: HTMLElement }): HTMLElement {
-    const container = document.createElement("div");
-    const tabContainer = document.createElement("div");
-    const contentContainer = document.createElement("div");
-
-    tabContainer.style.display = "flex";
-    tabContainer.style.marginBottom = "10px";
-
-    Object.keys(elements).forEach(key => {
-        const tab = document.createElement("div");
-        tab.textContent = key;
-        tab.style.cursor = "pointer";
-        tab.style.padding = "5px 10px";
-        tab.style.border = "1px solid #ccc";
-        tab.style.borderBottom = "none";
-        tab.style.marginRight = "5px";
-
-        tab.addEventListener("click", () => {
-            // Hide all elements
-            Object.values(elements).forEach(el => el.style.display = "none");
-            // Show the selected element
-            elements[key].style.display = "block";
-
-            // Remove active class from all tabs
-            Array.from(tabContainer.children).forEach(child => child.classList.remove("active-tab"));
-            // Add active class to the clicked tab
-            tab.classList.add("active-tab");
-        });
-
-        tabContainer.appendChild(tab);
+export function addButton(buttonText: string, callback: () => void) {
+    const button = document.createElement("button");
+    button.classList.add("mod-cta");
+    button.textContent = buttonText;
+    button.addEventListener("click", (e) => {
+        e.stopPropagation();
+        callback();
     });
-
-    // Append all elements to the content container
-    Object.values(elements).forEach(el => {
-        el.style.display = "none";
-        contentContainer.appendChild(el);
-    });
-
-    // Select the first tab by default
-    if (tabContainer.children.length > 0) {
-        const firstTab = tabContainer.children[0] as HTMLElement;
-        firstTab.classList.add("active-tab");
-        elements[Object.keys(elements)[0]].style.display = "block";
-    }
-    container.appendChild(tabContainer);
-    container.appendChild(contentContainer);
-
-    return container;
+    return button;
 }

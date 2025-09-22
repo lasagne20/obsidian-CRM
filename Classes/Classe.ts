@@ -7,6 +7,9 @@ import { MultiFileProperty } from '../Utils/Properties/MultiFileProperty';
 import { SubClassProperty } from 'Utils/Properties/SubClassProperty';
 import { SubClass } from './SubClasses/SubClass';
 import { ObjectProperty } from 'Utils/Properties/ObjectProperty';
+import { Suivi } from './GroupProperties/Suivi';
+import { DateProperty } from 'Utils/Properties/DateProperty';
+import { RangeDateProperty } from 'Utils/Properties/RangeDateProperty';
 
 interface Data {
   [key: string]: any;
@@ -19,16 +22,18 @@ export class Classe extends File {
     public static parentProperty : FileProperty | MultiFileProperty | ObjectProperty;
     public static subClassesProperty : SubClassProperty;
     public static Properties: { [key: string]: Property };
-
     public static async getItems(): Promise<string[]> { return []}
 
     constructor(app : App, vault:MyVault, file : TFile) {
       super(app, vault, file)
-      Object.values(this.getAllProperties()).forEach((property) => property.setVault(vault))
     }
     
     getConstructor() : typeof Classe{
       throw Error("Need to define the Classes")
+    }
+
+    getPrettyName() : string{
+      return this.getName(false)
     }
 
     static getConstructor() : typeof Classe{
@@ -37,10 +42,6 @@ export class Classe extends File {
 
     getClasse() : string{
       return this.getConstructor().className
-    }
-
-    getID(): string {
-      return this.file.basename
     }
 
     readProperty(name : string){
@@ -79,10 +80,9 @@ export class Classe extends File {
       return this.getConstructor().subClassesProperty.getSubClassFromName(name)
     }
 
-    getMetadataValue(name : string): FrontMatterCache | undefined {
+    getMetadataValue(name : string): any {
       let metadata = super.getMetadata()
       let data : Data | null = this.vault.getFileData(this)
-      
       let value = metadata ? metadata[name] : undefined
       if (!value && data && Object.keys(data).contains(name)){
         return data[name]
@@ -196,14 +196,20 @@ export class Classe extends File {
           if (this.getParentFolderPath() != correctPath){
             await parent.checkChildFolder(this)
             // Move the child to the childFolder
+            console.log("Move to child folder : " + correctPath)
             await this.move(correctPath)
           }
         }
     }
 
-    
     async checkChildFolder(child : Classe){
-      console.log("Add child")
+      const childFolderPath = this.getChildFolderPath(child)
+      await this.addSubFolder(childFolderPath)
+    }
+
+    
+    async addSubFolder(folderPath: string){
+      console.log("Add child folder")
       // Create the folder parent if doesn't exist
       const parentFolderPath = this.getFolderFilePath()
       const parentfolder = this.app.vault.getAbstractFileByPath(parentFolderPath);
@@ -217,24 +223,21 @@ export class Classe extends File {
           catch (e){
             console.error(e)
           }
-          
       }
 
-      // Create the Child folder if doesn't exist
-      const childFolderPath = this.getChildFolderPath(child);
-      const childFolder = this.app.vault.getAbstractFileByPath(childFolderPath);
+      // Create the Child folder if doesn't exist;
+      const childFolder = this.app.vault.getAbstractFileByPath(folderPath);
       if (!childFolder) {
           // If the folder doesn't exist create it and move the file into it
-          console.log("Create child Folder Path : " + childFolderPath)
+          console.log("Create child Folder Path : " + folderPath)
           try {
-            await this.app.vault.createFolder(childFolderPath);
+            await this.app.vault.createFolder(folderPath);
           }
           catch (e){
             console.error(e)
           }
       }
     }
-
 
     getChildFolderPath(child : Classe){
       return this.getFolderFilePath()
@@ -244,6 +247,9 @@ export class Classe extends File {
       // Find the parent from the above folders
       console.log("Update parent property : ", this.getFilePath())
       let path = this.getFolderPath()
+      if (this.isFolderFile()){
+        path = path.substring(0, path.lastIndexOf("/")) // Get the parent folder
+      }
 
        // check 3 times
       for (let i in [0,1,2]){
@@ -253,7 +259,14 @@ export class Classe extends File {
           // Update the parent from the current folder
           if (parentfile && parentfile instanceof TFile) {
             let parent = this.vault.getFromFile(parentfile)
-            await this.updateMetadata(this.getparentProperty().name, parent?.getLink())
+            let parentProperty = this.getparentProperty()
+            if (parentProperty instanceof ObjectProperty && parent){
+              let values = parentProperty.formatParentValue(parent.getLink())
+              await this.updateMetadata(parentProperty.name, values)
+            }
+            else {
+              await this.updateMetadata(parentProperty.name, parent?.getLink())
+            }
             await this.update() // To move it if it is not the right subfolder
             return
           }
@@ -302,7 +315,90 @@ export class Classe extends File {
       }
     }
 
+    async moveMediaToFolder(property: Property, folder : string, othersExtensions : string[] = []){
+      // Move the media to the folder of the file
+      let path = this.getFolderFilePath()
+      let mediaLinks = property.read(this)
+      if (!mediaLinks || mediaLinks.length === 0){
+        return;
+      }
+      if (!(mediaLinks instanceof Array)){
+        mediaLinks = [mediaLinks]
+      }
+      for (let mediaLink of mediaLinks){
+        let subfolderPath = path + "/" + folder ? path + "/" + folder : path
+        console.log("Move media to folder : " + subfolderPath)
+        this.addSubFolder(subfolderPath)
+
+        let media = this.vault.getMediaFromLink(mediaLink)
+        if (media && (media.path !== subfolderPath + "/" + media.name)){
+          console.log("Move media to folder : " + subfolderPath + "/" + media.name)
+         
+          // If the file already exists at the destination, delete it before moving
+          const existing = this.vault.app.vault.getAbstractFileByPath(subfolderPath + "/" + media.name);
+          if (existing) {
+            await this.vault.app.vault.delete(existing);
+          }
+          this.vault.app.vault.rename(media, subfolderPath + "/" + media.name)
+          // Update the property
+          await this.updateMetadata(property.name, `[[${subfolderPath}/${media.name}|${media.name}]]`)
+          
+          for (let extension of othersExtensions){
+            let otherFileName = media.name.split(".")[0] + extension
+            let otherMedia = this.vault.getMediaFromLink(otherFileName)
+            if (otherMedia && (otherMedia.path !== subfolderPath + "/" + otherFileName)){
+              console.log("Move other media " + otherFileName + " to folder : " + subfolderPath + "/" + otherFileName)
+              const existing = this.vault.app.vault.getAbstractFileByPath(subfolderPath + "/" + otherFileName);
+              if (existing) {
+                await this.vault.app.vault.delete(existing);
+              }
+              this.vault.app.vault.rename(otherMedia, subfolderPath + "/" + otherFileName)
+            }
+          }
+        }
+      }
+    }
+
+  async startWith(property: Property | string) {
+    let value: any;
+    if (property instanceof Property) {
+      value = property.read(this)
+      if (property instanceof FileProperty) {
+        value = this.vault.readLinkFile(value);
+      }
+    }
+    else{
+      value = property
+    }
+
+    if (!value) return;
+
+    const file = this.file;
+    const title = file.basename;
+
+    // Nettoyage : retirer n'importe quel préfixe de type "xxx - "
+    let cleanTitle = title.replace(/^[^/\\:*?"<>|]{1,50}\s-\s/, "").trim();
+
+    // Gestion spéciale si la propriété est une date à formater
+    let prefix = value;
+    if (property instanceof Property && property.type.toLowerCase() === "daterange") {
+      let rawDate = value.includes("to")
+        ? value.split("to")[0].trim()
+        : value;
+      prefix = rawDate ? property.getPretty(rawDate) : "";
+    }
+    // Reconstruction du nouveau nom
+    const newName = `${prefix} - ${cleanTitle}`;
+    
+    if (title !== newName) {
+      console.log(`Renaming file from ${title} to ${newName}`);
+      await this.move(this.getParentFolderPath(), newName+".md")
+    }
+  }
+
+ 
     async check(){
+      this.getID()
     }
   }
   

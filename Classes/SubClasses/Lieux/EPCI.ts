@@ -11,6 +11,7 @@ import { addFold } from "Utils/Display/Utils";
 import { Classe } from "Classes/Classe";
 import { Data } from "Utils/Data/Data";
 import { DynamicTable } from "Utils/Display/DynamicTable";
+import { ObjectProperty } from "Utils/Properties/ObjectProperty";
 
 
 export class EPCI extends SubClass {
@@ -19,11 +20,16 @@ export class EPCI extends SubClass {
     public subClassIcon : string = "box";
 
     public static Properties : { [key: string]: Property } = {
-        site: new LinkProperty("Site web", "globe"),
+        site: new LinkProperty("Site web", {icon:"globe"}),
         email : new EmailProperty("Email"),
         telephone : new PhoneProperty("Telephone"),
         adresse : new AdressProperty("Adresse"), 
         priority : new RatingProperty("Priorité"),
+        services : new ObjectProperty("Services", {
+                    name : new Property("Nom", {icon : ""}),
+                    email : new EmailProperty("Email"),
+                    telephone : new PhoneProperty("Telephone"),
+                }),
         }
 
     constructor(classe : typeof Classe, data : Data | null = null) {
@@ -62,16 +68,19 @@ export class EPCI extends SubClass {
             secondLineContainer.appendChild(EPCI.Properties.adresse.getDisplay(classe));
             metadataContainer.appendChild(secondLineContainer);
 
+            content.appendChild(EPCI.Properties.services.getDisplay(classe))
+
     
             // Assuming you have a method to get people in the commune
             let people : any[]= classe.getChildren().filter(value => value.getClasse() === "Personne")
             people = people.filter(value => value.getParentValue() === classe.getName(false))
             if (people.length !== 0) {
-                let table = new DynamicTable(this.vault, this.vault.getClasseFromName("Personne"), people)
+                let table = new DynamicTable(classe.vault, people)
                 table.addColumn("Poste",  `
-                    for(let el of postes){
-                        if (el.institution === "[[${classe.getName(false)}]]"){
-                            return el.poste
+                    for(let el of Postes){
+                        console.log(el)
+                        if (el.Institution.includes("${classe.getName(false)}"){
+                            return el.Poste
                         }
                     }
                     return  ""
@@ -81,6 +90,14 @@ export class EPCI extends SubClass {
     
             container.appendChild(content);
             addFold(title, content);
+
+
+            let communesdata = classe.vault.getGeoData(classe, "Commune", "Lieu", "Commune")
+            let communestable = new DynamicTable(classe.vault, communesdata)
+            communestable.addColumn("Email", "email")
+            communestable.addColumn("Partenariats", "partenariats",{filter:"filter-list"})
+            let communesContainer = communestable.getTable()
+            container.appendChild(communesContainer)
     
             return container;
         }

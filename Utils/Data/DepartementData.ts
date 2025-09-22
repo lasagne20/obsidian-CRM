@@ -7,12 +7,14 @@ export class DepartementData extends Data{
     public epci: EPCIData[];
     public communes: CommuneData[];
     public static className = "Departement";
+    public geoData: any;
 
     constructor(
         name: string,
         public code: string,
         epciData: { [key: string]: any },
-        communesData: any[]
+        communesData: any[],
+        geoData : any
     ) {
         super(name)
         this.epci = Object.keys(epciData).map(name => new EPCIData(
@@ -26,8 +28,11 @@ export class DepartementData extends Data{
             commune.codesPostaux,
             commune.population,
             commune.siren,
+            commune.longitude,
+            commune.latitude,
             this
         ));
+        this.geoData = geoData;
     }
 
     public getCommunes(): CommuneData[] {

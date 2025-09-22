@@ -12,21 +12,17 @@ export class MultiFileProperty extends ObjectProperty {
     public type : string = "multiFile";
     public classes: string[];
     public property : FileProperty;
+    public flexSpan = 2;
 
 
-    constructor(name: string, classes : string[], icon?: string, staticMode: boolean = false) {
-        super(name, icon, {}, staticMode);
+    constructor(name: string, classes : string[], args = {}){
+        super(name, {}, args);
         this.classes = classes;
-        this.property = new FileProperty(name, classes, icon, staticMode);
+        this.property = new FileProperty(name, classes, args);
     }
 
     getClasses(): string[] {
         return this.classes;
-    }
-
-    setVault(vault: MyVault) {
-        this.vault = vault;
-        this.property.setVault(vault);
     }
 
     getParentValue(values : any) : File | undefined{
@@ -38,7 +34,8 @@ export class MultiFileProperty extends ObjectProperty {
     }
 
     // Méthode principale pour obtenir l'affichage
-    fillDisplay(values: any, update: (value: any) => Promise<void>) {
+    fillDisplay(vault : any,values: any, update: (value: any) => Promise<void>) {
+        this.vault = vault;
         const container = document.createElement("div");
         container.classList.add("metadata-multiFiles-container-"+this.name.toLowerCase());
         container.classList.add("metadata-multiFiles-container");
@@ -72,7 +69,7 @@ export class MultiFileProperty extends ObjectProperty {
  
         let propertyContainer = document.createElement("div");
         propertyContainer.classList.add("metadata-multiFiles-property-inline");
-        propertyContainer.appendChild(this.property.fillDisplay(value, async (value) => await this.updateObject(values, update, index, this.property, value)));
+        propertyContainer.appendChild(this.property.fillDisplay(this.vault, value, async (value) => await this.updateObject(values, update, index, this.property, value)));
         row.appendChild(propertyContainer);
 
         return row;
@@ -87,7 +84,7 @@ export class MultiFileProperty extends ObjectProperty {
     }
 
     async addProperty(values: any, update: (value: any) => Promise<void>, container: HTMLDivElement) {
-        let newFile = await selectFile(this.vault, this.classes, "Choisissez un fichier " + this.getClasses().join(" ou "));
+        let newFile = await selectFile(this.vault, this.classes, {hint:"Choisissez un fichier " + this.getClasses().join(" ou ")});
         if (newFile) {
             if (!values){values = []}
             values.push(newFile.getLink());

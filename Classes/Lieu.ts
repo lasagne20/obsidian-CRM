@@ -15,6 +15,7 @@ import { EPCI } from "./SubClasses/Lieux/EPCI";
 import { Departement } from "./SubClasses/Lieux/Departement";
 import { Region } from "./SubClasses/Lieux/Region";
 import { National } from "./SubClasses/Lieux/National";
+import { stat } from "fs";
 
 export class Lieu extends Classe {
 
@@ -22,7 +23,7 @@ export class Lieu extends Classe {
     public static classIcon : string = "map-pin";
     public data : any = null;
 
-    public static parentProperty : FileProperty  = new FileProperty("Parent", ["Lieu"], "map-pin", true);
+    public static parentProperty : FileProperty  = new FileProperty("Parent", ["Lieu"],{ icon: "map-pin", static : true});
     public static subClassesProperty: SubClassProperty = 
         new SubClassProperty("Type", [
                         new Commune(Lieu),
@@ -30,7 +31,7 @@ export class Lieu extends Classe {
                         new Departement(Lieu),
                         new Region(Lieu),
                         new National(Lieu)
-                      ], "landmark", true);
+                      ],{icon : "landmark", static : true});
     public static Properties : { [key: string]: Property } = {
         classe : new ClasseProperty("Classe", this.classIcon),
         type : this.subClassesProperty,
@@ -57,22 +58,32 @@ export class Lieu extends Classe {
     getChildFolderPath(child : Classe) : string{
       // check if the file is also a folder
       if (child instanceof Lieu){
+        if (this.getSelectedSubClasse() instanceof Departement && child.getSelectedSubClasse() instanceof EPCI){
+          return super.getChildFolderPath(child) + "/Communautés de communes" 
+        }
         return super.getChildFolderPath(child)
       }
-      return super.getChildFolderPath(child) + "/" + child.getClasse()
+      return super.getChildFolderPath(child) + "/" + child.getClasse() +"s"
     }
+
 
     async getParent(): Promise<Classe | undefined> {
       const parent = await this.vault.getGeoParent(this);
       if (!parent) {
         return
       }
-      await this.updateMetadata(Lieu.Properties.parent.name, parent.getLink());
+      if (this.getParentValue() != parent?.getLink())
+      {
+        await this.updateMetadata(Lieu.Properties.parent.name, parent.getLink());
+      } 
       return parent;
     }
 
     async getSubClass(){
       let subclasse = MyVault.geoData.getClassName(this.getName(false));
+      if (!subclasse || Lieu.Properties.type.read(this) == subclasse){
+        return
+      }
       await this.updateMetadata(Lieu.Properties.type.name, subclasse);
       return subclasse;
     }
@@ -81,14 +92,12 @@ export class Lieu extends Classe {
        //get the parent
       await this.getParent()
       await this.getSubClass()
+      await this.check()
       await this.update()
     }
 
     getTopDisplayContent() {
       const container =  document.createElement("div");
-
-      
-      
       const firstContainer = document.createElement("div");
       firstContainer.classList.add("metadata-line");
       firstContainer.appendChild(Lieu.Properties.classe.getDisplay(this))

@@ -10,10 +10,11 @@ export class ClasseProperty extends Property{
 
     // Used for property hidden for the user
     constructor(name : string, icon: string = "") {
-      super(name, icon)
+      super(name, {icon: icon});
     }
 
-    fillDisplay(value: any, update: (value: any) => Promise<void>)  {
+    fillDisplay(vault : any,value: any, update: (value: any) => Promise<void>)  {
+          this.vault = vault;
           const field = document.createElement("div");
           field.classList.add("metadata-field");
       

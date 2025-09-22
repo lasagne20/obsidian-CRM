@@ -7,8 +7,8 @@ export class PhoneProperty extends LinkProperty{
 
   public type : string = "phone";
     // Used for property hidden for the user
-    constructor(name : string, icon: string = "phone",  staticProperty : boolean=false) {
-      super(name, icon, staticProperty)
+    constructor(name : string, args : {} = {icon: "phone"}) {
+      super(name, args)
     }
 
     validate(phoneNumber: string) {
@@ -21,6 +21,11 @@ export class PhoneProperty extends LinkProperty{
       const corrected = cleaned.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, "$1.$2.$3.$4.$5");
       return corrected;
   }
+
+  getPretty(value: string) {
+    if (!value) return value;
+    return this.validate(value);  
+ }
 
   getLink(value : string){
     return `callto:${value?.replace(".","")}`

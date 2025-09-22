@@ -1,8 +1,11 @@
 import { Classe } from 'Classes/Classe';
+import * as CodeMirror from 'codemirror';
 import { Plugin, MarkdownView, TFile, App, TFolder, Menu, TAbstractFile } from 'obsidian';
 import { CRMSettingTab } from 'settings';
 import { TopDisplay } from 'Utils/Display/TopDisplay';
+import { ModalMap } from 'Utils/Modals/ModalMap';
 import { MyVault } from "Utils/MyVault";
+import { TextProperty } from 'Utils/Properties/TextProperty';
 import { Settings } from 'Utils/Settings';
 import { waitForMetaDataCacheUpdate } from 'Utils/Utils';
 
@@ -10,6 +13,7 @@ import { waitForMetaDataCacheUpdate } from 'Utils/Utils';
 const DEFAULT_SETTINGS: Settings = {
   templateFolder: "Outils/Obsidian/Templates", // Dossier par défaut
   dataFile: "Outils/Obsidian/Data/geo.json", // Dossier par défaut
+  personalName: "Léo",
   additionalFiles : [],
 };
 
@@ -26,18 +30,32 @@ export default class CRM extends Plugin {
     
     // Editor change
     this.app.workspace.on("editor-change", async () => {
+      console.log("Editor change detected");
       await this.handleMetadataUpdate(async () => {
         //await this.topDisplay.update();
       });
-      this.handleUpdate()
+      await this.handleUpdate()
     });
 
     // Tab change
+    /*
     this.app.workspace.on("active-leaf-change", async () => {
-      await this.topDisplay.show();
-      await this.handleMetadataUpdate( async () => {
+      console.log("Active leaf change detected");
+        await this.handleMetadataUpdate(async () => {
+          await this.topDisplay.update();
+        });
         await this.handleUpdate()
+    });*/
+
+    // New tab or file opened
+    this.app.workspace.on("layout-change", async () => {
+      console.log("Layout change detected");
+      await this.handleMetadataUpdate(async () => {
+        await this.handleUpdate();
+        await this.topDisplay.update();
       });
+      await this.handleUpdate();
+      await this.topDisplay.show();
     });
 
     // Click on lick
@@ -60,7 +78,7 @@ export default class CRM extends Plugin {
     this.loadHotKeys()
     this.topDisplay = new TopDisplay(this.app, this.vault)
     console.log("Plugin CRM - Loaded")
-    this.updateFile()
+    this.updateFile(true)
   }
 
   private loadHotKeys(){

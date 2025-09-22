@@ -67,7 +67,6 @@ export class GeoData {
     public app: App;
 
     constructor(app: App, filePath: string, generativeSettings: { [key: string]: string }[]) {
-        console.log("Loading GeoData from " + filePath);
         this.app = app;
         this.loadGeoData(filePath, generativeSettings);
     }
@@ -84,11 +83,9 @@ export class GeoData {
             await this.loadGenerativeData(setting.path, setting.subClass)
         }
         console.log("GeoData loaded");
-        console.log(this.data)
     }
 
     private async loadGenerativeData(filePath: string, subclassName : string){
-        console.log("Loading GenerativeData from " + filePath);
         try {
             const rawData = await this.app.vault.adapter.read(filePath);
             const parsedData = JSON.parse(rawData);
@@ -113,13 +110,15 @@ export class GeoData {
     }
 
     public getGeoData(name: string) {
+        if (this.data == undefined) {
+            return null;
+        }
         return this.data.find(name)
     }
 
     public getGeoDataList(location: string, locationType: string, subclassName: string): any[] {
         let locations = this.data.find(location)?.getList(locationType) || []
         if (subclassName != locationType){
-            console.log("Subclass : ", subclassName)
             locations = locations.map((location: any) => location.getList(subclassName)).flat()
         }
         return locations
@@ -136,7 +135,6 @@ export class GeoData {
 
     public getParent(formattedName: string): string | null {
         const parentName = this.data.getParent(formattedName)?.getName();
-        console.log("Parent : ", parentName)
         return parentName !== undefined ? parentName : null;
     }
 

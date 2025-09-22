@@ -1,4 +1,4 @@
-import { App, TFile, FuzzySuggestModal } from "obsidian";
+import { App, TFile, FuzzySuggestModal, FuzzyMatch } from "obsidian";
 import { File } from "../File";
 
 /**
@@ -6,18 +6,18 @@ import { File } from "../File";
  */
 export class SelectModal extends FuzzySuggestModal<string> {
     private onChoose: (value : any) => void;
-    private onExit: () => void;
+    private onExit: (value? : any |null) => void;
     private list : { [key: string]: any };
     private hint : string;
-    private choosed : boolean
+    private choosed : any
 
-    constructor(app: App, onChoose: (value : any) => void, onExit: () => void, list : { [key: string]: any }, hint: string="") {
+    constructor(app: App, onChoose: (value : any) => void, onExit: (value? : any |null) => void, list : { [key: string]: any }, hint: string="") {
         super(app);
         this.onChoose = onChoose;
         this.onExit = onExit;
         this.list = list;
         this.hint = hint;
-        this.choosed = false;
+        this.choosed = null;
     }
 
     onOpen() {
@@ -45,15 +45,16 @@ export class SelectModal extends FuzzySuggestModal<string> {
 
     onClose() {
         super.onClose();
-        if (!this.choosed){
-            this.onExit()
-        }
-        
+        setTimeout(() => {
+            if (!this.choosed) {
+                this.onExit(this.choosed);
+            }
+        }, 100);
     }
-
 
     onChooseItem(key : string, evt: MouseEvent | KeyboardEvent): void {
-        this.choosed = true
-        this.onChoose(this.list[key]);
+        this.choosed = this.list[key]
+        this.onChoose(this.choosed);
     }
+
 }

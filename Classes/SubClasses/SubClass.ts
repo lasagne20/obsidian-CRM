@@ -41,6 +41,9 @@ export class SubClass {
       }
       return "";
     }
+    getLink(): string{
+      return `[[${this.getName()}]]`
+    }
 
     getID(): string{
       return this.id
@@ -50,6 +53,13 @@ export class SubClass {
       if (this.data){
         return this.data
       }
+    }
+
+    getParent(){
+      if (this.data && (this.data["parent"] instanceof SubClass || this.data["parent"] instanceof Classe)){
+        return this.data["parent"]
+      }
+      return null
     }
 
     getProperty(name : string) : [SubClass, Property | null]{
@@ -71,14 +81,13 @@ export class SubClass {
 
     updateParent(vault: MyVault){
       this.vault = vault;
-      Object.values(this.getAllProperties()).forEach((property) => property.setVault(vault))
       if (this.data && (this.data["parent"] instanceof Data)){
         const parentClassName = this.data["parent"].getClasse();
         if (typeof parentClassName !== 'string') {
             throw new Error('Parent class name must be a string');
         }
         let [parentClass, parentSubClass] = vault.getSubClasseFromName(parentClassName);
-        this.data["parent"] =  new (parentSubClass.getConstructor())(parentClass.getConstructor(), this.data["parent"])
+        this.data["parent"] =  new parentSubClass(parentClass.getConstructor(), this.data["parent"])
         this.data["parent"].updateParent(vault)
       }
     }

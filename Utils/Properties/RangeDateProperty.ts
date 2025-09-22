@@ -12,8 +12,8 @@ import { DateProperty } from "./DateProperty";
 export class RangeDateProperty extends DateProperty {
 
     public type : string = "dateRange";
-    constructor(name: string) {
-        super(name, []);
+    constructor(name: string, args = {}) {
+        super(name, [], args);
     }
 
     createFieldDate(value: string, update: (value: string) => Promise<void>, link: HTMLDivElement) {
@@ -39,7 +39,6 @@ export class RangeDateProperty extends DateProperty {
                             input.value = `${this.formatDateForStorage(startDate)} to ${this.formatDateForStorage(endDate)}`;
                         }
                         await this.updateField(update, input, link);
-                        console.log("Input value (stocké) : ", input.value, "Affichage : ", this.formatDateForDisplay(input.value));
                     }
                 }
             },
@@ -123,4 +122,28 @@ export class RangeDateProperty extends DateProperty {
         const dateRangeRegex = /^\d{4}-\d{2}-\d{2}( to \d{4}-\d{2}-\d{2})?$/;
         return dateRangeRegex.test(value) ? value : "";
     }
+
+
+    // Fonction pour extraire la première date d'une chaîne et la convertir en objet Date
+    public static extractFirstDate (dateStr: string): Date | null {
+    // Regex pour trouver la première date (ex: "26 janvier 2025")
+    const moisMap: { [key: string]: number } = {
+        "janvier": 0, "fevrier": 1, "mars": 2, "avril": 3, "mai": 4, "juin": 5,
+        "juillet": 6, "aout": 7, "septembre": 8, "octobre": 9, "novembre": 10, "décembre": 11
+      };
+    const regex = /(\d{1,2}) (\w+) (\d{4})/;
+    const normalizedDateStr = dateStr.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // Remove accents
+    const match = normalizedDateStr.match(regex);
+    
+    if (match) {
+        const [, day, month, year] = match;
+        const moisIndex = moisMap[month.toLowerCase()];
+    
+        if (moisIndex !== undefined) {
+        return new Date(parseInt(year), moisIndex, parseInt(day));
+        }
+    }
+    
+    return null;
+    };
 }

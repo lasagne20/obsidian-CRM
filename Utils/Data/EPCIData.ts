@@ -17,6 +17,8 @@ export class EPCIData extends Data {
             communeData.codesPostaux,
             communeData.population,
             communeData.siren,
+            communeData.longitude,
+            communeData.latitude,
             this
         ));
     }

@@ -3,7 +3,7 @@ import { Property } from "./Property";
 import { File } from "Utils/File";
 import { MyVault } from "Utils/MyVault";
 import flatpickr from "flatpickr";
-import "flatpickr/dist/l10n/fr.js"; 
+import { French } from "flatpickr/dist/l10n/fr.js";
 import { setIcon } from "obsidian";
 import { Classe } from "Classes/Classe";
 
@@ -19,15 +19,16 @@ export class DateProperty extends Property {
     private quickSelectIcons: string[];
     public type : string = "date";
 
-    constructor(name: string, quickSelectIcons: string[]) {
-        super(name);
+    constructor(name: string, quickSelectIcons: string[], args = {}) {
+        super(name, args);
         this.quickSelectIcons = quickSelectIcons
         
     }
 
 
     // Crée l'affichage du champ date
-    fillDisplay(value : any, update: (value: string) => Promise<void>) {
+    fillDisplay(vault : any, value : any, update: (value: string) => Promise<void>) {
+        this.vault = vault;
         const fieldContainer = document.createElement("div");
         fieldContainer.classList.add("field-container-column");
 
@@ -59,19 +60,20 @@ export class DateProperty extends Property {
         flatpickr(input, {
             dateFormat: "Y-m-d",  // Stocker en "YYYY-MM-DD"
             defaultDate: value || "",
-            locale: "fr",  // Utilisation de la langue française pour l'affichage
+            locale: French,
             onChange: async (selectedDates: Date[]) => {
                 const selectedDate = selectedDates[0];
                 if (selectedDate) {
                     // Met à jour la valeur de l'input avec le format "YYYY-MM-DD"
                     input.value = this.formatDateForStorage(selectedDate);
                     await this.updateField(update, input, link)
-                    console.log("Input value (stocké) : ", input.value, "Affichage : ", this.formatDateForDisplay(input.value));
                 }
             },
-            onClose : async () => await this.updateField(update, input, link)
+            onClose : async () => {
+                input.value = ""
+                await this.updateField(update, input, link)
+            }
         });
-    
         return input;
     }
     
@@ -124,6 +126,10 @@ export class DateProperty extends Property {
         return quickSelectContainer;
     }
 
+    getDefaultValue() {
+        return this.formatDateForStorage(this.getDateForOption(this.default))
+    }
+
     getDateForOption(option: string): Date {
         const today = new Date();
         switch(option) {
@@ -131,6 +137,7 @@ export class DateProperty extends Property {
             case "today": return new Date();
             case "tomorrow": return new Date(today.setDate(today.getDate() + 1));
             case "next-week": return new Date(today.setDate(today.getDate() + 7));
+            case "2-week": return new Date(today.setDate(today.getDate() + 14));
             default: return today;
         }
     }

@@ -6,7 +6,6 @@ import { Notice, setIcon, TFile } from "obsidian";
 import { selectFile } from "Utils/Modals/Modals";
 import { LinkProperty } from "./LinkProperty";
 import { val } from "cheerio/dist/commonjs/api/attributes";
-import { assert } from "console";
 
 
 export class FileProperty extends LinkProperty{
@@ -14,8 +13,8 @@ export class FileProperty extends LinkProperty{
     public classes : string[];
     public type : string = "file";
     // Used for property with a single file
-    constructor(name : string, classes: string[], icon: string = "file", staticProperty : boolean=false) {
-      super(name, icon, staticProperty);
+    constructor(name : string, classes: string[], args= {}){
+      super(name, args);
       this.classes = classes;
     }
 
@@ -25,8 +24,21 @@ export class FileProperty extends LinkProperty{
 
     // Used by the ClasseProperty to get the parent value
     getParentValue(values : any){
-      console.log(values)
-      return values?.slice(2, -2); // Enlève les [[ et ]]
+      return values; // Enlève les [[ et ]]
+    }
+
+    getPretty(value: string) {
+      return this.vault.readLinkFile(value)
+    }
+
+    getClasse(read : Classe): Classe | undefined{
+      let link = this.read(read);
+      if (link) {
+        let classe = this.vault.getFromLink(link);
+        if (classe) {
+          return classe;
+        }
+      }
     }
 
     validate(value: string): string {
@@ -39,8 +51,11 @@ export class FileProperty extends LinkProperty{
       return "";
    }
 
-   getLink(value: string): string {
-      return `obsidian://open?vault=${this.vault.app.vault.getName()}&file=${encodeURIComponent(value.replace("[[","").replace("]]",""))}`
+   getLink(value: string, vault? : any): string {
+    if (vault) {
+      this.vault = vault;
+    }
+    return `obsidian://open?vault=${this.vault.app.vault.getName()}&file=${encodeURIComponent(this.vault.readLinkFile(value, true))}`
    }
   
    createIconContainer(update: (value: string) => Promise<void>) {
@@ -61,7 +76,7 @@ export class FileProperty extends LinkProperty{
 
     // Fonction pour gérer le clic sur l'icône
     async handleIconClick(update: (value: string) => Promise<void>, event: Event) {
-        let selectedFile = await selectFile(this.vault, this.classes, "Choisissez un fichier " + this.getClasses().join(" ou "));
+        let selectedFile = await selectFile(this.vault, this.classes, {hint:"Choisissez un fichier " + this.getClasses().join(" ou ")});
         if (selectedFile){
           await update(selectedFile.getLink())
           const link = (event.target as HTMLElement).closest('.metadata-field')?.querySelector('.field-link') as HTMLElement;
@@ -90,10 +105,9 @@ export class FileProperty extends LinkProperty{
     createFieldContainerContent(update: (value: string) => Promise<void>, value: string) {
         const fieldContainer = document.createElement("div");
         fieldContainer.classList.add("field-container");
-        const currentField = value?.slice(2, -2)
+        const currentField = this.getPretty(value);
         const link = document.createElement("a");
-        link.href = "#";
-        link.addEventListener("click", async (event) => await this.modifyField(event));
+        link.href = this.getLink(value);
         link.textContent = currentField || "";
         link.classList.add("field-link");
         link.style.display = "block"

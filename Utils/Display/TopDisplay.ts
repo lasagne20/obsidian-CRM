@@ -1,12 +1,20 @@
 import { Classe } from "Classes/Classe";
 import { App, MarkdownView, TFile } from "obsidian";
+import { ModalMap } from "Utils/Modals/ModalMap";
 import { MyVault } from "Utils/MyVault";
+
+declare global {
+  interface Window {
+    mapViewAPIv0?: any;
+  }
+}
 
 export class TopDisplay {
   public app: any;
   public dv: any;
   public vault: MyVault;
   public content: HTMLElement;
+  public inProcess: boolean = false;
 
   constructor(app: App, vault: MyVault) {
     this.app = app;
@@ -18,9 +26,14 @@ export class TopDisplay {
   }
 
   async show() {
+    if (this.inProcess) return;
+    this.inProcess = true;
+    console.log("TopDisplay show called");
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (!activeView) return;
     let container = this.getContainer(activeView);
+
+
     const file = activeView.file;
     if (!file) return;
     if (!(file instanceof TFile)) return;
@@ -29,13 +42,15 @@ export class TopDisplay {
     if (classe) {
       container.innerHTML = "";
       this.content = await classe.getTopDisplayContent();
+      
       if (this.content && this.content instanceof Node) {
-        console.log(this.content);
         container.appendChild(this.content);
       } else {
         console.error("Invalid content returned by getTopDisplayContent");
         console.log(this.content)
       }
+      this.inProcess = false;
+      console.log("TopDisplay content updated");
     }
   }
 
@@ -48,7 +63,14 @@ export class TopDisplay {
 
     let classe = this.vault.getFromFile(file);
     if (classe) {
-      await classe.reloadTopDisplayContent();
+      if (activeView.contentEl.querySelector("#dataviewjs-container")){
+        await classe.reloadTopDisplayContent();
+      }
+      else {
+        this.inProcess = false;
+        await this.show();
+      }
+      
     }
   }
 

@@ -1,14 +1,19 @@
 import { cp } from "fs";
 import { Property } from "./Property";
 import { MyVault } from "Utils/MyVault";
+import { FormulaProperty } from "./FormulaProperty";
 
 export class NumberProperty extends Property {
 
     public unit: string = "";
     public type : string = "number";
+    public formulaProperty : FormulaProperty | null = null;
 
-    constructor(name: string, icon: string = "hash", staticProperty: boolean = false, unit: string = "") {
-        super(name, icon, staticProperty);
+    constructor(name: string, unit: string = "", args : {icon: string, static?: boolean, formula? : string} = {icon: "", static: true}) {
+        super(name, args);
+        if (args.formula) {
+            this.formulaProperty = new FormulaProperty(name, args.formula, {icon: args.icon, static: args.static, write: true});
+        }
         this.unit = unit;
     }
 
@@ -20,7 +25,18 @@ export class NumberProperty extends Property {
         return numberValue.toString();
     }
 
-    fillDisplay(value: any, update: (value: any) => Promise<void>) {
+    getDisplay(file: any, args : {staticMode? : boolean, title?: string} = {staticMode : false, title:""}) {
+        this.static = args.staticMode ? true : this.static;
+        this.title = args.title ? args.title : "";
+        let value = this.read(file);
+        if (!value && this.formulaProperty) {
+            value = this.formulaProperty.read(file);
+        }
+        return this.fillDisplay(file.vault, value, async (value) => await file.updateMetadata(this.name, value));
+    } 
+
+    fillDisplay(vault : any, value: any, update: (value: any) => Promise<void>) {
+        this.vault = vault;
         const field = this.createFieldContainer();
 
         if (this.title) {

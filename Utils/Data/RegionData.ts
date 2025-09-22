@@ -16,6 +16,7 @@ export class RegionData extends Data{
             departementsData[name].code,
             departementsData[name].epci,
             departementsData[name].communes
+            , departementsData[name].geodata
         ));
     }
 

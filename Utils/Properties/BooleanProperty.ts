@@ -6,11 +6,12 @@ export class BooleanProperty extends Property {
 
     public type : string = "boolean";
 
-    constructor(name: string, icon: string = "align-left", staticProperty: boolean = false) {
-        super(name, icon, staticProperty)
+    constructor(name: string, args = {}) {
+        super(name, args);
     }
 
-     fillDisplay(value: any, update: (value: any) => Promise<void>) {
+     fillDisplay(vault : any, value: any, update: (value: any) => Promise<void>) {
+            this.vault = vault;
             const container = document.createElement('div');
             const button = document.createElement('span');
             setIcon(button, this.icon)

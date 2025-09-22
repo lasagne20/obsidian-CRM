@@ -3,15 +3,16 @@ import { File } from "Utils/File";
 import { MyVault } from "Utils/MyVault";
 
 export class MultiSelectProperty extends Property {
-    public options: string[];
+    public options: {name : string, color : string}[];
     public type : string = "multiSelect";
 
-    constructor(name: string, options: string[], icon: string = "list") {
-        super(name, icon);
+    constructor(name: string, options: {name : string, color : string}[], args = {}) {
+        super(name, args);
         this.options = options;
     }
 
-    fillDisplay(value : any, update: (value: string[]) => Promise<void>) {
+    fillDisplay(vault: any, value : any, update: (value: string[]) => Promise<void>) {
+        this.vault = vault;
         const field = this.createFieldContainer();
         const fieldContainer = document.createElement("div");
         fieldContainer.classList.add("field-container-column");
@@ -28,6 +29,16 @@ export class MultiSelectProperty extends Property {
         return field;
     }
 
+    getDefaultValue(vault : MyVault){
+        for (let index in this.default){
+            if (this.default[index] == "personalName"){
+                this.default[index] = vault.getPersonalName();
+            }
+        }
+        
+        return this.default;
+    }
+
     // Crée le conteneur des boutons avec les options
     createButtonGroup(value: string[], update: (value: string[]) => Promise<void>): HTMLDivElement {
         const buttonContainer = document.createElement("div");
@@ -38,17 +49,17 @@ export class MultiSelectProperty extends Property {
         this.options.forEach(option => {
             const button = document.createElement("button");
             button.classList.add("multi-select-button");
-            button.textContent = option;
+            button.textContent = option.name;
 
-            if (selectedValues.has(option)) {
+            if (selectedValues.has(option.name)) {
                 button.classList.add("selected");
             }
 
             button.addEventListener("click", async () => {
-                if (selectedValues.has(option)) {
-                    selectedValues.delete(option);
+                if (selectedValues.has(option.name)) {
+                    selectedValues.delete(option.name);
                 } else {
-                    selectedValues.add(option);
+                    selectedValues.add(option.name);
                 }
 
                 await update([...selectedValues]);

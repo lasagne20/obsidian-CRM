@@ -4,6 +4,7 @@ import { setIcon } from "obsidian";
 import { ObjectProperty } from "./ObjectProperty";
 import { Classe } from "Classes/Classe";
 import { SubClass } from "Classes/SubClasses/SubClass";
+import { get } from "http";
 
 
 export class Property {
@@ -12,17 +13,34 @@ export class Property {
     public vault: MyVault;
     public static: boolean;
     public title: string;
+    public flexSpan = 0;
+    public default: any;
 
     public type : string = "text";
 
-    constructor(name: string, icon: string = "align-left", staticProperty: boolean = false) {
+    constructor(name: string, options: { 
+        icon?: string, 
+        staticProperty?: boolean, 
+        flexSpan?: number, 
+        defaultValue?: any, 
+        [key: string]: any 
+    } = {}) {
+        const { icon = "align-left", staticProperty = false, flexSpan = 1, defaultValue = "", ...additionalOptions } = options;
+        this.flexSpan = flexSpan;
         this.name = name;
         this.icon = icon;
+        this.default = defaultValue;
         this.static = staticProperty;
+
+        // Assign additional options to the instance
+        Object.assign(this, additionalOptions);
     }
 
-    setVault(vault: MyVault) {
-        this.vault = vault;
+    getDefaultValue(vault : MyVault){
+        if (this.default == "personalName"){
+            return vault.getPersonalName();
+        }
+        return this.default;
     }
 
     read(file: Classe | SubClass | File): any {
@@ -44,15 +62,19 @@ export class Property {
         return value;
     }
 
-    getDisplay(file: any, staticMode : boolean | null =null, title = "") {
-        if (staticMode != null) {this.static = staticMode}
-        this.title = title;
-        let value = this.read(file);
-        return this.fillDisplay(value, async (value) => await file.updateMetadata(this.name, value));
+    getPretty(value: string) {
+        return value;  
     }
 
-    fillDisplay(value: any, update: (value: any) => Promise<void>) {
-        
+    getDisplay(file: any, args : {staticMode? : boolean, title?: string} = {staticMode : false, title:""}) {
+        this.static = args.staticMode ? true : this.static;
+        this.title = args.title ? args.title : "";
+        let value = this.read(file);
+        return this.fillDisplay(file.vault, value, async (value) => await file.updateMetadata(this.name, value), args);
+    }
+
+    fillDisplay(vault : any, value: any, update: (value: any) => Promise<void>, args? : {}) {
+        this.vault = vault;
         const field = this.createFieldContainer();
 
         if (this.title) {
@@ -113,7 +135,7 @@ export class Property {
             link.style.display = "block";
             input.style.display = "none";
         } else {
-            if (currentField && this.validate(value)) {
+            if (currentField) {
                 link.style.display = "block";
                 input.style.display = "none";
             } else {
@@ -134,7 +156,7 @@ export class Property {
 
     createFieldLink(value: string) {
         const link = document.createElement("div");
-        link.textContent = value || "";
+        link.textContent = this.getPretty(value) || "";
         link.classList.add("field-link");
         link.style.cursor = this.static ? "default" : "text";
         if (!this.static) {
@@ -143,20 +165,20 @@ export class Property {
         return link;
     }
 
-    handleFieldInput(update: (value: string) => Promise<void>, input: HTMLInputElement, link: HTMLElement) {
+    handleFieldInput(update: (value: string) => Promise<void>, input: HTMLInputElement | HTMLTextAreaElement, link: HTMLElement) {
         input.addEventListener("blur", async () => {
             await this.updateField(update, input, link);
         });
 
         input.addEventListener("keydown", async (event) => {
-            if (event.key === "Enter" || event.key === "Escape") {
-                await this.updateField(update, input, link);
-                event.preventDefault();
+            if ((event as KeyboardEvent).key === "Enter" || (event as KeyboardEvent).key === "Escape") {
+                    event.preventDefault();
+                    await this.updateField(update, input, link);
             }
         });
     }
 
-    createFieldInput(value: string) {
+    createFieldInput(value: string) : HTMLInputElement | HTMLTextAreaElement {
         const input = document.createElement("input");
         input.type = "text";
         input.value = value || "";
@@ -164,12 +186,15 @@ export class Property {
         return input;
     }
 
-    async updateField(update: (value: string) => Promise<void>, input: HTMLInputElement, link: HTMLElement) {
-        let value = input.value;
+    async updateField(update: (value: string) => Promise<void>, input: HTMLInputElement | HTMLTextAreaElement, link: HTMLElement) {
+        let value = this.validate(input.value);
         if (value) {
             await update(value);
             input.style.display = "none";
             link.textContent = value;
+            if ((link as HTMLAnchorElement).href){
+                (link as HTMLAnchorElement).href = this.getLink(value);
+            }
             link.style.display = "block";
         } else {
             await update(input.value);

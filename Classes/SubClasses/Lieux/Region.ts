@@ -14,7 +14,6 @@ export class Region extends SubClass {
         super(classe, data);
 
     }
-
     getConstructor(){
         return Region
       }

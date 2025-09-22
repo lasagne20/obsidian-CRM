@@ -10,6 +10,8 @@ export class CommuneData extends Data{
         public codesPostaux: string[],
         public population: number,
         public siren : string,
+        public latitude: number,
+        public longitude: number,
         public parent: any,
     ) {super(name)}
 

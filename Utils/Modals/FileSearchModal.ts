@@ -15,15 +15,20 @@ export class FileSearchModal extends FuzzySuggestModal<TFile|string> {
     public choosedClass : typeof Classe | null;
     public items : string[] = [];
     public classItems : {[key : string]: typeof Classe} = {};
+    public optionnalFilter: (file: TFile) => boolean;
+    public optionnalGetItems: (() => (TFile | string)[])  | null;
 
-    constructor(vault : MyVault, onChoose: (file: TFile|string|null, classe: typeof Classe|null) => void, classes : typeof Classe[] = [], hint: string="") {
+    constructor(vault : MyVault, onChoose: (file: TFile|string|null, classe: typeof Classe|null) => void, classes : typeof Classe[] = [],
+            args : {hint?: string, optionnalFilter?: (file: TFile) => boolean, optionnalGetItems? : () => (TFile | string)[]} = {}) {
         super(vault.app);
         this.vault = vault;
         this.onChoose = onChoose;
         this.classes = classes;
-        this.hint = hint;
+        this.hint = args.hint || "Rechercher un fichier ou créer un nouveau";
         this.choosed = null
         this.choosedClass = null
+        this.optionnalFilter = args.optionnalFilter || (() => true);
+        this.optionnalGetItems = args.optionnalGetItems || null;
     }
 
     onOpen() {
@@ -51,39 +56,47 @@ export class FileSearchModal extends FuzzySuggestModal<TFile|string> {
         }
         if (this.classItems){
             Object.keys(this.classItems).forEach((value) => {
-                this.items.push(`Créer un nouveau fichier : ${value}`);
+                this.items.push(`${value}`);
             });
         }
-        console.log(this.classItems)
     }
 
-
     getItems(): (TFile | string)[] {
+        if (this.optionnalGetItems){
+            return this.optionnalGetItems();
+        }
         let files = this.app.vault.getFiles().filter(file => file.extension === "md");
         files = files.filter(file => {
             let className = this.app.metadataCache.getFileCache(file)?.frontmatter?.Classe 
             let classNames = this.classes.map(classItem => classItem.getClasse())
             return classNames.includes(className)
-        })
+        })      
+        // Filter files based on the optionnalFilter function
+        files = files.filter(file => this.optionnalFilter(file));
+
         const inputValue = this.inputEl.value.trim();
-        if (inputValue && !files.some(file => file.basename === inputValue)) {
-            (files as (TFile | string)[]).push(`Créer un nouveau fichier : ${inputValue}`);
+        if (inputValue) {
+            (files as (TFile | string)[]).push(`${inputValue}`);
         }
 
         return [...files, ...this.items];
     }
 
     getItemText(item: TFile|string): string {
-        return typeof item === "string" ? item : item.name.replace(".md","");
+        if (typeof item === "string") {
+            return `Créer un nouveau fichier : ${item}`;
+        }
+        let classe = this.vault.getFromFile(item)
+        if (classe){
+            return classe.getPrettyName();
+        }
+        return item.name.replace(/\.md$/, "");
     }
 
     onChooseItem(item: TFile |string, evt: MouseEvent | KeyboardEvent): void {
         if (typeof item === "string"){
-            let name = item.replace("Créer un nouveau fichier : ", "").trim()
-            this.choosed = name
-            console.log(this.classItems)
-            this.choosedClass = this.classes.length > 1 ? this.classItems[name] : this.classes[0]
-            console.log(this.choosedClass)
+            this.choosed = item
+            this.choosedClass = this.classes.length > 1 && this.classItems[item] ? this.classItems[item] : this.classes[0]
         }
         else{
             this.choosed = item
@@ -95,7 +108,6 @@ export class FileSearchModal extends FuzzySuggestModal<TFile|string> {
         // wait for the chosen item if one
         setTimeout(() => {
             this.onChoose(this.choosed, this.choosedClass)
-          
         }, 100); 
 
     }

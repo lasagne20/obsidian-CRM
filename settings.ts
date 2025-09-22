@@ -17,6 +17,21 @@ export class CRMSettingTab extends PluginSettingTab {
 
     containerEl.createEl("h2", { text: "Configuration du plugin" });
 
+    // Crée la configuration pour le nom personnalisé
+    new Setting(containerEl)
+      .setName("Nom personnalisé")
+      .setDesc("Sélectionner un nom personnalisé pour l'utilisateur.")
+      .addDropdown((dropdown) => {
+      const options = ["Léo", "Sylvie"]; // Liste des noms disponibles
+      options.forEach((option) => {
+        dropdown.addOption(option, option);
+      });
+      dropdown.setValue(this.plugin.settings.personalName).onChange(async (value) => {
+        this.plugin.settings.personalName = value;
+        await this.plugin.saveSettings();
+      });
+      });
+
     // Crée la configuration du dossier des templates
     new Setting(containerEl)
       .setName("Dossier des templates")

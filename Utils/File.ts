@@ -1,6 +1,6 @@
 import { App, parseYaml, TAbstractFile, TFile, TFolder } from "obsidian";
 import { MyVault } from "./MyVault";
-import { waitForMetaDataCacheUpdate } from "./Utils";
+import { waitForFileMetaDataUpdate, waitForMetaDataCacheUpdate } from "./Utils";
 import { dump } from 'js-yaml';
 
 export class File {
@@ -55,7 +55,12 @@ export class File {
     }
 
     getID(): string {
-      return this.file.path.replace(/[^a-zA-Z0-9]/g, '_');
+      let id = this.getMetadata()?.Id
+      if (!id){
+        id = require("uuid").v4()
+        this.updateMetadata("Id", id)
+      }
+      return id
     }
 
     getFilePath(){
@@ -64,10 +69,10 @@ export class File {
     }
 
     getLink(){
-      return `[[${this.getName(false)}]]`
+      return `[[${this.getFilePath()}|${this.getName(false)}]]`
     }
 
-    async move(targetFolderPath: string) {
+    async move(targetFolderPath: string, targetFileName?: string) {
       if (this.lock) {
         while (this.lock) {
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -75,38 +80,43 @@ export class File {
         }
       };
       this.lock = true;
-      // Check if the folder of the target pathname exist
-      let subtargetPath = targetFolderPath + "/" + this.getName(false)
-      const folder = this.app.vault.getAbstractFileByPath(subtargetPath);
-      if (folder) {
-        targetFolderPath = subtargetPath;
+      if (!targetFileName){
+        targetFileName = this.getName();
       }
-
-      // Check if we need to move the file or the folder
-      let moveFile : TAbstractFile = this.file
-      let newFilePath = `${targetFolderPath}/${this.getName()}`;
-      if (this.isFolderFile()){
-        let folder = this.app.vault.getAbstractFileByPath(this.getFolderPath())
-        if (folder){
-          moveFile = folder
-          newFilePath = newFilePath.replace(".md","")
-        }
-      }
-
-      // Vérification si le fichier cible existe déjà
-      const existingFile = this.app.vault.getAbstractFileByPath(newFilePath);
-      if (existingFile) {
-          console.log('Le fichier existe déjà, impossible de déplacer.');
-          this.lock = false;
-          return;
-      }
-  
       try {
-          // Essayer de déplacer le fichier
-          await this.app.vault.rename(moveFile, newFilePath);
-          console.log(`Fichier déplacé vers ${newFilePath}`);
-      } catch (error) {
-          console.error('Erreur lors du déplacement du fichier :', error);
+        // Check if the folder of the target pathname exist
+        let subtargetPath = targetFolderPath + "/" + targetFileName
+        const folder = this.app.vault.getAbstractFileByPath(subtargetPath);
+        if (folder) {
+          targetFolderPath = subtargetPath;
+        }
+
+        // Check if we need to move the file or the folder
+        let moveFile : TAbstractFile = this.file
+        let newFilePath = `${targetFolderPath}/${targetFileName}`;
+        if (this.isFolderFile()){
+          let folder = this.app.vault.getAbstractFileByPath(this.getFolderPath())
+          if (folder){
+            moveFile = folder
+            newFilePath = newFilePath.replace(".md","")
+          }
+        }
+
+        // Vérification si le fichier cible existe déjà
+        const existingFile = this.app.vault.getAbstractFileByPath(newFilePath);
+        if (existingFile) {
+            console.log('Le fichier existe déjà, impossible de déplacer.');
+            this.lock = false;
+            return;
+        }
+    
+        try {
+            // Essayer de déplacer le fichier
+            await this.app.vault.rename(moveFile, newFilePath);
+            console.log(`Fichier déplacé vers ${newFilePath}`);
+        } catch (error) {
+            console.error('Erreur lors du déplacement du fichier :', error);
+        }
       }
       finally {
           this.lock = false;
@@ -130,35 +140,36 @@ export class File {
         }
       };
       this.lock = true;
-      console.log("Update metadata on " + this.getName() +" : " + key + " --> " + value)
-      const fileContent = await this.app.vault.read(this.file);
-      const { body } = this.extractFrontmatter(fileContent);
-    
-      const { existingFrontmatter } = this.extractFrontmatter(fileContent);
-
-      if (!existingFrontmatter) {this.lock = false; return;}
-
+      
       try {
-          let frontmatter = parseYaml(existingFrontmatter);
+        console.log("Update metadata on " + this.getName() +" : " + key + " --> " + value)
+        const fileContent = await this.app.vault.read(this.file);
+        const { body } = this.extractFrontmatter(fileContent);
+      
+        const { existingFrontmatter } = this.extractFrontmatter(fileContent);
 
-          if (!frontmatter) {this.lock = false; return;};
-          frontmatter[key] = value;
-          const newFrontmatter = dump(frontmatter);
+        if (!existingFrontmatter) {this.lock = false; return;}
 
-          const newContent = `---\n${newFrontmatter}\n---\n${body}`; //${extraText}
-          await this.app.vault.modify(this.file, newContent);
-          await waitForMetaDataCacheUpdate(this.app, () => {return})
-          console.log("Metdata updated")
+        try {
+            let frontmatter = parseYaml(existingFrontmatter);
 
-      } catch (error) {
-          console.error("❌ Erreur lors du parsing du frontmatter:", error);
+            if (!frontmatter) {this.lock = false; return;};
+            frontmatter[key] = value;
+            const newFrontmatter = dump(frontmatter);
+
+            const newContent = `---\n${newFrontmatter}\n---\n${body}`; //${extraText}
+            await this.app.vault.modify(this.file, newContent);
+            await waitForFileMetaDataUpdate(this.app, this.getFilePath(), key, async () => { return; })
+            console.log("Metdata updated")
+
+        } catch (error) {
+            console.error("❌ Erreur lors du parsing du frontmatter:", error);
+        }
       }
       finally {
           this.lock = false;
       }
     }
-
-  
 
     async removeMetadata(key: string) {
       console.log("Remove metadata " + key)
@@ -171,6 +182,8 @@ export class File {
     async reorderMetadata(propertiesOrder: string[]) {
         const frontmatter = this.getMetadata();
         if (!frontmatter) return;
+
+        propertiesOrder.push("Id")
 
         if (JSON.stringify(propertiesOrder) === JSON.stringify(Object.keys(frontmatter))) return;
 

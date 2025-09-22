@@ -1,16 +1,24 @@
-import { App, TFile } from 'obsidian';
+import { TFile } from 'obsidian';
 import { FileSearchModal } from './FileSearchModal';
-import { Classe } from 'Classes/Classe';
 import { MyVault } from 'Utils/MyVault';
 
 export class MediaSearchModal extends FileSearchModal {
-    constructor(vault : MyVault, onChoose: (file: TFile | string | null) => void, hint: string = "") {
-        super(vault, onChoose, [], hint);
+
+    public extensions: string[] = ['png', 'jpg', 'jpeg', 'pdf', 'sla', 'lbrn2', "svg"];
+    public pathFolder?: string;
+
+    constructor(vault : MyVault, onChoose: (file: TFile | string | null) => void, hint: string = "", extensions?: string[], pathFolder?: string) {
+        super(vault, onChoose, [], { hint });
+        this.extensions = extensions ? extensions : this.extensions;
+        this.pathFolder = pathFolder;
     }
 
     getItems(): (TFile | string)[] {
-        const mediaExtensions = ['png', 'jpg', 'jpeg', 'pdf'];
         const allFiles = this.app.vault.getFiles();
-        return allFiles.filter(file => mediaExtensions.includes(file.extension));
+        return allFiles.filter(file => {
+            const matchesExtension = this.extensions.includes(file.extension);
+            const matchesPath = this.pathFolder ? file.path.startsWith(this.pathFolder) : true;
+            return matchesExtension && matchesPath;
+        });
     }
 }

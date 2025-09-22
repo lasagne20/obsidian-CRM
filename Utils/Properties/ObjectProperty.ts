@@ -1,32 +1,36 @@
-import { Classe } from "Classes/Classe";
+
 import { Property } from "./Property";
 import { File } from "Utils/File";
 import { MyVault } from "Utils/MyVault";
-import { addIcon, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
 import { FileProperty } from "./FileProperty";
+import { TextProperty } from "./TextProperty";
 import { MultiFileProperty } from "./MultiFileProperty";
-
 
 export class ObjectProperty extends Property{
     // Used for property object
 
     public properties : {[key : string] : Property};
     public type : string = "object";
+    public flexSpan = 2;
+    public appendFirst : boolean = false;
+    public allowMove : boolean = true;
+    public display : string = "object"; // Can be "object", "table" or "list"
 
-    constructor(name : string, icon: string = "boxes", properties : {[key : string ] : Property}, staticMode: boolean = false){
-      super(name, icon, staticMode);
-      this.properties = properties
-    }
+    constructor(name: string, properties: { [key: string]: Property }, args: { allowMove?: boolean, appendFirst?: boolean, [key: string]: any} = {}) {
+        super(name, args);
+        this.appendFirst = args?.appendFirst || false;
+        this.properties = properties;
+        this.allowMove = args?.allowMove || true;
 
-    setVault(vault: MyVault) {
-        this.vault = vault;
-        Object.values(this.properties).forEach(prop => prop.setVault(vault));
+        // Assign any additional arguments to the instance
+        Object.assign(this, args);
     }
 
     getClasses(): string[]{
         for (let prop of Object.values(this.properties)){
-            if (prop instanceof FileProperty || prop instanceof ObjectProperty || prop instanceof MultiFileProperty){
-                return prop.getClasses()
+            if (prop instanceof FileProperty || prop instanceof ObjectProperty || prop.type == "multiFile"){
+                return (prop as any).getClasses()
             }
         }
         throw new Error("No class found")
@@ -36,17 +40,55 @@ export class ObjectProperty extends Property{
     getParentValue(values : any) : File | undefined{
         if (values && values.length){
           for (let prop of Object.values(this.properties)){
-            if (prop instanceof FileProperty || prop instanceof ObjectProperty || prop instanceof MultiFileProperty){
-              return prop.getParentValue(values[0][prop.name])
+            if (prop instanceof FileProperty || prop instanceof ObjectProperty || prop.type == "multiFile"){
+              return (prop as any).getParentValue(values[0][prop.name])
             }
           }
         }
     }
 
+    findValue(file: any, value: string, propertyName: string): any {
+        let values = this.read(file);
+        if (values && values.length){
+            for (let i = 0; i < values.length; i++) {
+                for (let prop of Object.values(this.properties)){
+                    let propValue = values[i][prop.name];
+                    if (propValue && (propValue == value || (typeof propValue === "string" && propValue.includes(value)))) {
+                        return values[i][propertyName]
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+
+    getDisplayProperties(file: File, propertyClasseName : string, propertyName : string, isStatic: boolean = true): {classe : any , display : any}[] {
+        let properties: {classe : any , display : any}[] = [];
+        this.vault = file.vault;
+        let values = this.read(file);
+        if (!(propertyName in this.properties)){
+            throw new Error("Property " + propertyName + " not found in ObjectProperty " + this.name);
+        }
+        let property = this.properties[propertyName];
+
+        if (values && values.length){
+            for (let [index, row] of values.entries()) {
+                property.static = isStatic;
+                let display = property.fillDisplay(this.vault, row[property.name],
+                    async (value) => await this.updateObject(values, async (value) => await file.updateMetadata(this.name, value), index, property, value));
+                
+                let classe = this.vault.getFromLink(row[this.properties[propertyClasseName].name])
+                properties.push({classe: classe, display : display});
+            }
+        }
+        return properties;
+    }
+
     formatParentValue(value : string){
         let newObject: any = {};
         Object.values(this.properties).forEach(prop => {
-            if (value && prop instanceof FileProperty || prop instanceof ObjectProperty || prop instanceof MultiFileProperty){
+            if (value && prop instanceof FileProperty || prop instanceof ObjectProperty || prop.type == "multiFile"){
                 newObject[prop.name] = value
                 value = "" // Only one parent
             }
@@ -57,19 +99,78 @@ export class ObjectProperty extends Property{
         return [newObject]
     }
 
+    getDisplay(file: any, args?: { staticMode?: boolean; title?: string; display? : string}): HTMLDivElement {
+        this.display = args?.display || this.display;
+        return super.getDisplay(file, args);
+    }
+
      // Méthode principale pour obtenir l'affichage
-     fillDisplay(values: any, update: (value: any) => Promise<void>) {
+     fillDisplay(vault : any, values: any, update: (value: any) => Promise<void>) {
+        this.vault = vault
         const container = document.createElement("div");
         container.classList.add("metadata-object-container-"+this.name.toLowerCase());
 
         // Créer l'en-tête
         this.createHeader(values, update, container);
 
+        if (this.display == "table") {
+            this.createTable(values, update, container);
+        }
+        else {
+            // Affichage par défaut (objet)
+            this.createObjects(values, update, container);
+        }
         // Créer les lignes d'objet
-        this.createObjects(values, update, container);
+        
 
         return container;
       }
+    createTable(values: any, update: (value: any) => Promise<void>, container: HTMLDivElement) {
+        // Créer un tableau pour les objets
+        const tableWrapper = document.createElement("div");
+        tableWrapper.style.position = "relative";
+        container.appendChild(tableWrapper);
+
+        const table = document.createElement("table");
+        table.classList.add("metadata-object-table");
+        tableWrapper.appendChild(table);
+
+        // Créer l'en-tête du tableau
+        const headerRow = document.createElement("tr");
+        Object.values(this.properties).forEach(property => {
+            const th = document.createElement("th");
+            th.textContent = property.name;
+            headerRow.appendChild(th);
+        });
+        // Ajouter une colonne pour le bouton de suppression
+        const thDelete = document.createElement("th");
+        headerRow.appendChild(thDelete);
+
+        table.appendChild(headerRow);
+
+        if (values && values.length) {
+            // Créer les lignes d'objet
+            values.forEach((objects: any, index: number) => {
+                const row = document.createElement("tr");
+                Object.values(this.properties).forEach(property => {
+                    const td = document.createElement("td");
+                    td.appendChild(property.fillDisplay(this.vault, objects[property.name],
+                        async (value) => await this.updateObject(values, update, index, property, value)));
+                    row.appendChild(td);
+                });
+
+                // Cellule pour le bouton de suppression
+                const tdDelete = document.createElement("td");
+                tdDelete.classList.add("metadata-object-delete-cell");
+                const deleteButton = this.createDeleteButton(values, update, index, container);
+                deleteButton.classList.add("metadata-object-delete-button");
+                tdDelete.appendChild(deleteButton);
+
+                row.appendChild(tdDelete);
+                table.appendChild(row);
+            });
+        }
+    }
   
       // Crée l'en-tête avec les propriétés
       createHeader(values : any, update : (value: any) => Promise<void>, container: HTMLDivElement) {
@@ -77,7 +178,7 @@ export class ObjectProperty extends Property{
           headerRow.classList.add("metadata-object-header-row");
 
           let title = document.createElement("div");
-          title.textContent = this.name + " : ";
+          title.textContent = this.title ? this.title : this.name + " : ";
           title.classList.add("metadata-header");
           headerRow.appendChild(title);
   
@@ -104,16 +205,22 @@ export class ObjectProperty extends Property{
               const row = this.createObjectRow(values, update, objects, index, container);
               container.appendChild(row);
           });
-          this.enableDragAndDrop(values, update, container);
+          if (this.allowMove){
+              this.enableDragAndDrop(values, update, container);
+          }
+         
       }
   
       // Crée une ligne d'objet avec ses propriétés
     createObjectRow(values : any, update : (value: any) => Promise<void>, objects: any, index: number, container: HTMLDivElement): HTMLDivElement {
         const row = document.createElement("div");
         row.classList.add("metadata-object-row");
-        row.draggable = true;
-        row.dataset.index = index.toString();
 
+        if (this.allowMove){
+            row.draggable = true;
+            row.dataset.index = index.toString();
+            row.style.cursor = "grab";
+        }
         // Ajouter le bouton de suppression
         const deleteButton = this.createDeleteButton(values, update, index, container);
         deleteButton.style.position = "absolute";
@@ -122,31 +229,25 @@ export class ObjectProperty extends Property{
         row.style.position = "relative";
         row.appendChild(deleteButton);
 
-
-        Object.keys(objects).forEach(name => {
-
-          const property = Object.values(this.properties).find(prop => prop.name === name);
-          if (property){
+        Object.values(this.properties).forEach(property => {
             let value = objects[property.name]
-
-
             let propertyContainer = document.createElement("div");
             propertyContainer.classList.add("metadata-object-property");
-            if (property instanceof ObjectProperty) {
-                propertyContainer.style.gridColumn = "span 2";
-            } else {
-                propertyContainer.style.gridColumn = "span 1";
+
+            if (property.flexSpan){
+                propertyContainer.style.gridColumn = "span "+property.flexSpan;
             }
 
             const title = document.createElement("div");
             title.textContent = property.name;
             title.classList.add("metadata-title");
             propertyContainer.appendChild(title);
-            propertyContainer.appendChild(property.fillDisplay(value,
+            propertyContainer.appendChild(property.fillDisplay(this.vault, value,
                 async (value) => await this.updateObject(values, update, index, property, value)));
             row.appendChild(propertyContainer);
-          }
+
         });
+
         return row;
       }
   
@@ -248,9 +349,41 @@ export class ObjectProperty extends Property{
       async addProperty(values : any, update : (value: any) => Promise<void>, container: HTMLDivElement) {
           console.log("Add new")
           let newObject: any = {};
-          Object.values(this.properties).forEach(prop => newObject[prop.name] = ""); // Valeurs par défaut
-          if (!values){values = []}
-          values.push(newObject);
+          for (let prop of Object.values(this.properties)) {
+            let defaultValue = prop.getDefaultValue(this.vault)
+            console.log("Default value : ", defaultValue)
+            if (Object.values(this.properties)[0] == prop && (prop instanceof FileProperty)) {
+                prop.vault = this.vault; // Assurez-vous que vault est défini pour le premier FileProperty
+                defaultValue = await new Promise(async (resolve) => {
+                    await prop.handleIconClick(async (value) => {
+                        resolve(value);
+                        console.log("Default value after click : ", value);
+                    }, new MouseEvent("click"));
+                });
+            }
+            console.log("Default value after click : ", defaultValue);
+
+            if (defaultValue == "like-precedent"){
+                if (values && values.length){
+                    if (this.appendFirst){
+                        defaultValue = values[0][prop.name]
+                    }
+                    else {
+                        defaultValue = values[values.length-1][prop.name]
+                    }
+                }
+                else {defaultValue = ""}
+            }
+            newObject[prop.name] = defaultValue
+        
+        }; 
+        // Valeurs par défaut
+        if (!values){values = []}
+        if (this.appendFirst) {
+            values.unshift(newObject);
+        } else {
+            values.push(newObject);
+        }
           await update(values);
           await this.reloadObjects(values, update)
       }
@@ -277,7 +410,13 @@ export class ObjectProperty extends Property{
             // Recréer l'en-tête et les objets
             console.log("Values : ", values)
             this.createHeader(values, update, container);
-            this.createObjects(values, update, container);
+            if (this.display == "table") {
+                this.createTable(values, update, container);
+            }
+            else {
+                // Affichage par défaut (objet)
+                this.createObjects(values, update, container);
+            }
         }
         
     }

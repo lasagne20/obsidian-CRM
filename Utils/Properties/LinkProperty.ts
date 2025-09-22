@@ -1,6 +1,6 @@
 import { MyVault } from "Utils/MyVault";
 import { Property } from "./Property";
-import { setIcon } from "obsidian";
+import { Notice, setIcon } from "obsidian";
 
 
 
@@ -8,10 +8,21 @@ export class LinkProperty extends Property{
 
   public type : string = "link";
 
-    // Used for property hidden for the user
-    constructor(name : string, icon: string = "square-arrow-out-up-right",  staticProperty : boolean=false) {
-      super(name, icon, staticProperty)
+  constructor(name: string, args: { icon?: string} = { icon: "square-arrow-out-up-right" }) {
+    super(name, args);
+  }
+
+  createIconContainer(update: (value: string) => Promise<void>) {
+    const iconContainer = super.createIconContainer(update);
+    iconContainer.style.cursor = "pointer";
+
+    if (!this.static) {
+      iconContainer.addEventListener("click", (event) => this.modifyField(event));
     }
+
+    return iconContainer;
+  }
+
 
     validate(url: string) {
       // Ajoute le préfixe "http://" si l'URL ne commence pas par http:// ou https://
@@ -28,22 +39,43 @@ export class LinkProperty extends Property{
       return fixedUrl;
     }
 
-    // Fonction pour créer le conteneur de l'icône
-    createIconContainer(update: (value: string) => Promise<void>) {
-        const iconContainer = super.createIconContainer(update);
-        iconContainer.style.cursor = "pointer";
-        if (!this.static){
-          iconContainer.addEventListener("click", (event)  => this.modifyField(event));
+
+    getPretty(value: string) {
+      if (!value) return value;
+      try {
+        const urlObj = new URL(value);
+        // Garde le domaine, puis les premiers segments du chemin si trop long
+        let pretty = urlObj.hostname;
+        if (urlObj.pathname && urlObj.pathname !== "/") {
+          const segments = urlObj.pathname.split("/").filter(Boolean);
+          if (segments.length > 2) {
+            pretty += "/" + segments.slice(0, 2).join("/") + "/...";
+          } else {
+            pretty += urlObj.pathname;
+          }
         }
-        return iconContainer;
+        return pretty;
+      } catch {
+        // Si ce n'est pas une URL valide, retourne la valeur d'origine sans protocole
+        return value.replace(/^https?:\/\//, "");
+      }
     }
 
     // Fonction pour créer le lien de l'field
     createFieldLink(value: string) : any {
       const link = document.createElement("a");
       link.href = this.getLink(value);
-      link.textContent = value || "";
+      link.textContent = this.getPretty(value) || "";
       link.classList.add("field-link");
+      link.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        const value = link.textContent;
+        if (value) {
+          navigator.clipboard.writeText(value).then(() => {
+        new Notice("Lien copié dans le presse-papiers");
+          });
+        }
+      });
       return link;
     }
 }
