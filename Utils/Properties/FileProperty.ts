@@ -55,7 +55,17 @@ export class FileProperty extends LinkProperty{
     if (vault) {
       this.vault = vault;
     }
-    return `obsidian://open?vault=${this.vault.app.vault.getName()}&file=${encodeURIComponent(this.vault.readLinkFile(value, true))}`
+    const vaultName = this.vault.app.vault.getName(); 
+    const filePath = this.vault.readLinkFile(value, true);
+
+    // If readLinkFile returned a path and the file exists in the vault, use it.
+    if (filePath && this.vault.app.vault.getAbstractFileByPath(filePath)) {
+      return `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(filePath)}`;
+    }
+
+    // Fallback: extract the name only from the link
+    const nameOnly = this.vault.readLinkFile(value);
+    return `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(nameOnly)}`;
    }
   
    createIconContainer(update: (value: string) => Promise<void>) {

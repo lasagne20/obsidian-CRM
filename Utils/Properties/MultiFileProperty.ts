@@ -2,7 +2,7 @@
 import { ObjectProperty } from "./ObjectProperty";
 import { FileProperty } from "./FileProperty";
 import { setIcon } from "obsidian";
-import { selectFile } from "Utils/Modals/Modals";
+import { selectFile, selectMultipleFile } from "Utils/Modals/Modals";
 import { File } from "Utils/File";
 import { MyVault } from "Utils/MyVault";
 
@@ -84,12 +84,14 @@ export class MultiFileProperty extends ObjectProperty {
     }
 
     async addProperty(values: any, update: (value: any) => Promise<void>, container: HTMLDivElement) {
-        let newFile = await selectFile(this.vault, this.classes, {hint:"Choisissez un fichier " + this.getClasses().join(" ou ")});
-        if (newFile) {
-            if (!values){values = []}
-            values.push(newFile.getLink());
+        const newFiles = await selectMultipleFile(this.vault, this.classes, { hint: "Choisissez des fichiers " + this.getClasses().join(" ou ") });
+        if (newFiles && newFiles.length > 0) {
+            if (!values) { values = []; }
+            newFiles.forEach((file: File) => {
+                values.push(file.getLink());
+            });
             await update(values);
-            await this.reloadObjects(values, update)
+            await this.reloadObjects(values, update);
         }
     }
 

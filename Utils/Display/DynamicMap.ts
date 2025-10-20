@@ -91,6 +91,9 @@ export class DynamicMap {
     }[]) {
         if (!this.map) return;
         points.forEach(point => {
+            if (point.latitude === undefined || point.longitude === undefined) {
+                return;
+            }
             const marker = L.marker([point.latitude, point.longitude], {
                 icon: L.divIcon({
                     className: "custom-lucide-marker",

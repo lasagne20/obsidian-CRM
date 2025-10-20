@@ -131,9 +131,17 @@ export class ObjectProperty extends Property{
         tableWrapper.style.position = "relative";
         container.appendChild(tableWrapper);
 
+        let addButton = this.createAddButton(values, update, container)
+        addButton.style.position = "absolute";
+        addButton.style.top = "0";
+        addButton.style.right = "0";
+        tableWrapper.appendChild(addButton);
+
+
         const table = document.createElement("table");
         table.classList.add("metadata-object-table");
         tableWrapper.appendChild(table);
+
 
         // Créer l'en-tête du tableau
         const headerRow = document.createElement("tr");

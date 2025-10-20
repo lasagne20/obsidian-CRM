@@ -161,13 +161,12 @@ export class Action extends Classe {
       container.appendChild(tabs.getContainer())
       
       
-      
-      
       return container
     }
 
     async check(){
       this.startWith(Action.Properties.date)
+      super.check() 
     }
   }
   

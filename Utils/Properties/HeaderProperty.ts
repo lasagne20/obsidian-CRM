@@ -26,7 +26,6 @@ export class HearderProperty extends Property {
         return field;
     }
 
-
   createFieldInput(value: string) {
     const input = document.createElement("input");
     input.type = "text";
@@ -35,7 +34,6 @@ export class HearderProperty extends Property {
     
 
     return input;
-
   }
 
   createFieldContainer() {

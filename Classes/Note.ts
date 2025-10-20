@@ -2,6 +2,7 @@ import { Classe } from "Classes/Classe";
 import { App, TFile } from "obsidian";
 import { MyVault } from "Utils/MyVault";
 import { ClasseProperty } from "Utils/Properties/ClasseProperty";
+import { DateProperty } from "Utils/Properties/DateProperty";
 
 import { Property } from "Utils/Properties/Property";
 import { SelectProperty } from "Utils/Properties/SelectProperty";
@@ -14,7 +15,7 @@ export class Note extends Classe {
     
     public static Properties : { [key: string]: Property } = {
       classe : new ClasseProperty("Classe", this.classIcon),
-      date : new Property("Date", {icon: "calendar", defaultValue: new Date().toLocaleDateString("fr-FR")}),
+      date : new DateProperty("Date", ["today"], {icon: "calendar", defaultValue: new Date().toLocaleDateString("fr-FR")}),
       type : new SelectProperty("Type", [
         {name: "Note", color: "blue"},
         {name: "Rapport", color: "green"},

@@ -23,6 +23,8 @@ import { Personne } from "./Personne";
 import { FormulaProperty } from "Utils/Properties/FormulaProperty";
 import { DynamicTable } from "Utils/Display/DynamicTable";
 import { addButton } from "Utils/Display/Utils";
+import { MediaProperty } from "Utils/Properties/MediaProperty";
+import { Tabs } from "Utils/Display/Tabs";
 
 
 export class Animateur extends Classe {
@@ -36,6 +38,15 @@ export class Animateur extends Classe {
     public static Properties : { [key: string]: Property } ={
       classe : new ClasseProperty("Classe", this.classIcon),
       personne : new FileProperty("Personne", ["Personne"], {icon : Personne.classIcon}),
+      facturations : new ObjectProperty("Facturations", {
+        Animations : new MultiFileProperty("Animations", ["Action"], {icon: "run"}),
+        facture : new MediaProperty("Facture", {icon: "file"}),
+        etat : new SelectProperty("Etat", [
+          {name: "A facturer", color: "red"},
+          {name: "Facturé", color: "green"},
+          {name: "Payé", color: "blue"},
+          {name: "Formation", color: "yellow"},
+        ], {defaultValue: "A facturer"}),}),
     }
     
     constructor(app : App, vault:MyVault, file : TFile) {
@@ -72,6 +83,11 @@ export class Animateur extends Classe {
       firstContainer.appendChild(Animateur.Properties.personne.getDisplay(this, {title: "Personne : "}))
       container.appendChild(firstContainer)
 
+      const secondContainer = document.createElement("div");
+      secondContainer.classList.add("metadata-line");
+      secondContainer.appendChild(Animateur.Properties.facturations.getDisplay(this))
+      container.appendChild(secondContainer)
+
       let button = addButton("Ajouter une animation", async () => {
         let action = await selectFile(this.vault, ["Action"], {hint: "Selectionner une action"})
         if (!action) {return}
@@ -83,30 +99,66 @@ export class Animateur extends Classe {
       })
       container.appendChild(button)
 
-      let data = this.getIncomingLinks().filter((link) => link.getClasse() == "Action" && link.getMetadataValue("Etat") != "Annulé")
-      let table = new DynamicTable(this.vault, data)
-      table.addColumn("Date", "date")
-      table.addColumn("Etat", "etat", {filter: "multi-select"})
-      table.addColumn("Montant", `
+      let actions = this.getIncomingLinks().filter((link) => link.getClasse() == "Action" && link.getMetadataValue("Etat") != "Annulé")
+      // Filtrer les actions qui sont dans la propriété Facturations.Animations
+      let facturations = Animateur.Properties.facturations.read(this) || {};
+      if (!facturations || !facturations.length) {facturations = []}
+      let actions_facturé = actions.filter((action) => {
+        return facturations.some((f : any) => f.Animations.some((a: string) => {
+          console.log("Comparing:", a, action.getName(false));
+          return a.contains(action.getName(false))}));
+      });
+      let actions_non_facturé = actions.filter((action) => {
+        return !facturations.some((f : any) => f.Animations.some((a: string) => a.contains(action.getName(false))));
+      });
+      
+      let tabs = new Tabs();
+      
+      let table_non_facturé = new DynamicTable(this.vault, actions_non_facturé);
+      table_non_facturé.addColumn("Date", "date")
+      table_non_facturé.addColumn("Etat", "etat", {filter: "multi-select"})
+      table_non_facturé.addColumn("Montant", `
       if (!Animateurs) {return ""}
       for (let animateur of Animateurs){
-        if (animateur.Animateur == "${this.getLink()}" && animateur.Tarif){
+        if (animateur.Animateur.includes("${this.getName(false)}") && animateur.Tarif){
           return animateur.Tarif + ' €'
         }
      }
-      `)
-      table.addTotalRow("Montant", (values) => {
+      `) 
+      table_non_facturé.addTotalRow("Montant", (values) => {
       return values.reduce((acc, value) => acc + value, 0) + ' €'
       })
-      table.sortTableByColumn("Date");
+      table_non_facturé.sortTableByColumn("Date");
 
-      container.appendChild(table.getTable())
+      tabs.addTab("Animations non facturées", table_non_facturé.getTable())
+
+      let table_facturé = new DynamicTable(this.vault, actions_facturé);
+      table_facturé.addColumn("Date", "date")
+      table_facturé.addColumn("Etat", "etat", {filter: "multi-select"})
+      table_facturé.addColumn("Montant", `
+      if (!Animateurs) {return ""}
+      for (let animateur of Animateurs){
+        if (animateur.Animateur.includes("${this.getName(false)}") && animateur.Tarif){
+          return animateur.Tarif + ' €'
+        }
+      }
+      `)
+      table_facturé.addTotalRow("Montant", (values) => {
+      return values.reduce((acc, value) => acc + value, 0) + ' €'
+      })
+      table_facturé.sortTableByColumn("Date");
+
+      tabs.addTab("Animations facturées", table_facturé.getTable())
+
+
+      container.appendChild(tabs.getContainer())
       
       return container
     }
 
     // Validate that the file content is standart
     async check(){
+
       await super.check()
     }
     
