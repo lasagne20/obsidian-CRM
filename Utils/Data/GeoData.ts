@@ -1,4 +1,4 @@
-import { App } from 'obsidian';
+import AppShim from '../App';
 import { GenerativeData } from './GenerativeData';
 import { RegionData } from './RegionData';
 import { Data } from './Data';
@@ -64,9 +64,9 @@ class GeoDataStructure extends Data{
 export class GeoData {
     private data: GeoDataStructure;
     public generativeDataList: GenerativeData[];
-    public app: App;
+    public app: AppShim;
 
-    constructor(app: App, filePath: string, generativeSettings: { [key: string]: string }[]) {
+    constructor(app: AppShim, filePath: string, generativeSettings: { [key: string]: string }[]) {
         this.app = app;
         this.loadGeoData(filePath, generativeSettings);
     }

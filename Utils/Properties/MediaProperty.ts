@@ -1,6 +1,6 @@
 import { File } from "Utils/File";
 import { FileProperty } from "./FileProperty";
-import { Notice, setIcon } from "obsidian";
+import { Notice, setIcon } from "../App";
 import { selectMedia } from "Utils/Modals/Modals";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -110,7 +110,7 @@ export class MediaProperty extends FileProperty{
                     }
                     for (const testName of testList) {
                       mediaPath = folder ? `${folder}/${testName}.glb` : `${testName}.glb`;
-                      if (this.vault.app.vault.getFiles().find(f => f.path === mediaPath)) {
+                      if (this.vault.app.vault.getFiles().find((f: any) => f.path === mediaPath)) {
                         break;
                       }
                 }
@@ -256,7 +256,7 @@ export class MediaProperty extends FileProperty{
 
       
       // Check if the file exists in the vault before trying to load it
-      const fileExists = this.vault.app.vault.getFiles().find(f => f.path === mediaPath);
+      const fileExists = this.vault.app.vault.getFiles().find((f: any) => f.path === mediaPath);
       if (!fileExists) {
         const errorDiv = document.createElement("div");
         errorDiv.textContent = `Rendu 3D introuvable.Ouvrer le fichier dans FreeCAD pour le créer.`;
@@ -488,7 +488,7 @@ export class MediaProperty extends FileProperty{
       if (!currentField){return}
       event.preventDefault();
       
-      const file = this.vault.app.vault.getFiles().find(f => f.name === currentField);
+      const file = this.vault.app.vault.getFiles().find((f: any) => f.name === currentField);
       if (file) {
           const leaf = this.vault.app.workspace.getLeaf();
           await leaf.openFile(file);

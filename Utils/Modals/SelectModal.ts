@@ -1,4 +1,4 @@
-import { App, TFile, FuzzySuggestModal, FuzzyMatch } from "obsidian";
+import AppShim, { TFile, FuzzySuggestModal, FuzzyMatch } from "../App";
 import { File } from "../File";
 
 /**
@@ -11,8 +11,8 @@ export class SelectModal extends FuzzySuggestModal<string> {
     private hint : string;
     private choosed : any
 
-    constructor(app: App, onChoose: (value : any) => void, onExit: (value? : any |null) => void, list : { [key: string]: any }, hint: string="") {
-        super(app);
+    constructor(app: AppShim, onChoose: (value : any) => void, onExit: (value? : any |null) => void, list : { [key: string]: any }, hint: string="") {
+        super(app.realObsidianApp || app as any);
         this.onChoose = onChoose;
         this.onExit = onExit;
         this.list = list;

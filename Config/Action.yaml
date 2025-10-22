@@ -1,0 +1,286 @@
+className: "Action"
+classIcon: "smile"
+
+subClasses:
+  - name: "Formation"
+    icon: "graduation-cap"
+    properties:
+      - name: "duree"
+        type: "NumberProperty"
+        icon: "clock"
+        default: "0"
+      - name: "formateurs"
+        type: "MultiFileProperty"
+        icon: "user-check"
+        default: ""
+        classes: "Personne"
+  - name: "Evenement" 
+    icon: "calendar"
+    properties:
+      - name: "type_evenement"
+        type: "SelectProperty"
+        icon: "tag"
+        default: "Conférence"
+        options: "Conférence:blue,Atelier:green,Séminaire:purple"
+
+parentProperty:
+  type: "ObjectProperty"
+  name: "Clients"
+  properties:
+    client:
+      type: "FileProperty"
+      name: "Client"
+      classes: ["Institution", "Lieu"]
+      icon: "hand"
+    contacts:
+      type: "MultiFileProperty"
+      name: "Contact"
+      classes: ["Personne"]
+      icon: "link"
+    public:
+      type: "SelectProperty"
+      name: "Public"
+      options:
+        - name: "Ecoliers"
+          color: ""
+        - name: "Collégiens"
+          color: ""
+        - name: "Lycéens"
+          color: ""
+        - name: "Collaborateurs"
+          color: ""
+        - name: "Grand public"
+          color: ""
+        - name: "Retraités"
+          color: ""
+        - name: "Autres"
+          color: ""
+      icon: "users"
+    nombre:
+      type: "NumberProperty"
+      name: "Participants"
+      icon: "users"
+
+properties:
+  classe:
+    type: "ClasseProperty"
+    name: "Classe"
+    icon: "smile"
+  
+  clients:
+    type: "ObjectProperty"
+    name: "Clients"
+    properties:
+      client:
+        type: "FileProperty"
+        name: "Client"
+        classes: ["Institution", "Lieu"]
+        icon: "hand"
+      contacts:
+        type: "MultiFileProperty"
+        name: "Contact"
+        classes: ["Personne"]
+        icon: "link"
+      public:
+        type: "SelectProperty"
+        name: "Public"
+        options:
+          - name: "Ecoliers"
+            color: ""
+          - name: "Collégiens"
+            color: ""
+          - name: "Lycéens"
+            color: ""
+          - name: "Collaborateurs"
+            color: ""
+          - name: "Grand public"
+            color: ""
+          - name: "Retraités"
+            color: ""
+          - name: "Autres"
+            color: ""
+        icon: "users"
+      nombre:
+        type: "NumberProperty"
+        name: "Participants"
+        icon: "users"
+  
+  financeurs:
+    type: "ObjectProperty"
+    name: "Financeurs"
+    properties:
+      financeur:
+        type: "FileProperty"
+        name: "Financeur"
+        classes: ["Institution", "Evenement", "Lieu"]
+        icon: "badge-euro"
+      contacts:
+        type: "MultiFileProperty"
+        name: "Contacts"
+        classes: ["Personne"]
+      montant:
+        type: "NumberProperty"
+        name: "Montant"
+        icon: "euro-sign"
+  
+  partenariats:
+    type: "ObjectProperty"
+    name: "Partenariats"
+    properties:
+      partenariat:
+        type: "FileProperty"
+        name: "Partenariat"
+        classes: ["Partenariat"]
+        icon: "handshake"
+      montant:
+        type: "NumberProperty"
+        name: "Montant"
+        icon: "euro-sign"
+  
+  date:
+    type: "RangeDateProperty"
+    name: "Date"
+  
+  event:
+    type: "FileProperty"
+    name: "Evénement"
+    classes: ["Evenement"]
+    icon: "ticket-check"
+  
+  priority:
+    type: "RatingProperty"
+    name: "Priorité"
+  
+  address:
+    type: "AdressProperty"
+    icon : "map-pin"
+    name: "Adresse"
+  
+  etat:
+    type: "SelectProperty"
+    name: "Etat"
+    options:
+      - name: "Piste"
+        color: "gray"
+      - name: "Réflexion"
+        color: "blue"
+      - name: "Devis envoyé"
+        color: "orange"
+      - name: "Devis signé"
+        color: "green"
+      - name: "Date validée"
+        color: "green"
+      - name: "Réalisé"
+        color: "purple"
+      - name: "Facturé"
+        color: "red"
+      - name: "Payé"
+        color: "gold"
+      - name: "Annulé"
+        color: "black"
+  
+  animateurs:
+    type: "ObjectProperty"
+    name: "Animateurs"
+    properties:
+      animateur:
+        type: "FileProperty"
+        name: "Animateur"
+        classes: ["Animateur"]
+        icon: "contact-round"
+      tarif:
+        type: "NumberProperty"
+        name: "Tarif"
+        icon: "euro-sign"
+  
+  montant:
+    type: "FormulaProperty"
+    name: "Montant total"
+    formula: "return (Financeurs ? Financeurs.reduce((sum, f) => sum + Number(f.Montant || 0), 0) : 0) + (Partenariats ? Partenariats.reduce((sum, p) => sum + Number(p.Montant || 0), 0) : 0) + ' €'"
+  
+  participants:
+    type: "FormulaProperty"
+    name: "Participants"
+    formula: "return (Clients ? Clients.reduce((sum, f) => sum + Number(f.Participants || 0), 0) : 0)"
+  
+  animations:
+    type: "ObjectProperty"
+    name: "Animations"
+    display: "table"
+    properties:
+      animation:
+        type: "SelectProperty"
+        name: "Animation"
+        options:
+          - name: "Atelier Energie"
+            color: "blue"
+        icon: "lightning"
+      type:
+        type: "SelectProperty"
+        name: "Type"
+        options:
+          - name: "L'energie de nos mains"
+            color: "blue"
+          - name: "Explorer nos énergies"
+            color: "blue"
+          - name: "Construire nos énergies"
+            color: "green"
+          - name: "Oser partager nos énergies"
+            color: "purple"
+        icon: "book-open"
+      description:
+        type: "TextProperty"
+        name: "Description"
+        icon: "file-text"
+  
+  presse:
+    type: "ObjectProperty"
+    name: "Presse"
+    properties:
+      media:
+        type: "MediaProperty"
+        name: "Media"
+        icon: "newspaper"
+      link:
+        type: "LinkProperty"
+        name: "Lien"
+        icon: "link"
+      description:
+        type: "TextProperty"
+        name: "Description"
+        icon: "file-text"
+  
+  visibilité:
+    type: "ObjectProperty"
+    name: "Visibilité"
+    properties:
+      type:
+        type: "MultiSelectProperty"
+        name: "Type"
+        options:
+          - name: "Parent"
+            color: "blue"
+          - name: "Elus"
+            color: "blue"
+      nombre:
+        type: "NumberProperty"
+        name: "Nombre de personnes"
+        icon: "users"
+      description:
+        type: "TextProperty"
+        name: "Description"
+        icon: "file-text"
+
+display:
+  layout: "custom"
+  containers:
+    - type: "line"
+      className: "metadata-line"
+      properties: ["classe", "address", "date", "etat", "montant"]
+    
+    - type: "tabs"
+      tabs:
+        - name: "Gestion"
+          properties: ["clients", "financeurs", "partenariats"]
+        - name: "Animations"
+          properties: ["animateurs", "animations", "presse", "visibilité"]

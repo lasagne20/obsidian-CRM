@@ -1,6 +1,6 @@
 import { MyVault } from 'Utils/MyVault';
 import { Property } from './Property';
-import { setIcon } from 'obsidian';
+import { setIcon } from '../App';
 
 export class BooleanProperty extends Property {
 

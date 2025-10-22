@@ -1,0 +1,68 @@
+className: "ExempleFormat"
+classIcon: "example"
+
+# Exemple montrant les deux formats (ancien et nouveau CSV)
+properties:
+  # Format CSV (nouveau) - Plus compact et lisible
+  - name: "nom"
+    type: "Property"
+    icon: "user"
+    default: ""
+  
+  - name: "email"
+    type: "EmailProperty"
+    icon: "mail"
+    default: ""
+  
+  - name: "statut"
+    type: "SelectProperty" 
+    icon: "activity"
+    default: "Actif"
+    options: "Actif:green,Inactif:red,En attente:orange"
+  
+  - name: "competences"
+    type: "MultiSelectProperty"
+    icon: "brain"
+    default: ""
+    options: "JavaScript:blue,Python:yellow,TypeScript:blue"
+  
+  - name: "lieu"
+    type: "FileProperty"
+    icon: "map-pin"
+    default: ""
+    classes: "Lieu,Institution"
+
+  # Format objet (ancien) - Toujours supporté
+  telephone:
+    type: "PhoneProperty"
+    name: "Téléphone"
+    icon: "phone"
+    defaultValue: ""
+  
+  adresse:
+    type: "ObjectProperty"
+    name: "Adresse"
+    properties:
+      rue:
+        type: "Property"
+        name: "Rue"
+      ville:
+        type: "Property" 
+        name: "Ville"
+      codePostal:
+        type: "Property"
+        name: "Code postal"
+
+display:
+  layout: "custom"
+  containers:
+    - type: "line"
+      className: "metadata-line"
+      properties: ["nom", "email", "telephone"]
+    
+    - type: "tabs"
+      tabs:
+        - name: "Profil"
+          properties: ["statut", "competences", "lieu"]
+        - name: "Contact"
+          properties: ["adresse"]

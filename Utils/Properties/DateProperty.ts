@@ -4,7 +4,7 @@ import { File } from "Utils/File";
 import { MyVault } from "Utils/MyVault";
 import flatpickr from "flatpickr";
 import { French } from "flatpickr/dist/l10n/fr.js";
-import { setIcon } from "obsidian";
+import { setIcon } from "../App";
 import { Classe } from "Classes/Classe";
 
 const iconMap : {[key: string] : string}= { 

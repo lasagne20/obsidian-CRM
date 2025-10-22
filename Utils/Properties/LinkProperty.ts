@@ -1,6 +1,6 @@
 import { MyVault } from "Utils/MyVault";
 import { Property } from "./Property";
-import { Notice, setIcon } from "obsidian";
+import { Notice, setIcon } from "../App";
 
 
 

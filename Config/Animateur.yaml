@@ -1,0 +1,54 @@
+className: "Animateur"
+classIcon: "contact-round"
+
+parentProperty:
+  type: "FileProperty"
+  name: "Departement"
+  classes: ["Lieu"]
+  icon: "map-pin"
+
+properties:
+  classe:
+    type: "ClasseProperty"
+    name: "Classe"
+    icon: "contact-round"
+  
+  personne:
+    type: "FileProperty"
+    name: "Personne"
+    classes: ["Personne"]
+    icon: "circle-user-round"
+  
+  facturations:
+    type: "ObjectProperty"
+    name: "Facturations"
+    properties:
+      animations:
+        type: "MultiFileProperty"
+        name: "Animations"
+        classes: ["Action"]
+        icon: "run"
+      etat:
+        type: "SelectProperty"
+        name: "Etat"
+        options:
+          - name: "A facturer"
+            color: "red"
+          - name: "Facturé"
+            color: "green"
+          - name: "Payé"
+            color: "blue"
+          - name: "Formation"
+            color: "yellow"
+        defaultValue: "A facturer"
+
+display:
+  layout: "custom"
+  containers:
+    - type: "line"
+      className: "metadata-line"
+      properties: ["classe", "personne"]
+    
+    - type: "line"
+      className: "metadata-line"
+      properties: ["facturations"]

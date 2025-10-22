@@ -1,21 +1,23 @@
-import {TFile, App, TAbstractFile, TFolder, FrontMatterCache} from 'obsidian';
+import AppShim, {TFile, TFolder, isTFile, isTFolder} from '../Utils/App';
 import { MyVault } from '../Utils/MyVault';
 import { File } from '../Utils/File';
 import { Property } from '../Utils/Properties/Property';
 import { FileProperty } from '../Utils/Properties/FileProperty';
 import { MultiFileProperty } from '../Utils/Properties/MultiFileProperty';
-import { SubClassProperty } from 'Utils/Properties/SubClassProperty';
+import { SubClassProperty } from '../Utils/Properties/SubClassProperty';
 import { SubClass } from './SubClasses/SubClass';
-import { ObjectProperty } from 'Utils/Properties/ObjectProperty';
-import { Suivi } from './GroupProperties/Suivi';
-import { DateProperty } from 'Utils/Properties/DateProperty';
-import { RangeDateProperty } from 'Utils/Properties/RangeDateProperty';
+import { ObjectProperty } from '../Utils/Properties/ObjectProperty';
+import { DateProperty } from '../Utils/Properties/DateProperty';
+import { RangeDateProperty } from '../Utils/Properties/RangeDateProperty';
+import { IClasse } from '../Utils/interfaces';
+import { DisplayManager } from '../Utils/Display/DisplayManager';
+import { ClassConfig } from '../Utils/Config/interfaces';
 
 interface Data {
   [key: string]: any;
 }
 
-export class Classe extends File {
+export class Classe extends File implements IClasse {
     public static className : string = "";
     public static classIcon : string = "box";
     
@@ -23,8 +25,11 @@ export class Classe extends File {
     public static subClassesProperty : SubClassProperty;
     public static Properties: { [key: string]: Property };
     public static async getItems(): Promise<string[]> { return []}
+    
+    // Configuration YAML pour l'affichage dynamique
+    public displayConfig?: ClassConfig;
 
-    constructor(app : App, vault:MyVault, file : TFile) {
+    constructor(app : AppShim, vault:MyVault, file : TFile) {
       super(app, vault, file)
     }
     
@@ -257,7 +262,7 @@ export class Classe extends File {
           const parentfile = this.app.vault.getAbstractFileByPath(parentPath);
 
           // Update the parent from the current folder
-          if (parentfile && parentfile instanceof TFile) {
+          if (parentfile && isTFile(parentfile)) {
             let parent = this.vault.getFromFile(parentfile)
             let parentProperty = this.getparentProperty()
             if (parentProperty instanceof ObjectProperty && parent){
@@ -285,12 +290,12 @@ export class Classe extends File {
     if (!file && this.isFolderFile()){
       file = this.file.parent
     }
-    if (file instanceof TFolder) {
-        for (const child of file.children) {
-            if (child instanceof TFile) {
+    if (file && isTFolder(file)) {
+        for (const child of file.children || []) {
+            if (isTFile(child)) {
               let classe = this.vault.getFromFile(child)
               if (classe) {children.push(classe);}
-            } else if (child instanceof TFolder) {
+            } else if (isTFolder(child)) {
                 children.push(...this.getChildren(child)); // Récursion sur les sous-dossiers
             }
         }
@@ -298,10 +303,18 @@ export class Classe extends File {
       return children;
     }
 
-    getTopDisplayContent() : any{
-      const container =  document.createElement("div");
+    async getTopDisplayContent(): Promise<HTMLElement> {
+      // Utiliser DisplayManager si une configuration est disponible
+      if (this.displayConfig && this.displayConfig.display) {
+        return await DisplayManager.generateDisplayContent(this, this.displayConfig.display);
+      }
+      
+      // Affichage par défaut
+      const container = document.createElement("div");
       const properties = document.createElement("div");
-      //Display the properties
+      properties.classList.add("metadata-line");
+      
+      // Display the properties
       for (let property of Object.values(this.getProperties())){
         properties.appendChild(property.getDisplay(this))
       }
@@ -377,7 +390,7 @@ export class Classe extends File {
     const title = file.basename;
 
     // Nettoyage : retirer n'importe quel préfixe de type "xxx - "
-    let cleanTitle = title.replace(/^[^/\\:*?"<>|]{1,50}\s-\s/, "").trim();
+    let cleanTitle = title ? title.replace(/^[^/\\:*?"<>|]{1,50}\s-\s/, "").trim() : "";
 
     // Gestion spéciale si la propriété est une date à formater
     let prefix = value;

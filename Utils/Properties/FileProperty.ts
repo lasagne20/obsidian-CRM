@@ -2,7 +2,7 @@ import { File } from "Utils/File";
 import { Property } from "./Property";
 import { Classe } from "Classes/Classe";
 import { MyVault } from "Utils/MyVault";
-import { Notice, setIcon, TFile } from "obsidian";
+import { Notice, setIcon, TFile } from "../App";
 import { selectFile } from "Utils/Modals/Modals";
 import { LinkProperty } from "./LinkProperty";
 import { val } from "cheerio/dist/commonjs/api/attributes";

@@ -1,8 +1,7 @@
-import { FuzzyMatch, SearchResult, TFile } from "obsidian";
+import { FuzzyMatch, SearchResult, TFile, setIcon, isTFile } from "../App";
 import { FileSearchModal } from "./FileSearchModal";
 import { Classe } from "Classes/Classe";
 import { MyVault } from "Utils/MyVault";
-import { setIcon } from "obsidian";
 
 /**
  * Modale pour rechercher et sélectionner plusieurs fichiers dans Obsidian.
@@ -31,7 +30,7 @@ export class MultiFileSearchModal extends FileSearchModal {
     }
 
     getItems(): (TFile | string)[] {
-        return super.getItems().filter(item => item instanceof TFile); // Ensure we only return TFile instances
+        return super.getItems().filter(item => isTFile(item)); // Ensure we only return TFile instances
     }
 
 
@@ -45,7 +44,7 @@ export class MultiFileSearchModal extends FileSearchModal {
                 const index = Array.from(this.resultContainerEl?.children ?? []).indexOf(activeItem);
                 const suggestions = this.getSuggestions(this.inputEl?.value ?? "");
                 const fuzzyMatch = suggestions[index];
-                const file = fuzzyMatch?.item instanceof TFile ? fuzzyMatch.item : null;
+                const file = fuzzyMatch?.item && isTFile(fuzzyMatch.item) ? fuzzyMatch.item : null;
                 if (file) {
                     if (this.selectedItems.includes(file)) {
                         this.selectedItems = this.selectedItems.filter(f => f !== file);
@@ -60,7 +59,7 @@ export class MultiFileSearchModal extends FileSearchModal {
 
     renderSuggestion(item: FuzzyMatch<string | TFile>, el: HTMLElement): void {
         super.renderSuggestion(item, el);
-        const file = item.item instanceof TFile ? item.item : null;
+        const file = isTFile(item.item) ? item.item : null;
         if (file && this.selectedItems.includes(file)) {
             el.classList.add("multi-file-search-modal-selected");
             // Add a check icon if selected
@@ -95,7 +94,7 @@ export class MultiFileSearchModal extends FileSearchModal {
         super.onClose();
         setTimeout(() => {
             if (this.selectedItems.length > 0) this.onChooseMulti(this.selectedItems);
-            else if (this.choosed && this.choosed instanceof TFile) this.onChooseMulti([this.choosed]);
+            else if (this.choosed && isTFile(this.choosed)) this.onChooseMulti([this.choosed]);
         }, 100);
     }
-}
+} 

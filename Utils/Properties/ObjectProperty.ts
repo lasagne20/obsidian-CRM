@@ -2,7 +2,7 @@
 import { Property } from "./Property";
 import { File } from "Utils/File";
 import { MyVault } from "Utils/MyVault";
-import { setIcon } from "obsidian";
+import { setIcon } from "../App";
 import { FileProperty } from "./FileProperty";
 import { TextProperty } from "./TextProperty";
 import { MultiFileProperty } from "./MultiFileProperty";
@@ -362,8 +362,9 @@ export class ObjectProperty extends Property{
             console.log("Default value : ", defaultValue)
             if (Object.values(this.properties)[0] == prop && (prop instanceof FileProperty)) {
                 prop.vault = this.vault; // Assurez-vous que vault est défini pour le premier FileProperty
+                const fileProp = prop as any; // Cast pour accéder à handleIconClick
                 defaultValue = await new Promise(async (resolve) => {
-                    await prop.handleIconClick(async (value) => {
+                    await fileProp.handleIconClick(async (value: any) => {
                         resolve(value);
                         console.log("Default value after click : ", value);
                     }, new MouseEvent("click"));

@@ -1,0 +1,33 @@
+className: "Evenement"
+classIcon: "calendar"
+
+parentProperty:
+  type: "FileProperty"
+  name: "Lieu"
+  classes: ["Lieu"]
+  icon: "map-pin"
+
+properties:
+  classe:
+    type: "ClasseProperty"
+    name: "Classe"
+    icon: "calendar"
+  
+  parent:
+    type: "FileProperty"
+    name: "Lieu"
+    classes: ["Lieu"]
+    icon: "map-pin"
+  
+  organisateurs:
+    type: "MultiFileProperty"
+    name: "Organisateurs"
+    classes: ["Institution", "Partenariat"]
+    icon: "badge-euro"
+
+display:
+  layout: "custom"
+  containers:
+    - type: "line"
+      className: "metadata-line"
+      properties: ["classe", "parent", "organisateurs"]

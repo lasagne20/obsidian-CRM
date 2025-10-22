@@ -1,4 +1,4 @@
-import { Component, MarkdownRenderer } from "obsidian";
+// Component and MarkdownRenderer removed - not available in AppShim
 
 interface NumberDisplayOptions {
     value: number; // valeur à afficher (0-100)

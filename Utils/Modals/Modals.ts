@@ -1,4 +1,4 @@
-import { App, FuzzySuggestModal, TFile } from "obsidian";
+import AppShim, { FuzzySuggestModal, TFile, isTFile } from "../App";
 import { FileSearchModal } from "./FileSearchModal";
 import { SelectModal } from "./SelectModal";
 import { Classe } from "Classes/Classe";
@@ -14,7 +14,7 @@ export async function selectFile(vault: MyVault, classes: string[],
         args : {hint?: string, optionnalFilter?: (file: TFile) => boolean, optionnalGetItems? : () => (TFile | string)[], classeArgs?: {}} = {}): Promise<Classe | undefined>  {
     return new Promise((resolve) => {
         const modal = new FileSearchModal(vault, async (selectedFile: TFile|string, classe: typeof Classe |null) => {
-            if (selectedFile instanceof TFile){
+            if (isTFile(selectedFile)){
                 let object = vault.getFromFile(selectedFile)
                 resolve(object)
              }
@@ -36,8 +36,10 @@ export async function selectMultipleFile(vault: MyVault, classes: string[],
         args : {hint?: string, optionnalFilter?: (file: TFile) => boolean, optionnalGetItems? : () => TFile[]} = {}): Promise<Classe[] | undefined>  {
     return new Promise((resolve) => {
         const modal = new MultiFileSearchModal(vault, async (selectedFiles: TFile[]) => {
-            if (selectedFiles.length > 0 && selectedFiles[0] instanceof TFile){
-                let objects = selectedFiles.map(file => vault.getFromFile(file)).filter(obj => obj !== undefined);
+            if (selectedFiles.length > 0 && isTFile(selectedFiles[0])){
+                let objects = selectedFiles
+                    .map(file => vault.getFromFile(file))
+                    .filter((obj): obj is Classe => obj !== undefined);
                 resolve(objects)
              }
             
@@ -77,7 +79,7 @@ export async function selectSubClasses(vault: any, title: string, subClasses : S
 export async function selectMedia(vault: MyVault, title: string, extensions? : string[], pathFolder? : string): Promise<TFile | undefined>  {
     return new Promise((resolve) => {
         const modal = new MediaSearchModal(vault, async (selectedFile: TFile|string) => {
-            if (selectedFile instanceof TFile){
+            if (isTFile(selectedFile)){
                 resolve(selectedFile)
              }
              else {

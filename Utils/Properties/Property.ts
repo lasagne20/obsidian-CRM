@@ -1,16 +1,14 @@
 import { File } from "Utils/File";
-import { MyVault } from "Utils/MyVault";
-import { setIcon } from "obsidian";
-import { ObjectProperty } from "./ObjectProperty";
-import { Classe } from "Classes/Classe";
-import { SubClass } from "Classes/SubClasses/SubClass";
-import { get } from "http";
+import { setIcon } from "../App";
+import { IClasse, ISubClass, PropertyFile } from "../interfaces";
 
+// Forward declaration to avoid circular import
+type MyVault = any;
 
 export class Property {
     public name: string;
     public icon: string;
-    public vault: MyVault;
+    public vault: MyVault | null = null;
     public static: boolean;
     public title: string;
     public flexSpan = 0;
@@ -43,8 +41,8 @@ export class Property {
         return this.default;
     }
 
-    read(file: Classe | SubClass | File): any {
-        if (file instanceof Classe || file instanceof SubClass) {
+    read(file: PropertyFile): any {
+        if (file && typeof file === 'object' && 'readProperty' in file) {
             return file.getMetadataValue(this.name)
         }
         return file.getMetadata()?.[this.name];
@@ -201,7 +199,7 @@ export class Property {
         }
     }
 
-    async reloadDynamicContent(file: Classe | SubClass) {
+    async reloadDynamicContent(file: IClasse | ISubClass) {
         const field = document.querySelector('.metadata-field');
         if (field) {
             const newValue = this.read(file);

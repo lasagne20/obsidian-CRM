@@ -1,14 +1,14 @@
-import { App } from "obsidian";
+import AppShim from "./App";
 
 /**
  * Attend que la metadata d'un fichier spécifique soit mise à jour (événement 'changed').
- * @param app L'instance Obsidian App
+ * @param app L'instance AppShim
  * @param filePath Le chemin du fichier à surveiller (relatif au vault)
  * @param key La clé de la metadata à attendre (ex: 'frontmatter', 'tags', etc.)
  * @param callback Fonction appelée une fois la metadata mise à jour
  */
 export const waitForFileMetaDataUpdate = async (
-      app: App,
+      app: AppShim,
       filePath: string,
       key: string,
       callback: () => Promise<void>
@@ -37,7 +37,7 @@ export const waitForFileMetaDataUpdate = async (
   });
 };
 
-export const waitForMetaDataCacheUpdate = async (app: App, callback: () => Promise<void>) => {
+export const waitForMetaDataCacheUpdate = async (app: AppShim, callback: () => Promise<void>) => {
   return new Promise<void>((resolve) => {
     let inProgress = false;
     const onResolved = async () => {

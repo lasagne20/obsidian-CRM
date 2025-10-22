@@ -1,5 +1,5 @@
 import { Classe } from "Classes/Classe";
-import { App, MarkdownView, TFile } from "obsidian";
+import AppShim, { TFile, isTFile } from "../App";
 import { ModalMap } from "Utils/Modals/ModalMap";
 import { MyVault } from "Utils/MyVault";
 
@@ -16,12 +16,12 @@ export class TopDisplay {
   public content: HTMLElement;
   public inProcess: boolean = false;
 
-  constructor(app: App, vault: MyVault) {
+  constructor(app: AppShim, vault: MyVault) {
     this.app = app;
     this.vault = vault;
-    this.dv = this.app.plugins.plugins["dataview"]?.api;
+    this.dv = this.app.plugins?.plugins?.["dataview"]?.api;
     if (!this.dv) {
-      throw Error("Le plugin Dataview n'est pas chargé.");
+      console.warn("Le plugin Dataview n'est pas chargé. Certaines fonctionnalités peuvent être limitées.");
     }
   }
 
@@ -29,14 +29,15 @@ export class TopDisplay {
     if (this.inProcess) return;
     this.inProcess = true;
     console.log("TopDisplay show called");
-    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!activeView) return;
-    let container = this.getContainer(activeView);
-
-
-    const file = activeView.file;
+    const file = this.app.workspace.getActiveFile();
     if (!file) return;
-    if (!(file instanceof TFile)) return;
+    if (!isTFile(file)) return;
+    
+    // Obtenir la vue active (leaf) qui contient le fichier
+    const activeLeaf = this.app.workspace.getLeaf();
+    if (!activeLeaf || !activeLeaf.view) return;
+    
+    let container = this.getContainer(activeLeaf.view);
 
     let classe = this.vault.getFromFile(file);
     if (classe) {
@@ -55,15 +56,12 @@ export class TopDisplay {
   }
 
   async update() {
-    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!activeView) return;
-    const file = activeView.file;
-    if (!file) return;
-    if (!(file instanceof TFile)) return;
+    const file = this.app.workspace.getActiveFile();
+    if (!file || !isTFile(file)) return;
 
     let classe = this.vault.getFromFile(file);
     if (classe) {
-      if (activeView.contentEl.querySelector("#dataviewjs-container")){
+      if (document.querySelector("#dataviewjs-container")){
         await classe.reloadTopDisplayContent();
       }
       else {

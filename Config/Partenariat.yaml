@@ -1,0 +1,72 @@
+className: "Partenariat"
+classIcon: "handshake"
+
+parentProperty:
+  type: "FileProperty"
+  name: "Lieu"
+  classes: ["Lieu"]
+  icon: "map"
+
+properties:
+  classe:
+    type: "ClasseProperty"
+    name: "Classe"
+    icon: "handshake"
+  
+  partenaire:
+    type: "FileProperty"
+    name: "Partenaire"
+    classes: ["Institution"]
+    icon: "handshake"
+  
+  montant:
+    type: "NumberProperty"
+    name: "Montant"
+    icon: "euro-sign"
+  
+  lieu:
+    type: "FileProperty"
+    name: "Lieu"
+    classes: ["Lieu"]
+    icon: "map"
+  
+  contacts:
+    type: "MultiFileProperty"
+    name: "Contact"
+    classes: ["Personne"]
+    icon: "circle-user-round"
+  
+  periode:
+    type: "RangeDateProperty"
+    name: "Date de signature"
+  
+  etat:
+    type: "SelectProperty"
+    name: "Etat"
+    options:
+      - name: "Piste"
+        color: "gray"
+      - name: "En attente"
+        color: "yellow"
+      - name: "En cours"
+        color: "blue"
+      - name: "Terminé"
+        color: "green"
+      - name: "Annulé"
+        color: "red"
+  
+  accompte:
+    type: "NumberProperty"
+    name: "Accompte"
+    icon: "euro-sign"
+
+display:
+  layout: "custom"
+  containers:
+    - type: "line"
+      className: "metadata-line"
+      properties: ["classe", "partenaire", "montant", "lieu"]
+    
+    - type: "line"
+      className: "metadata-line"  
+      properties: ["contacts", "periode", "etat", "accompte"]

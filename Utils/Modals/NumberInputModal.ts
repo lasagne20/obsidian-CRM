@@ -1,11 +1,12 @@
-import { Modal, App, Setting } from "obsidian";
+import { Modal, Setting } from "../App";
+import AppShim from "../App";
 
 export class NumberInputModal extends Modal {
     private onSubmit: (input: number) => void;
     private placeholder: string;
 
-    constructor(app: App, placeholder: string, onSubmit: (input: number) => void) {
-        super(app);
+    constructor(app: AppShim, placeholder: string, onSubmit: (input: number) => void) {
+        super(app.realObsidianApp || app as any);
         this.onSubmit = onSubmit;
         this.placeholder = placeholder;
     }
@@ -18,7 +19,7 @@ export class NumberInputModal extends Modal {
             .setName("Entrer un nombre")
             .addText(text => 
                 text.setPlaceholder(this.placeholder)
-                    .onChange(value => {
+                    .onChange((value: any) => {
                         const numberValue = Number(value);
                         if (!isNaN(numberValue)) {
                             this.onSubmit(numberValue);

@@ -1,6 +1,6 @@
 import { Classe } from "Classes/Classe";
 import { SubClass } from "Classes/SubClasses/SubClass";
-import { App, setIcon } from "obsidian";
+import AppShim, { setIcon } from "../App";
 import { FormulaProperty } from "Utils/Properties/FormulaProperty";
 
 

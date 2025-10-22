@@ -1,4 +1,4 @@
-import { TFile } from 'obsidian';
+import { TFile } from '../App';
 import { FileSearchModal } from './FileSearchModal';
 import { MyVault } from 'Utils/MyVault';
 
@@ -16,7 +16,7 @@ export class MediaSearchModal extends FileSearchModal {
     getItems(): (TFile | string)[] {
         const allFiles = this.app.vault.getFiles();
         return allFiles.filter(file => {
-            const matchesExtension = this.extensions.includes(file.extension);
+            const matchesExtension = file.extension ? this.extensions.includes(file.extension) : false;
             const matchesPath = this.pathFolder ? file.path.startsWith(this.pathFolder) : true;
             return matchesExtension && matchesPath;
         });

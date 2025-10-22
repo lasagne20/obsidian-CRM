@@ -1,69 +1,36 @@
-import { Institution } from "Classes/Institution";
-import { App, MarkdownView, Notice, Setting, TAbstractFile, TFile, TFolder } from "obsidian";
+import AppShim, { TAbstractFile, TFile, TFolder, isTFile, isTFolder, Notice } from "./App";
 import { File } from "./File";
 import { Classe } from "Classes/Classe";
-import { Lieu } from "Classes/Lieu";
-import { Personne } from "Classes/Personne";
+import { VaultClassAdapter } from "./VaultClassAdapter";
 import { FileProperty } from "./Properties/FileProperty";
 import { FileSearchModal } from "Utils/Modals/FileSearchModal";
 import { SelectModal } from "./Modals/SelectModal";
 import { selectClass, selectFile } from "./Modals/Modals";
 import { waitForFileMetaDataUpdate } from "./Utils";
-import { Action } from "Classes/Action";
 import { Settings } from "./Settings";
-import { Partenariat } from "Classes/Partenariat";
 import { GeoData } from "./Data/GeoData";
 import { SubClass } from "Classes/SubClasses/SubClass";
-import { National } from "Classes/SubClasses/Lieux/National";
-import { Region } from "Classes/SubClasses/Lieux/Region";
 import { Data } from "./Data/Data";
-import { Evenement } from "Classes/Evenement";
-import { Suivi } from "Classes/GroupProperties/Suivi";
-import { Piece } from "Classes/Production/Piece";
-import { Assemblage } from "Classes/Production/Assemblage";
-import { Fourniture } from "Classes/Production/Fourniture";
-import { Fournisseur } from "Classes/Production/Fournisseur";
-import { Famille } from "Classes/Production/Famille";
 import { FreecadFile } from "./3D/FreecadFile";
-import { Command } from "lucide";
-import { Commande } from "Classes/Production/Commande";
-import { Machine } from "Classes/Production/Machine";
-import { Procedure } from "Classes/Production/Procedure";
-import { Animateur } from "Classes/Animateur";
-import { Note } from "Classes/Note";
+import { DynamicClassFactory } from "./Config/DynamicClassFactory";
 
 export class MyVault {
     /*
     Global Vault, with all informations
     */
-    public app: App;
+    public app: AppShim;
     public files: { [key: string]: Classe };
     public dataFiles: { [key: string]: FreecadFile } = {};
     public settings: Settings;
 
-    public static classes: { [key: string]: typeof Classe } = {
-        [Institution.getClasse()]: Institution,
-        [Personne.getClasse()]: Personne,
-        [Lieu.getClasse()]: Lieu,
-        [Action.getClasse()]: Action,
-        [Partenariat.getClasse()]: Partenariat,
-        [Evenement.getClasse()]: Evenement,
-        [Animateur.getClasse()]: Animateur,
-        [Note.getClasse()]: Note,
-        [Piece.getClasse()]: Piece,
-        [Assemblage.getClasse()]: Assemblage, 
-        [Fourniture.getClasse()]: Fourniture,
-        [Fournisseur.getClasse()]: Fournisseur,
-        [Famille.getClasse()]: Famille,
-        [Commande.getClasse()]: Commande,
-        [Machine.getClasse()]: Machine,
-        [Procedure.getClasse()]: Procedure,
-    };
+    public static classes: { [key: string]: any } = {};
+    private static dynamicClassFactory: DynamicClassFactory | null = null;
 
 
     public static geoData: GeoData;
+    private classAdapter: VaultClassAdapter | null = null;
 
-    constructor(app: App, settings: Settings) {
+    constructor(app: AppShim, settings: Settings) {
         this.app = app;
         this.settings = settings;
         this.files = {}; // Contains all classes files for quick search
@@ -71,6 +38,42 @@ export class MyVault {
             MyVault.geoData = new GeoData(app, settings.dataFile,settings.additionalFiles);
         }
         
+        // Initialize the dynamic class adapter if config path is available
+        if (settings.configPath) {
+            this.classAdapter = new VaultClassAdapter(this, settings.configPath);
+        }
+        
+        // Initialize the dynamic class factory
+        this.initializeDynamicClasses();
+    }
+
+    private async initializeDynamicClasses() {
+        try {
+            const configPath = this.settings.configPath || './config';
+            MyVault.dynamicClassFactory = DynamicClassFactory.getInstance(configPath, this.app);
+            
+            // Load available classes and populate the static classes object
+            const availableClasses = await MyVault.dynamicClassFactory.getAvailableClasses();
+            for (const className of availableClasses) {
+                const DynamicClass = await MyVault.dynamicClassFactory.getClass(className);
+                MyVault.classes[className] = DynamicClass;
+            }
+        } catch (error) {
+            console.error('Failed to initialize dynamic classes:', error);
+        }
+    }
+
+    async getDynamicClass(className: string): Promise<typeof Classe | null> {
+        try {
+            if (!MyVault.dynamicClassFactory) {
+                const configPath = this.settings.configPath || './config';
+                MyVault.dynamicClassFactory = DynamicClassFactory.getInstance(configPath, this.app);
+            }
+            return await MyVault.dynamicClassFactory.getClass(className);
+        } catch (error) {
+            console.error(`Failed to get dynamic class ${className}:`, error);
+            return null;
+        }
     }
 
     getPersonalName(){
@@ -99,7 +102,7 @@ export class MyVault {
                 console.error("Fichier non trouvé : " + name);
                 return null;
             }
-            if (file.extension.toLowerCase() == "fcstd") {
+            if (file.extension?.toLowerCase() === "fcstd") {
                 let freecadFile = new FreecadFile(this, file);
                 await freecadFile.generateJsonData()
                 this.dataFiles[name] = freecadFile;
@@ -166,6 +169,36 @@ export class MyVault {
         return MyVault.classes[name]
     }
 
+    /**
+     * Get dynamic class from name (async version)
+     */
+    async getDynamicClasseFromName(name: string): Promise<typeof Classe | null> {
+        if (this.classAdapter) {
+            try {
+                return await this.classAdapter.getClass(name);
+            } catch (error) {
+                console.error(`Failed to get dynamic class ${name}:`, error);
+            }
+        }
+        // Fallback to legacy system
+        return this.getClasseFromName(name) || null;
+    }
+
+    /**
+     * Get all available class names (including dynamic ones)
+     */
+    async getAllClassNames(): Promise<string[]> {
+        if (this.classAdapter) {
+            try {
+                return await this.classAdapter.getAvailableClasses();
+            } catch (error) {
+                console.error('Failed to get dynamic class names:', error);
+            }
+        }
+        // Fallback to legacy system
+        return Object.keys(MyVault.classes);
+    }
+
     async getGeoParent(classe: Classe): Promise<Classe | undefined> {
         if (!MyVault.geoData) {
             console.error("GeoData is not initialized");
@@ -179,7 +212,11 @@ export class MyVault {
             }
             let parentFile = this.app.vault.getFiles().find(f => f.name === `${parentFileName}.md`);
             if (!parentFile) {
-                parentFile = await this.createFile(Lieu, parentFileName);
+                // Use dynamic class system to create Lieu
+                const LieuClass = await this.getDynamicClass('Lieu');
+                if (LieuClass) {
+                    parentFile = await this.createFile(LieuClass as any, parentFileName);
+                }
             }
             if (parentFile) {
                 return this.getFromFile(parentFile);
@@ -282,8 +319,8 @@ export class MyVault {
 
     getFromFolder(folder: TFolder) {
         let name = folder.path.split("/")[folder.path.split("/").length - 1];
-        for (let file of folder.children) {
-            if (file instanceof TFile && file.name.contains(name)) {
+        for (let file of folder.children || []) {
+            if (isTFile(file) && file.name.includes(name)) {
                 return this.getFromFile(file);
             }
         }
@@ -291,16 +328,32 @@ export class MyVault {
     }
 
     getFromFile(file: TAbstractFile): Classe | undefined {
-        if (file instanceof TFile) {
+        if (isTFile(file)) {
             let existingClass = this.files[file.path];
             if (existingClass) { return existingClass; }
-            let classe = this.createClasse(file);
+            
+            let classe: Classe | undefined;
+            
+            // Try new dynamic system first if available
+            if (this.classAdapter) {
+                try {
+                    // Note: This is async but we need sync. In practice, we'd need to refactor this method
+                    // For now, fall back to the old system
+                    classe = this.createClasse(file);
+                } catch (error) {
+                    console.error('Dynamic class creation failed, falling back to legacy:', error);
+                    classe = this.createClasse(file);
+                }
+            } else {
+                classe = this.createClasse(file);
+            }
+            
             if (classe) {
                 this.files[file.path] = classe;
             }
             return classe;
         }
-        else if (file instanceof TFolder) {
+        else if (isTFolder(file)) {
             let filePath = file.path + "/" + file.name + ".md";
             const existingFile = this.app.vault.getAbstractFileByPath(filePath);
             if (existingFile) {
@@ -309,14 +362,47 @@ export class MyVault {
         }
     }
 
+    /**
+     * Async version of getFromFile that supports dynamic classes
+     */
+    async getFromFileAsync(file: TFile): Promise<Classe | null> {
+        let existingClass = this.files[file.path];
+        if (existingClass) { return existingClass; }
+        
+        let classe: Classe | null = null;
+        
+        // Try new dynamic system first if available
+        if (this.classAdapter) {
+            try {
+                classe = await this.classAdapter.getFromFile(file);
+            } catch (error) {
+                console.error('Dynamic class creation failed, falling back to legacy:', error);
+                classe = this.createClasse(file) || null;
+            }
+        } else {
+            classe = this.createClasse(file) || null;
+        }
+        
+        if (classe) {
+            this.files[file.path] = classe;
+        }
+        return classe;
+    }
+
     async updateFile(file: TFile) {
         // The file as an update, update it in the classes
-        await this.getFromFile(file)?.update();
+        const classe = this.getFromFile(file);
+        if (classe && typeof classe.update === 'function') {
+            await classe.update();
+        }
     }
 
     async checkFile(file: TFile) {
         // The file as an update, update it in the classes
-        await this.getFromFile(file)?.check();
+        const classe = this.getFromFile(file);
+        if (classe && typeof classe.check === 'function') {
+            await classe.check();
+        }
     }
 
     async createLinkFile(parentFile: TFile, name: string) {
@@ -324,7 +410,9 @@ export class MyVault {
         let property: any = parent?.findPropertyFromValue(name, true);
         if (property instanceof FileProperty) {
             await this.createFile(this.getClasseFromName(property.classes[0]), name);
-            await parent?.update();
+            if (parent && typeof parent.update === 'function') {
+                await parent.update();
+            }
         }
     }
 
@@ -346,19 +434,20 @@ export class MyVault {
         const newFilePath = name.includes(".md") ? name : `${name}.md`;
         let templateContent = "---\nClasse: " + classeType.getClasse() + "\n---\n";
 
-        if (templateFile instanceof TFile) {
+        if (templateFile && isTFile(templateFile)) {
             templateContent = await this.app.vault.read(templateFile);
         } else {
             console.warn("Le fichier template n'existe pas :" + templatePath + ". Un fichier vide sera créé.");
         }
-        let file;
+        let file: TFile | null = null;
         try {
             file = await this.app.vault.create(newFilePath, templateContent);
             console.log("Nouveau fichier créé : " + newFilePath);
         } catch (error) {
             // Modifier le fichier s'il existe déjà
-            file = this.app.vault.getAbstractFileByPath(newFilePath);
-            if (file instanceof TFile) {
+            const abstractFile = this.app.vault.getAbstractFileByPath(newFilePath);
+            file = isTFile(abstractFile) ? abstractFile : null;
+            if (file && isTFile(file)) {
                 await this.app.vault.modify(file, templateContent);
                 console.log("Fichier modifié : " + newFilePath);
             } else {
@@ -394,8 +483,13 @@ export class MyVault {
                 continue;
             }
             console.log("Refresh : " + file.path);
-            await this.getFromFile(file)?.update();
-            await this.getFromFile(file)?.check();
+            const classe = this.getFromFile(file);
+            if (classe && typeof classe.update === 'function') {
+                await classe.update();
+            }
+            if (classe && typeof classe.check === 'function') {
+                await classe.check();
+            }
 
             // Remove the duplicates
             /*
@@ -412,7 +506,7 @@ export class MyVault {
 
         // Remove empty folders 
         for (let folder of this.app.vault.getAllFolders()) {
-            if (folder.children.length === 0) {
+            if (folder.children && folder.children.length === 0) {
                 await this.app.vault.delete(folder);
             }
         }

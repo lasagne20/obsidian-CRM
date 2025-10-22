@@ -1,0 +1,180 @@
+className: "Institution"
+classIcon: "building-2"
+
+parentProperty:
+  type: "FileProperty"
+  name: "Lieu"
+  classes: ["Lieu"]
+  icon: "map-pin"
+
+subClassesProperty:
+  name: "Type institution"
+  subClasses:
+    - name: "Entreprise"
+      icon: "briefcase"
+    - name: "CentreAere"
+      icon: "users"
+    - name: "Association"
+      icon: "heart-handshake"
+    - name: "College"
+      icon: "graduation-cap"
+    - name: "Lycee"
+      icon: "school"
+    - name: "Ecole"
+      icon: "book-open"
+    - name: "Universitaire"
+      icon: "university"
+    - name: "Fondation"
+      icon: "landmark"
+    - name: "Mediatheque"
+      icon: "library"
+
+properties:
+  classe:
+    type: "ClasseProperty"
+    name: "Classe"
+    icon: "building-2"
+  
+  type:
+    type: "SubClassProperty"
+    name: "Type institution"
+  
+  groupe:
+    type: "FileProperty"
+    name: "Groupe"
+    classes: ["Institution"]
+    icon: "building-2"
+  
+  site:
+    type: "LinkProperty"
+    name: "Site web"
+    icon: "globe"
+  
+  email:
+    type: "EmailProperty"
+    name: "Email"
+  
+  telephone:
+    type: "PhoneProperty"
+    name: "Telephone"
+  
+  relation:
+    type: "MultiSelectProperty"
+    name: "Type de relation"
+    options:
+      - name: "financeurs"
+        color: ""
+      - name: "vecteur"
+        color: ""
+      - name: "clients"
+        color: ""
+      - name: "support"
+        color: ""
+  
+  lieu:
+    type: "FileProperty"
+    name: "Lieu"
+    classes: ["Lieu"]
+    icon: "map-pin"
+  
+  domaine:
+    type: "MultiSelectProperty"
+    name: "Domaine"
+    options:
+      - name: "santé"
+        color: ""
+      - name: "éducation"
+        color: ""
+      - name: "culture"
+        color: ""
+      - name: "sport"
+        color: ""
+      - name: "social"
+        color: ""
+      - name: "environnement"
+        color: ""
+      - name: "économie"
+        color: ""
+      - name: "numérique"
+        color: ""
+  
+  adresse:
+    type: "AdressProperty"
+    name: "Adresse"
+  
+  priority:
+    type: "RatingProperty"
+    name: "Priorité"
+  
+  personnes:
+    type: "Property"
+    name: "Personnes"
+  
+  liens:
+    type: "Property"
+    name: "Liens"
+  
+  etat:
+    type: "SelectProperty"
+    name: "Etat"
+    options:
+      - name: "Pas encore contacté"
+        color: "gray"
+      - name: "Prise de contact en cours"
+        color: "blue"
+      - name: "Suivie d'affaire"
+        color: "green"
+      - name: "En attente de soliciation"
+        color: "red"
+  
+  interlocuteur:
+    type: "MultiSelectProperty"
+    name: "Interlocuteur"
+    options:
+      - name: "Sylvie"
+        color: "blue"
+      - name: "Léo"
+        color: "red"
+  
+  tache:
+    type: "SelectProperty"
+    name: "Prochaine tache"
+    options:
+      - name: "Prise de contact"
+        color: "blue"
+      - name: "Relance 1"
+        color: "green"
+      - name: "Relance 2"
+        color: "yellow"
+      - name: "Faire le point"
+        color: "orange"
+      - name: "Valider point"
+        color: "red"
+  
+  lastContact:
+    type: "DateProperty"
+    name: "Dernier contact"
+    defaultValue: "today"
+  
+  nextContact:
+    type: "DateProperty"
+    name: "Prochain contact"
+    defaultValue: "next-week"
+
+display:
+  layout: "custom"
+  containers:
+    - type: "line"
+      properties: ["classe"]
+    
+    - type: "line"
+      className: "metadata-line"
+      properties: ["type", "relation", "groupe", "lieu", "priority"]
+    
+    - type: "line"
+      className: "metadata-line"
+      properties: ["site", "email", "telephone", "domaine", "adresse"]
+    
+    - type: "line"
+      className: "metadata-line"
+      properties: ["etat", "interlocuteur", "tache", "lastContact", "nextContact"]

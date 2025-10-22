@@ -1,12 +1,13 @@
 import {TFile, App, TAbstractFile, TFolder} from 'obsidian';
 import { MyVault } from '../../Utils/MyVault';
 import { Property } from '../../Utils/Properties/Property';
-import { Classe } from 'Classes/Classe';
-import { Data } from 'Utils/Data/Data';
+import { Classe } from '../Classe';
+import { Data } from '../../Utils/Data/Data';
 import { v4 as uuidv4 } from 'uuid';
+import { ISubClass } from '../../Utils/interfaces';
 
 
-export class SubClass {
+export class SubClass implements ISubClass {
     public subClassName : string = "";
     public subClassIcon : string = "box";
 
@@ -119,6 +120,24 @@ export class SubClass {
 
     async check(){
 
+    }
+
+    getClasse(): string {
+      return this.subClassName;
+    }
+
+    readProperty(propertyName: string): any {
+      const [subClass, property] = this.getProperty(propertyName);
+      if (property) {
+        return property.read(this);
+      }
+      return undefined;
+    }
+
+    async updateMetadata(propertyName: string, value: any): Promise<void> {
+      if (this.data) {
+        this.data[propertyName] = value;
+      }
     }
   }
   

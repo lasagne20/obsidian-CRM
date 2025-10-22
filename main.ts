@@ -8,13 +8,15 @@ import { MyVault } from "Utils/MyVault";
 import { TextProperty } from 'Utils/Properties/TextProperty';
 import { Settings } from 'Utils/Settings';
 import { waitForMetaDataCacheUpdate } from 'Utils/Utils';
+import AppShim from 'Utils/App';
 
 
 const DEFAULT_SETTINGS: Settings = {
   templateFolder: "Outils/Obsidian/Templates", // Dossier par défaut
   dataFile: "Outils/Obsidian/Data/geo.json", // Dossier par défaut
-  personalName: "Léo",
+  personalName: "Léo", 
   additionalFiles : [],
+  configPath: "Config", // Chemin vers les fichiers de configuration YAML
 };
 
 export default class CRM extends Plugin {
@@ -22,11 +24,17 @@ export default class CRM extends Plugin {
   public settings = DEFAULT_SETTINGS;
   private inUpdate = false;
   public topDisplay: TopDisplay;
+  private appShim: AppShim;
 
   async onload() {
     this.addSettingTab(new CRMSettingTab(this.app, this));
     await this.loadSettings();
-    this.vault = new MyVault(this.app, this.settings);
+    
+    // Set the correct config path using the plugin directory
+    this.settings.configPath = `${this.manifest.dir}/Config`;
+    
+    this.appShim = new AppShim(this.app);
+    this.vault = new MyVault(this.appShim, this.settings);
     
     // Editor change
     this.app.workspace.on("editor-change", async () => {
@@ -52,10 +60,14 @@ export default class CRM extends Plugin {
       console.log("Layout change detected");
       await this.handleMetadataUpdate(async () => {
         await this.handleUpdate();
-        await this.topDisplay.update();
+        if (this.topDisplay) {
+          await this.topDisplay.update();
+        }
       });
       await this.handleUpdate();
-      await this.topDisplay.show();
+      if (this.topDisplay) {
+        await this.topDisplay.show();
+      }
     });
 
     // Click on lick
@@ -76,7 +88,7 @@ export default class CRM extends Plugin {
     );
 
     this.loadHotKeys()
-    this.topDisplay = new TopDisplay(this.app, this.vault)
+    this.topDisplay = new TopDisplay(this.appShim, this.vault)
     console.log("Plugin CRM - Loaded")
     this.updateFile(true)
   }
@@ -121,7 +133,7 @@ export default class CRM extends Plugin {
 
   private async handleMetadataUpdate(action: () => Promise<void>, time = 100) {
     await this.runWithUpdateLock(async () => {
-        const metadataUpdatePromise = waitForMetaDataCacheUpdate(this.app, action);
+        const metadataUpdatePromise = waitForMetaDataCacheUpdate(this.appShim, action);
         const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, time));
         
         await Promise.race([metadataUpdatePromise, timeoutPromise]);
@@ -172,7 +184,11 @@ export default class CRM extends Plugin {
               await this.runWithUpdateLock(async () => {
                 if (!file){return}
                 let classe = this.vault.getFromFile(file)
-                await classe?.update()
+                if (classe && typeof classe.update === 'function') {
+                  await classe.update();
+                } else {
+                  console.warn('Classe not found or missing update method for file:', file.path);
+                }
               });
             })
     );

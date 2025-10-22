@@ -1,4 +1,4 @@
-import { Modal } from "obsidian";
+import { Modal } from "../App";
 import * as L from "leaflet";
 
 // Ensure Leaflet CSS is loaded once

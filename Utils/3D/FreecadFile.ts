@@ -1,7 +1,7 @@
 import { Classe } from "Classes/Classe";
 import { XMLParser } from "fast-xml-parser";
 import * as JSZip from "jszip";
-import { Notice, TFile } from "obsidian";
+import { Notice, TFile } from "../App";
 import { selectMedia } from "Utils/Modals/Modals";
 import { FreecadData } from "./FreecadData";
 import { normalize } from "path";

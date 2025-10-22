@@ -1,4 +1,4 @@
-import { setIcon } from "obsidian";
+import { setIcon } from "../App";
 import { Property } from "./Property";
 
 

@@ -1,7 +1,7 @@
 import { LinkProperty } from "./LinkProperty";
 import { Property } from "./Property";
 import axios from 'axios';
-import { App, Notice, TFile } from 'obsidian';
+import AppShim, { TFile, Notice } from '../App';
 
 export class TextProperty extends Property {
   public type: string = "text";
@@ -113,7 +113,7 @@ export class TextProperty extends Property {
 
     const files = this.vault.app.vault.getFiles();
     const suggestions = files.filter((file: TFile) =>
-      file.basename.toLowerCase().includes(query) && this.vault.app.metadataCache.getFileCache(file)?.frontmatter?.Classe 
+      file.basename?.toLowerCase().includes(query) && this.vault.app.metadataCache.getFileCache(file)?.frontmatter?.Classe 
     );
 
     if (suggestions.length === 0) {
@@ -140,7 +140,7 @@ export class TextProperty extends Property {
     suggestions.forEach((file: TFile, index: number) => {
       const item = document.createElement("div");
       item.classList.add("autocomplete-item");
-      item.textContent = file.basename;
+      item.textContent = file.basename || file.name;
       item.tabIndex = 0; // Make it focusable
       item.dataset.index = index.toString();
 

@@ -1,7 +1,7 @@
 import { filter } from "cheerio/dist/commonjs/api/traversing";
 import { Classe } from "Classes/Classe";
 import { SubClass } from "Classes/SubClasses/SubClass";
-import { App, Notice, setIcon } from "obsidian";
+import AppShim, { Notice, setIcon } from "../App";
 import { FormulaProperty } from "Utils/Properties/FormulaProperty";
 import { Property } from "Utils/Properties/Property";
 import { RangeDateProperty } from "Utils/Properties/RangeDateProperty";
@@ -10,7 +10,7 @@ const XLSX = require("xlsx");
 
 export class DynamicTable {
     private vault: any;
-    private app: App;
+    private app: AppShim;
     private classes: (SubClass | Classe)[];
     private totalFormulas: { columnName: string, formula: (values: any[]) => any }[] = [];
     private table: HTMLTableElement;

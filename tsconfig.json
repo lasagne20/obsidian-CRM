@@ -11,6 +11,7 @@
     "importHelpers": true,
     "isolatedModules": true,
     "strictNullChecks": true,
+    "esModuleInterop": true,
     "paths": {
       "Utils/*": ["Utils/*"]
     },
@@ -23,6 +24,15 @@
   },
   "include": [
     "**/*.ts"
+  ],
+  "exclude": [
+    "node_modules/**/*",
+    "Classes/OldClasses/**/*",
+    "Classes/SubClasses/Lieux/Commune.ts",
+    "Classes/SubClasses/Lieux/Departement.ts",
+    "Utils/2D/SurfaceCompute.ts",
+    "__tests__/**/*",
+    "validate-config.ts",
+    "dist/**/*"
   ]
-  
 }

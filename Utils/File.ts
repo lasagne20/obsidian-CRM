@@ -1,20 +1,20 @@
-import { App, parseYaml, TAbstractFile, TFile, TFolder } from "obsidian";
+import AppShim, { TFile, TFolder, TAbstractFile } from "./App";
 import { MyVault } from "./MyVault";
 import { waitForFileMetaDataUpdate, waitForMetaDataCacheUpdate } from "./Utils";
-import { dump } from 'js-yaml';
+import { dump, load as parseYaml } from 'js-yaml';
 
 export class File {
     /*
     Allow to quickly use files methods
     */
     public vault : MyVault;
-    public app : App;
+    public app : AppShim;
     public file: TFile;
     private lock : boolean;
     
     public linkRegex = /^"?\[\[(.*?)\]\]"?$/;
 
-    constructor(app : App, vault : MyVault, file: TFile) {
+    constructor(app : AppShim, vault : MyVault, file: TFile) {
       this.app = app;
       this.vault = vault;
       this.file = file;
@@ -112,8 +112,10 @@ export class File {
     
         try {
             // Essayer de déplacer le fichier
-            await this.app.vault.rename(moveFile, newFilePath);
-            console.log(`Fichier déplacé vers ${newFilePath}`);
+            if (moveFile) {
+                await this.app.vault.rename(moveFile as TFile | TFolder, newFilePath);
+                console.log(`Fichier déplacé vers ${newFilePath}`);
+            }
         } catch (error) {
             console.error('Erreur lors du déplacement du fichier :', error);
         }
@@ -151,7 +153,7 @@ export class File {
         if (!existingFrontmatter) {this.lock = false; return;}
 
         try {
-            let frontmatter = parseYaml(existingFrontmatter);
+            let frontmatter = parseYaml(existingFrontmatter) as any;
 
             if (!frontmatter) {this.lock = false; return;};
             frontmatter[key] = value;
@@ -221,6 +223,11 @@ export class File {
     }
     
     // Trier les propriétés et identifier celles en surplus
+    // Méthode simple pour les tests
+    formatFrontmatter(frontmatter: Record<string, any>): string {
+        return dump(frontmatter);
+    }
+
     sortFrontmatter(frontmatter: Record<string, any>, propertiesOrder: string[]) {
         let sortedFrontmatter: Record<string, any> = {};
         let extraProperties: string[] = [];

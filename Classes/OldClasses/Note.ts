@@ -1,5 +1,5 @@
 import { Classe } from "Classes/Classe";
-import { App, TFile } from "obsidian";
+import AppShim, { TFile } from "../Utils/App";
 import { MyVault } from "Utils/MyVault";
 import { ClasseProperty } from "Utils/Properties/ClasseProperty";
 import { DateProperty } from "Utils/Properties/DateProperty";
@@ -24,7 +24,7 @@ export class Note extends Classe {
       ]),
     }
     
-    constructor(app : App, vault:MyVault, file : TFile) {
+    constructor(app : AppShim, vault:MyVault, file : TFile) {
       super(app, vault, file)
     }
 

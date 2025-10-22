@@ -1,7 +1,7 @@
 import { LinkProperty } from "./LinkProperty";
 import { Property } from "./Property";
 import axios from 'axios';
-import { App, Notice, TFile } from 'obsidian';
+import AppShim, { Notice, TFile } from '../App';
 
 export class HearderProperty extends Property {
   public type: string = "header";

@@ -1,6 +1,6 @@
 import { File } from "Utils/File";
 import { Property } from "./Property";
-import { App, setIcon, TFile } from "obsidian";
+import AppShim, { setIcon, TFile } from "../App";
 import { Classe } from "Classes/Classe";
 
 

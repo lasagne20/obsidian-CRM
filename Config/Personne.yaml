@@ -1,0 +1,172 @@
+className: "Personne"
+classIcon: "circle-user-round"
+
+parentProperty:
+  type: "ObjectProperty"
+  name: "Postes"
+  properties:
+    institution:
+      type: "FileProperty"
+      name: "Institution"
+      classes: ["Institution", "Lieu"]
+      icon: "building-2"
+    poste:
+      type: "Property"
+      name: "Poste"
+
+properties:
+  classe:
+    type: "ClasseProperty"
+    name: "Classe"
+    icon: "circle-user-round"
+  
+  email:
+    type: "EmailProperty"
+    name: "Email"
+  
+  phone:
+    type: "PhoneProperty"
+    name: "Téléphone"
+  
+  portable:
+    type: "PhoneProperty"
+    name: "Portable"
+    icon: "smartphone"
+  
+  linkedin:
+    type: "LinkProperty"
+    name: "Linkedin"
+    icon: "linkedin"
+  
+  postes:
+    type: "ObjectProperty"
+    name: "Postes"
+    properties:
+      institution:
+        type: "FileProperty"
+        name: "Institution"
+        classes: ["Institution", "Lieu"]
+        icon: "building-2"
+      poste:
+        type: "Property"
+        name: "Poste"
+  
+  relation:
+    type: "MultiSelectProperty"
+    name: "Type de relation"
+    options:
+      - name: "client"
+        color: ""
+      - name: "vecteur"
+        color: ""
+      - name: "expert"
+        color: ""
+      - name: "Ambassadeur"
+        color: ""
+      - name: "Animateur"
+        color: ""
+      - name: "Partenaire"
+        color: ""
+  
+  etat:
+    type: "SelectProperty"
+    name: "Etat"
+    options:
+      - name: "Pas encore contacté"
+        color: ""
+      - name: "Prospection"
+        color: ""
+      - name: "Intéressé"
+        color: ""
+      - name: "Définition d'une action"
+        color: ""
+      - name: "Organisation d'action"
+        color: ""
+      - name: "En attente de soliciation"
+        color: ""
+  
+  interlocuteur:
+    type: "MultiSelectProperty"
+    name: "Interlocuteur"
+    options:
+      - name: "Sylvie"
+        color: "blue"
+      - name: "Léo"
+        color: "red"
+  
+  tache:
+    type: "SelectProperty"
+    name: "Prochaine tache"
+    options:
+      - name: "Prospection"
+        color: ""
+      - name: "Relance"
+        color: ""
+      - name: "Planification"
+        color: ""
+      - name: "Organisation"
+        color: ""
+  
+  lastContact:
+    type: "DateProperty"
+    name: "Dernier contact"
+    defaultValue: "today"
+  
+  nextContact:
+    type: "DateProperty"
+    name: "Prochain contact"
+    defaultValue: "next-week"
+  
+  introduit:
+    type: "FileProperty"
+    name: "Introduit par"
+    classes: ["Personne"]
+    icon: "circle-user-round"
+  
+  adresse:
+    type: "AdressProperty"
+    name: "Adresse"
+    icon: "house"
+  
+  codePostal:
+    type: "Property"
+    name: "Code postale"
+  
+  lieu:
+    type: "FileProperty"
+    name: "Lieux"
+    classes: ["Lieu"]
+    icon: "map-pin"
+  
+  prioriété:
+    type: "RatingProperty"
+    name: "Priorité"
+  
+  liens:
+    type: "ObjectProperty"
+    name: "Liens"
+    properties:
+      lien:
+        type: "MultiFileProperty"
+        name: "Lien"
+        classes: ["Lieu", "Personne", "Institution", "Partenariat"]
+        icon: "link"
+      description:
+        type: "TextProperty"
+        name: "Description"
+
+display:
+  layout: "custom"
+  containers:
+    - type: "line"
+      className: "metadata-line"
+      properties: ["classe", "email", "phone", "portable", "linkedin"]
+    
+    - type: "tabs"
+      tabs:
+        - name: "Profil"
+          properties: ["postes", "lieu", "adresse", "codePostal", "introduit"]
+        - name: "Relation"
+          properties: ["prioriété", "relation", "etat", "interlocuteur"]
+        - name: "Suivi"
+          properties: ["tache", "lastContact", "nextContact", "liens"]

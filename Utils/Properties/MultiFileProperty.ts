@@ -1,7 +1,7 @@
 
 import { ObjectProperty } from "./ObjectProperty";
 import { FileProperty } from "./FileProperty";
-import { setIcon } from "obsidian";
+import { setIcon } from "../App";
 import { selectFile, selectMultipleFile } from "Utils/Modals/Modals";
 import { File } from "Utils/File";
 import { MyVault } from "Utils/MyVault";

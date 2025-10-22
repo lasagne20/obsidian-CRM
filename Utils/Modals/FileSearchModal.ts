@@ -1,4 +1,4 @@
-import { App, TFile, FuzzySuggestModal, FuzzyMatch } from "obsidian";
+import AppShim, { TFile, FuzzySuggestModal, FuzzyMatch } from "../App";
 import { File } from "../File";
 import { MyVault } from "Utils/MyVault";
 import { Classe } from "Classes/Classe";
@@ -20,7 +20,8 @@ export class FileSearchModal extends FuzzySuggestModal<TFile|string> {
 
     constructor(vault : MyVault, onChoose: (file: TFile|string|null, classe: typeof Classe|null) => void, classes : typeof Classe[] = [],
             args : {hint?: string, optionnalFilter?: (file: TFile) => boolean, optionnalGetItems? : () => (TFile | string)[]} = {}) {
-        super(vault.app);
+        // Utiliser la vraie App d'Obsidian si disponible, sinon utiliser AppShim directement
+        super(vault.app.realObsidianApp || vault.app as any);
         this.vault = vault;
         this.onChoose = onChoose;
         this.classes = classes;

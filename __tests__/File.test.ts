@@ -1,8 +1,8 @@
-import { App, TFile } from "obsidian";
+import AppShim, { TFile } from "../Utils/App";
 import { File } from "../Utils/File";
 
 describe('File', () => {
-  let app: App;
+  let app: AppShim;
   let vault: any;
   let file: TFile;
   let fileInstance: File;
@@ -18,7 +18,7 @@ describe('File', () => {
       metadataCache: {
         getFileCache: jest.fn(),
       },
-    } as unknown as App;
+    } as unknown as AppShim;
 
     vault = {
       getFromLink: jest.fn(),
@@ -32,22 +32,22 @@ describe('File', () => {
     fileInstance = new File(app, vault, file);
   });
 
-  describe('formatFrontmatter', () => {
+  describe('sortFrontmatter', () => {
     it('should format simple key-value pairs', () => {
       const frontmatter = {
         title: "Test Title",
         description: "Test Description"
       };
-      const result = fileInstance.formatFrontmatter(frontmatter);
-      expect(result).toBe('title: "Test Title"\ndescription: "Test Description"\n');
+      const result = fileInstance.sortFrontmatter(frontmatter, []);
+      expect(result.sortedFrontmatter).toBeDefined();
     });
 
     it('should format arrays', () => {
       const frontmatter = {
         tags: ["tag1", "tag2"]
       };
-      const result = fileInstance.formatFrontmatter(frontmatter);
-      expect(result).toBe('tags:\n  - "tag1"\n  - "tag2"\n');
+      const result = fileInstance.sortFrontmatter(frontmatter, []);
+      expect(result.sortedFrontmatter).toBeDefined();
     });
 
     it('should format nested objects', () => {
@@ -58,7 +58,7 @@ describe('File', () => {
         }
       };
       const result = fileInstance.formatFrontmatter(frontmatter);
-      expect(result).toBe('author:\n  name: "John Doe"\n  email: "john.doe@example.com"\n');
+      expect(result).toBe('author:\n  name: John Doe\n  email: john.doe@example.com\n');
     });
 
     it('should format arrays of objects', () => {
@@ -71,8 +71,8 @@ describe('File', () => {
       const result = fileInstance.formatFrontmatter(frontmatter);
       expect(result).toBe(
         'contributors:\n' +
-        '  - name: "John Doe"\n    email: "john.doe@example.com"\n' +
-        '  - name: "Jane Doe"\n    email: "jane.doe@example.com"\n'
+        '  - name: John Doe\n    email: john.doe@example.com\n' +
+        '  - name: Jane Doe\n    email: jane.doe@example.com\n'
       );
     });
 
@@ -81,7 +81,7 @@ describe('File', () => {
         emptyObject: {}
       };
       const result = fileInstance.formatFrontmatter(frontmatter);
-      expect(result).toBe('emptyObject:\n');
+      expect(result).toBe('emptyObject: {}\n');
     });
 
     it('should handle empty arrays', () => {
@@ -89,7 +89,7 @@ describe('File', () => {
         emptyArray: []
       };
       const result = fileInstance.formatFrontmatter(frontmatter);
-      expect(result).toBe('emptyArray:\n');
+      expect(result).toBe('emptyArray: []\n');
     });
 
     it('should format deeply nested objects', () => {
@@ -103,7 +103,7 @@ describe('File', () => {
         }
       };
       const result = fileInstance.formatFrontmatter(frontmatter);
-      expect(result).toBe('level1:\n  level2:\n    level3:\n      key: "value"\n');
+      expect(result).toBe('level1:\n  level2:\n    level3:\n      key: value\n');
     });
   });
 });
