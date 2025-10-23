@@ -1,11 +1,7 @@
-import { SubClass } from "Classes/SubClasses/SubClass";
-import { Property } from "./Property";
-import { File } from "Utils/File";
-import { MyVault } from "Utils/MyVault";
 import flatpickr from "flatpickr";
 import { French } from "flatpickr/dist/l10n/fr.js";
 import { setIcon } from "../App";
-import { Classe } from "Classes/Classe";
+import { Property } from "./Property";
 
 const iconMap : {[key: string] : string}= { 
     "yesterday" : "calendar-arrow-down",
@@ -100,7 +96,8 @@ export class DateProperty extends Property {
 
     // Formate la date pour le stockage : "YYYY-MM-DD"
     formatDateForStorage(date: Date): string {
-        return date.toLocaleDateString("fr-CA");  // Utilise la locale "fr-CA" qui renvoie "YYYY-MM-DD"
+        // Use toISOString to avoid timezone issues, then extract date part
+        return date.toISOString().split('T')[0];
     }
     
     // Ajoute les options "Aujourd'hui", "Demain", "Semaine prochaine"
@@ -133,12 +130,28 @@ export class DateProperty extends Property {
     getDateForOption(option: string): Date {
         const today = new Date();
         switch(option) {
-            case "yesterday": return new Date(today.setDate(today.getDate() - 1));
-            case "today": return new Date();
-            case "tomorrow": return new Date(today.setDate(today.getDate() + 1));
-            case "next-week": return new Date(today.setDate(today.getDate() + 7));
-            case "2-week": return new Date(today.setDate(today.getDate() + 14));
-            default: return today;
+            case "yesterday": {
+                const yesterday = new Date(today);
+                yesterday.setDate(today.getDate() - 1);
+                return yesterday;
+            }
+            case "today": return new Date(today);
+            case "tomorrow": {
+                const tomorrow = new Date(today);
+                tomorrow.setDate(today.getDate() + 1);
+                return tomorrow;
+            }
+            case "next-week": {
+                const nextWeek = new Date(today);
+                nextWeek.setDate(today.getDate() + 7);
+                return nextWeek;
+            }
+            case "2-week": {
+                const twoWeeks = new Date(today);
+                twoWeeks.setDate(today.getDate() + 14);
+                return twoWeeks;
+            }
+            default: return new Date(today);
         }
     }
 

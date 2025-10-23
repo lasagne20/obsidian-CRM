@@ -1,6 +1,5 @@
-import { MyVault } from 'Utils/MyVault';
-import { Property } from './Property';
 import { setIcon } from '../App';
+import { Property } from './Property';
 
 export class BooleanProperty extends Property {
 
@@ -10,11 +9,11 @@ export class BooleanProperty extends Property {
         super(name, args);
     }
 
-     fillDisplay(vault : any, value: any, update: (value: any) => Promise<void>) {
+     fillDisplay(vault : any, value: any, update: (value: any) => Promise<void>, args? : {}) {
             this.vault = vault;
             const container = document.createElement('div');
             const button = document.createElement('span');
-            setIcon(button, this.icon)
+            setIcon(button, this.icon);
 
             const updateButtonState = () => {
                 if (value) {

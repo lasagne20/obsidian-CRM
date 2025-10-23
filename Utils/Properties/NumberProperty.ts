@@ -1,7 +1,5 @@
-import { cp } from "fs";
-import { Property } from "./Property";
-import { MyVault } from "Utils/MyVault";
 import { FormulaProperty } from "./FormulaProperty";
+import { Property } from "./Property";
 
 export class NumberProperty extends Property {
 
@@ -18,10 +16,34 @@ export class NumberProperty extends Property {
     }
 
     validate(value: string): string {
-        const numberValue = parseFloat(value);
+        // Handle null/undefined
+        if (value == null) {
+            return "";
+        }
+        
+        // Convert to string if not already
+        const stringValue = String(value);
+        
+        // Trim whitespace
+        const trimmedValue = stringValue.trim();
+        
+        // Return empty string for empty or whitespace-only input
+        if (!trimmedValue) {
+            return "";
+        }
+        
+        // Check if the entire string is a valid number (not just the beginning)
+        const numberValue = parseFloat(trimmedValue);
         if (isNaN(numberValue)) {
             return "";
         }
+        
+        // Check if it's a valid number format (including scientific notation)
+        if (!/^-?\d*\.?\d+(e[+-]?\d+)?$/i.test(trimmedValue) && 
+            trimmedValue !== numberValue.toString()) {
+            return "";
+        }
+        
         return numberValue.toString();
     }
 
