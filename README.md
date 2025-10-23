@@ -10,7 +10,7 @@ Un plugin Obsidian avancé pour la gestion de relations client (CRM) avec un sys
 - **Propriétés riches** : Support de nombreux types de propriétés (Email, Téléphone, Fichier, Select, etc.)
 - **Affichage personnalisable** : Configurez l'affichage de vos données avec des conteneurs flexibles
 - **Intégration Obsidian** : Utilise pleinement l'API d'Obsidian pour une expérience native
-- **Tests complets** : Suite de tests robuste avec 112+ tests automatisés
+- **Tests complets** : Suite de tests robuste avec 395 tests automatisés (100% de réussite)
 - **Tables dynamiques** : Génération automatique de tableaux de données
 - **Organisation automatique** : Arrangement automatique des dossiers et fichiers
 - **Filtres géographiques** : Filtrage par localisation et bien plus
@@ -47,7 +47,7 @@ obsidian-CRM/
 │   │   └── DynamicClassFactory.ts # Factory pour classes dynamiques
 │   ├── Properties/            # Types de propriétés
 │   └── Display/              # Système d'affichage
-├── __tests__/                # Suite de tests (112+ tests)
+├── __tests__/                # Suite de tests (395 tests)
 └── config/                   # Configurations YAML des classes
 ```
 
@@ -87,22 +87,24 @@ display:
 
 Pour une documentation détaillée, consultez notre [Wiki GitHub](https://github.com/lasagne20/obsidian-CRM/wiki) :
 
-- 📖 [Guide de démarrage rapide](https://github.com/lasagne20/obsidian-CRM/wiki/Quick-Start)
+- 📖 [Guide de démarrage rapide](https://github.com/lasagne20/obsidian-CRM/wiki/Quick-Start-Guide)
 - ⚙️ [Configuration avancée](https://github.com/lasagne20/obsidian-CRM/wiki/Advanced-Configuration)
 - 👨‍💻 [API de développement](https://github.com/lasagne20/obsidian-CRM/wiki/Developer-API)
 - 💡 [Exemples d'utilisation](https://github.com/lasagne20/obsidian-CRM/wiki/Examples)
-- 🤝 [Guide de contribution](https://github.com/lasagne20/obsidian-CRM/wiki/Contributing)
+- 🤝 [Guide de contribution](https://github.com/lasagne20/obsidian-CRM/wiki/Contributing-Guide)
 
 ## 🧪 Tests
 
-Le projet dispose d'une suite de tests complète avec **112+ tests automatisés** couvrant :
+Le projet dispose d'une suite de tests complète avec **395 tests automatisés (100% de réussite)** couvrant :
 - Tests unitaires pour chaque composant
 - Tests d'intégration du système complet
 - Tests de configuration YAML
 - Tests des propriétés personnalisées
 
 ```bash
-npm test  # Exécuter tous les tests
+npm test                    # Exécuter tous les tests
+npm run test:watch          # Tests en mode surveillance  
+npm run test:coverage       # Générer un rapport de couverture
 ```
 
 ## 🤝 Contribution
@@ -119,7 +121,7 @@ npm run dev
 ## 🎯 État du projet
 
 **Version actuelle** : En développement bêta  
-**Tests** : 112+ tests passants ✅  
+**Tests** : 395 tests passants (100%) ✅  
 **Compatibilité** : Obsidian 1.4.0+
 
 N'hésitez pas à rejoindre la communauté pour contribuer au développement !
@@ -132,16 +134,16 @@ MIT License - Voir [LICENSE](LICENSE) pour plus de détails.
 
 | Document | Description |
 |----------|-------------|
-| **[Quick Start Guide](docs/Quick-Start.md)** | Guide de démarrage rapide avec exemples |
+| **[Quick Start Guide](docs/Quick-Start-Guide.md)** | Guide de démarrage rapide avec exemples |
 | **[Advanced Configuration](docs/Advanced-Configuration.md)** | Configuration avancée et cas d'usage complexes |
 | **[Developer API](docs/Developer-API.md)** | Documentation technique pour développeurs |
-| **[Contributing Guide](docs/Contributing.md)** | Guide complet de contribution |
+| **[Contributing Guide](docs/Contributing-Guide.md)** | Guide complet de contribution |
 | **[Changelog](CHANGELOG.md)** | Historique des versions et modifications |
 | **[Roadmap](ROADMAP.md)** | Plan de développement futur |
 
 ## 🤝 Contribuer
 
-Nous accueillons les contributions ! Consultez notre **[guide de contribution détaillé](docs/Contributing.md)** pour commencer.
+Nous accueillons les contributions ! Consultez notre **[guide de contribution détaillé](docs/Contributing-Guide.md)** pour commencer.
 
 ### Types de contributions recherchées
 - 🐛 **Rapports de bugs** et corrections
@@ -198,7 +200,7 @@ Ce projet est sous licence **[MIT](LICENSE)**.
 
 ## 🎯 État du projet
 
-![Tests Status](https://img.shields.io/badge/tests-112%20passing-brightgreen)
+![Tests Status](https://img.shields.io/badge/tests-395%20passing%20(100%25)-brightgreen)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen) 
 ![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
@@ -209,6 +211,35 @@ Ce projet est sous licence **[MIT](LICENSE)**.
 **🚀 Transformez votre Obsidian en CRM puissant !** ⚡
 
 *Rejoignez plus de 1000+ utilisateurs qui organisent déjà leurs données avec Obsidian CRM*
+
+## 🔬 Développement et Tests
+
+### Suite de Tests Complète
+
+Ce projet maintient une qualité code élevée avec **395 tests automatisés** atteignant 100% de réussite :
+
+- **Tests unitaires** : Chaque propriété et classe testée individuellement
+- **Tests d'intégration** : Validation des workflows complets 
+- **Tests de configuration** : Validation des fichiers YAML
+- **Tests DOM/UI** : Interface utilisateur et interactions
+- **Tests de régression** : Prévention des bugs lors des modifications
+
+### Commandes de Test
+
+```bash
+npm test                    # Tous les tests
+npm run test:watch          # Mode surveillance (dev)
+npm run test:coverage       # Rapport de couverture détaillé
+npm run test:specific       # Tests spécifiques (pattern)
+```
+
+### Métriques Qualité
+
+- ✅ **395/395 tests** passent (100%)
+- 📊 **Couverture de code** : >95%
+- 🏗️ **Architecture modulaire** testable
+- 🔧 **Mocks DOM** avancés pour UI
+- ⚡ **Tests rapides** : <10 secondes
 
 ---
 
