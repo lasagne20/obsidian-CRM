@@ -805,13 +805,13 @@ describe('MediaProperty', () => {
     describe('createFieldContainerContent', () => {
         beforeEach(() => {
             mediaProperty.vault = mockVault;
-            mediaProperty.getLink = jest.fn();
+            jest.spyOn(mediaProperty, 'getLink');
         });
 
         it('should create field container with truncated text', () => {
             const mockUpdate = jest.fn();
             const testValue = '[[verylongfilename.jpg]]';
-            mediaProperty.getLink.mockReturnValue('verylongfilename.jpg');
+            (mediaProperty.getLink as jest.Mock).mockReturnValue('verylongfilename.jpg');
             
             const container = mediaProperty.createFieldContainerContent(mockUpdate, testValue);
             const link = container.querySelector('a');
@@ -824,7 +824,7 @@ describe('MediaProperty', () => {
         it('should not truncate short text', () => {
             const mockUpdate = jest.fn();
             const testValue = '[[short.jpg]]';
-            mediaProperty.getLink.mockReturnValue('short.jpg');
+            (mediaProperty.getLink as jest.Mock).mockReturnValue('short.jpg');
             
             const container = mediaProperty.createFieldContainerContent(mockUpdate, testValue);
             const link = container.querySelector('a');
@@ -836,7 +836,7 @@ describe('MediaProperty', () => {
         it('should handle empty file name', () => {
             const mockUpdate = jest.fn();
             const testValue = '[[]]';
-            mediaProperty.getLink.mockReturnValue(null);
+            (mediaProperty.getLink as jest.Mock).mockReturnValue(null);
             
             const container = mediaProperty.createFieldContainerContent(mockUpdate, testValue);
             const link = container.querySelector('a');
@@ -849,8 +849,8 @@ describe('MediaProperty', () => {
         it('should set up click handler for link', () => {
             const mockUpdate = jest.fn();
             const testValue = '[[test.jpg]]';
-            mediaProperty.getLink.mockReturnValue('test.jpg');
-            mediaProperty.modifyField = jest.fn();
+            (mediaProperty.getLink as jest.Mock).mockReturnValue('test.jpg');
+            jest.spyOn(mediaProperty, 'modifyField');
             
             const container = mediaProperty.createFieldContainerContent(mockUpdate, testValue);
             const link = container.querySelector('a') as HTMLAnchorElement;

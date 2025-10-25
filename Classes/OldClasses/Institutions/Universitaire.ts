@@ -1,7 +1,4 @@
-import { SubClass } from "../SubClass";
-import { Data } from "Utils/Data/Data";
-import { Classe } from "Classes/Classe";
-import { MyVault } from "Utils/MyVault";
+import { SubClass } from "../../SubClasses/SubClass";
 
 
 export class Universitaire extends SubClass {

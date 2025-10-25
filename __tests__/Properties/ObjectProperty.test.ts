@@ -609,7 +609,7 @@ describe('ObjectProperty', () => {
 
         test('should create header row with title', () => {
             const mockContainer = document.createElement('div');
-            const values = [];
+            const values: any[] = [];
             
             objectProperty.createHeader(values, mockUpdate, mockContainer);
             
@@ -623,7 +623,7 @@ describe('ObjectProperty', () => {
         test('should use custom title when provided', () => {
             objectProperty.title = 'Custom Title';
             const mockContainer = document.createElement('div');
-            const values = [];
+            const values: any[] = [];
             
             objectProperty.createHeader(values, mockUpdate, mockContainer);
             
@@ -633,8 +633,8 @@ describe('ObjectProperty', () => {
 
         test('should create add button in header', () => {
             const mockContainer = document.createElement('div');
-            const values = [];
-            objectProperty.createAddButton = jest.fn().mockReturnValue(document.createElement('button'));
+            const values: any[] = [];
+            jest.spyOn(objectProperty, 'createAddButton').mockReturnValue(document.createElement('button'));
             
             objectProperty.createHeader(values, mockUpdate, mockContainer);
             
@@ -650,7 +650,7 @@ describe('ObjectProperty', () => {
 
         test('should create add button with correct class and icon', () => {
             const mockContainer = document.createElement('div');
-            const values = [];
+            const values: any[] = [];
             
             const button = objectProperty.createAddButton(values, mockUpdate, mockContainer);
             
@@ -661,7 +661,7 @@ describe('ObjectProperty', () => {
 
         test('should handle button click', async () => {
             const mockContainer = document.createElement('div');
-            const values = [];
+            const values: any[] = [];
             
             const button = objectProperty.createAddButton(values, mockUpdate, mockContainer);
             
@@ -804,7 +804,7 @@ describe('ObjectProperty', () => {
             
             const row = objectProperty.createObjectRow(values, mockUpdate, objects, index, mockContainer);
             
-            const propertyContainer = row.querySelector('.metadata-object-property');
+            const propertyContainer = row.querySelector('.metadata-object-property') as HTMLElement;
             expect(propertyContainer?.style.gridColumn).toBe('span 2');
         });
 
@@ -828,7 +828,7 @@ describe('ObjectProperty', () => {
 
         test('should create delete button with correct class and icon', () => {
             const mockContainer = document.createElement('div');
-            const values = [];
+            const values: any[] = [];
             const index = 0;
             
             const button = objectProperty.createDeleteButton(values, mockUpdate, index, mockContainer);
@@ -840,7 +840,7 @@ describe('ObjectProperty', () => {
 
         test('should handle button click', async () => {
             const mockContainer = document.createElement('div');
-            const values = [];
+            const values: any[] = [];
             const index = 0;
             
             const button = objectProperty.createDeleteButton(values, mockUpdate, index, mockContainer);
@@ -864,7 +864,7 @@ describe('ObjectProperty', () => {
 
         test('should create table wrapper and table', () => {
             const mockContainer = document.createElement('div');
-            const values = [];
+            const values: any[] = [];
             
             objectProperty.createTable(values, mockUpdate, mockContainer);
             
@@ -877,7 +877,7 @@ describe('ObjectProperty', () => {
 
         test('should create header row with property names', () => {
             const mockContainer = document.createElement('div');
-            const values = [];
+            const values: any[] = [];
             
             objectProperty.createTable(values, mockUpdate, mockContainer);
             
@@ -908,9 +908,9 @@ describe('ObjectProperty', () => {
 
         test('should position add button absolutely', () => {
             const mockContainer = document.createElement('div');
-            const values = [];
+            const values: any[] = [];
             const mockAddButton = document.createElement('button');
-            objectProperty.createAddButton.mockReturnValue(mockAddButton);
+            jest.spyOn(objectProperty, 'createAddButton').mockReturnValue(mockAddButton);
             
             objectProperty.createTable(values, mockUpdate, mockContainer);
             

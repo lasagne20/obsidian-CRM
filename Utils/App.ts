@@ -54,11 +54,11 @@ export class TFileClass {
 
 // Type guards for checking file types (keep these as they're useful)
 export function isTFile(file: any): file is TFile {
-    return file && typeof file === 'object' && 'path' in file && !('children' in file);
+    return file != null && typeof file === 'object' && 'path' in file && !('children' in file);
 }
 
 export function isTFolder(file: any): file is TFolder {
-    return file && typeof file === 'object' && 'children' in file;
+    return file != null && typeof file === 'object' && 'children' in file;
 }
 
 // SearchResult interface for compatibility

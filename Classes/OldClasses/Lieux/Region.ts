@@ -1,8 +1,6 @@
-import { App } from "obsidian";
-import { SubClass } from "../SubClass";
-import { MyVault } from "Utils/MyVault";
-import { Data } from "Utils/Data/Data";
 import { Classe } from "Classes/Classe";
+import { Data } from "Utils/Data/Data";
+import { SubClass } from "../../SubClasses/SubClass";
 
 
 export class Region extends SubClass {
