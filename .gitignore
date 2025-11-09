@@ -11,6 +11,8 @@ node_modules
 # Jest cache and coverage
 .jest-cache
 coverage/
+dynamic-fields/*
+Old files/*
 
 # Don't include the compiled main.js file in the repo.
 # They should be uploaded to GitHub releases instead.

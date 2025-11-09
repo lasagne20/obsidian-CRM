@@ -27,9 +27,9 @@
   ],
   "exclude": [
     "node_modules/**/*",
-    "Classes/OldClasses/**/*",
-    "Classes/OldClasses/Lieux/Commune.ts",
-    "Classes/OldClasses/Lieux/Departement.ts",
+    "Old files/OldClasses/**/*",
+    "Old files/OldClasses/Lieux/Commune.ts",
+    "Old files/OldClasses/Lieux/Departement.ts",
     "Utils/2D/SurfaceCompute.ts",
     "__tests__/**/*",
     "validate-config.ts",

@@ -1,248 +1,264 @@
-import { Classe } from 'Classes/Classe';
-import * as CodeMirror from 'codemirror';
-import { Plugin, MarkdownView, TFile, App, TFolder, Menu, TAbstractFile } from 'obsidian';
+import { MarkdownView, Menu, Plugin, TAbstractFile, TFile } from 'obsidian';
+import { Vault } from 'markdown-crm';
+import { ObsidianApp } from 'src/App';
 import { CRMSettingTab } from 'settings';
-import { TopDisplay } from 'Utils/Display/TopDisplay';
-import { ModalMap } from 'Utils/Modals/ModalMap';
-import { MyVault } from "Utils/MyVault";
-import { TextProperty } from 'Utils/Properties/TextProperty';
-import { Settings } from 'Utils/Settings';
-import { waitForMetaDataCacheUpdate } from 'Utils/Utils';
-import AppShim from 'Utils/App';
 
-
+interface Settings {
+  templateFolder: string;
+  dataFile: string;
+  personalName: string;
+  additionalFiles: string[];
+  configPath: string;
+}
+ 
 const DEFAULT_SETTINGS: Settings = {
-  templateFolder: "Outils/Obsidian/Templates", // Dossier par défaut
-  dataFile: "Outils/Obsidian/Data/geo.json", // Dossier par défaut
-  personalName: "Léo", 
-  additionalFiles : [],
-  configPath: "Config", // Chemin vers les fichiers de configuration YAML
+  templateFolder: "Outils/Obsidian/Templates",
+  dataFile: "Outils/Obsidian/Data/geo.json",
+  personalName: "Léo",
+  additionalFiles: [],
+  configPath: "Outils/Obsidian/Config",
 };
 
 export default class CRM extends Plugin {
-  public vault: MyVault;
-  public settings = DEFAULT_SETTINGS;
-  private inUpdate = false;
-  public topDisplay: TopDisplay;
-  private appShim: AppShim;
+  public vault: Vault;
+  public obsidianApp: ObsidianApp;
+  public settings: Settings = DEFAULT_SETTINGS;
+  private currentFilePath: string | null = null;
 
   async onload() {
+    console.log("🚀 Plugin CRM - Loading...");
+    
+    // Wait for the vault to be fully loaded
+    this.app.workspace.onLayoutReady(() => {
+      this.initializePlugin();
+    });
+  }
+
+  async initializePlugin() {
+    console.log("✅ Vault layout ready");
+    
+    // Load settings
     this.addSettingTab(new CRMSettingTab(this.app, this));
     await this.loadSettings();
+    console.log("✅ Settings loaded:", this.settings);
     
-    // Set the correct config path using the plugin directory
-    this.settings.configPath = `${this.manifest.dir}/Config`;
+    // Initialize the ObsidianApp adapter
+    this.obsidianApp = new ObsidianApp(this.app);
+    console.log("✅ ObsidianApp adapter initialized");
     
-    this.appShim = new AppShim(this.app);
-    this.vault = new MyVault(this.appShim, this.settings);
+    // Initialize Vault.classes if not already initialized (library bug fix)
+    if (!(Vault as any).classes) {
+      (Vault as any).classes = {};
+      console.log("🔧 Initialized Vault.classes");
+    }
     
-    // Editor change
-    this.app.workspace.on("editor-change", async () => {
-      console.log("Editor change detected");
-      await this.handleMetadataUpdate(async () => {
-        //await this.topDisplay.update();
-      });
-      await this.handleUpdate()
+    // Initialize the Vault with the adapter
+    this.vault = new Vault(this.obsidianApp, {
+      templateFolder: this.settings.templateFolder,
+      personalName: this.settings.personalName,
+      configPath: this.settings.configPath
     });
+    console.log("✅ Vault initialized");
 
-    // Tab change
-    /*
-    this.app.workspace.on("active-leaf-change", async () => {
-      console.log("Active leaf change detected");
-        await this.handleMetadataUpdate(async () => {
-          await this.topDisplay.update();
-        });
-        await this.handleUpdate()
-    });*/
+    // Log dynamic class factory
+    const factory = this.vault.getDynamicClassFactory();
+    if (factory) {
+      console.log("✅ Dynamic Class Factory loaded");
+      const classes = (this.vault.constructor as any).classes;
+      console.log("📋 Available classes:", Object.keys(classes || {}));
+    } else {
+      console.warn("⚠️ Dynamic Class Factory not initialized");
+    }
 
-    // New tab or file opened
-    this.app.workspace.on("layout-change", async () => {
-      console.log("Layout change detected");
-      await this.handleMetadataUpdate(async () => {
-        await this.handleUpdate();
-        if (this.topDisplay) {
-          await this.topDisplay.update();
-        }
-      });
-      await this.handleUpdate();
-      if (this.topDisplay) {
-        await this.topDisplay.show();
-      }
-    });
-
-    // Click on lick
-    document.addEventListener("click", async (event) => {
-        this.handleClickOnInternalLink(event);
-    });
-
-    // Rename a file
-    this.app.vault.on("rename", async (file) => {
-        this.handleFileRename(file);
-    });
-
-    // Right-click menu
+    // Register right-click menu
     this.registerEvent(
-        this.app.workspace.on("file-menu", (menu, file) => {
-            this.addContextMenuOption(menu, file);
-        })
+      this.app.workspace.on("file-menu", (menu, file) => {
+        this.addContextMenuOption(menu, file);
+      })
     );
 
-    this.loadHotKeys()
-    this.topDisplay = new TopDisplay(this.appShim, this.vault)
-    console.log("Plugin CRM - Loaded")
-    this.updateFile(true)
-  }
+    // Replace metadata container with custom display
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", () => {
+        this.replaceMetadataContainer();
+      })
+    );
 
-  private loadHotKeys(){
-    for (let [name,classe] of Object.entries(MyVault.classes)){
-      this.addCommand({
-        id: "create-"+name,
-        name: "Créer un nouveau fichier "+name,
-        callback: async () => this.handleCreateNewFile(name, classe)});
-    }
-  }
+    // Initial replacement
+    this.replaceMetadataContainer();
+ 
+    // Add test command to display current file info
+    this.addCommand({
+      id: "test-display-current-file",
+      name: "Test: Afficher les infos du fichier actuel",
+      callback: async () => {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile) {
+          console.log("❌ No active file");
+          this.obsidianApp.sendNotice("Aucun fichier actif");
+          return;
+        }
 
-  // Lock the action to be sure only one action is in process
-  private async runWithUpdateLock(action: () => Promise<void>) {
-      if (this.inUpdate) return;
-      this.inUpdate = true;
-      try {
-          await action();
-      } catch (error) {
-          console.error("Erreur :", error);
-      } finally {
-          this.inUpdate = false;
-      }
-  }
-
-  async handleCreateNewFile(name: string, classe : typeof Classe){
-    await this.runWithUpdateLock(async () => {
-      let file = await this.vault.createFile(classe);
-      if (!file) {return}
-      const leaf = this.app.workspace.getLeaf();
-      await leaf.openFile(file);
-  })
-  }
-
-  // Update the file
-  private async handleUpdate(force: boolean = true, time = 100) {
-      await this.handleMetadataUpdate(async () => {
-          await this.updateFile(force);
-      }, time);
-  }
-
-  private async handleMetadataUpdate(action: () => Promise<void>, time = 100) {
-    await this.runWithUpdateLock(async () => {
-        const metadataUpdatePromise = waitForMetaDataCacheUpdate(this.appShim, action);
-        const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, time));
+        console.log("📄 Active file:", activeFile.path);
         
-        await Promise.race([metadataUpdatePromise, timeoutPromise]);
-        await action();
-    });
-}
-
-
-  // Internal link click
-  private async handleClickOnInternalLink(event: Event) {
-      await this.runWithUpdateLock(async () => {
-          const target = event.target as HTMLElement | null;
-          if (!target) return;
-          const linkElement = target.closest(".internal-link.is-unresolved") as HTMLAnchorElement | null;
-          if (linkElement) {
-              event.preventDefault();
-              const linkText = linkElement.textContent?.trim();
-              if (linkText) {
-                  await this.createNewFile(linkText);
-              }
+        try {
+          const iFile = this.obsidianApp.toIFile(activeFile);
+          const classe = await this.vault.getFromFile(iFile);
+          
+          if (classe) {
+            console.log("✅ Classe found:", classe.constructor.name);
+            console.log("📦 Properties:", classe.getProperties().map(p => p.name));
+            
+            const display = await classe.getDisplay();
+            if (display) {
+              console.log("🎨 Display generated successfully");
+              console.log("🎨 Display element:", display);
+              this.obsidianApp.sendNotice(`Display généré pour ${classe.constructor.name}`);
+            } else {
+              console.log("⚠️ No display generated");
+              this.obsidianApp.sendNotice("Aucun display généré");
+            }
+          } else {
+            console.log("⚠️ No classe found");
+            this.obsidianApp.sendNotice("Aucune classe trouvée");
           }
-      });
+        } catch (error) {
+          console.error("❌ Error:", error);
+          this.obsidianApp.sendNotice("Erreur: " + error.message);
+        }
+      }
+    });
+
+    console.log("✅ Plugin CRM - Loaded successfully");
   }
 
-  // Rename of a file
-  private async handleFileRename(file: TAbstractFile) {
-      await this.handleMetadataUpdate(async () => {
-        console.log("Rename " + file.name)
-          let classe;
-          if (file instanceof TFile) {
-              classe = this.vault.getFromFile(file);
-          } else if (file instanceof TFolder) {
-              classe = this.vault.getFromFolder(file);
-          }
-          if (classe) {
-              await classe.updatePropertyParent();
-          }
-      });
+  async replaceMetadataContainer() {
+    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!activeView) return;
+
+    const file = activeView.file;
+    if (!file) return;
+
+    // Check if we're still on the same file - if so, don't recreate the display
+    if (this.currentFilePath === file.path) {
+      console.log("✅ Same file, keeping existing display");
+      return;
+    }
+
+    try {
+      // Find the metadata container
+      const view = activeView.contentEl;
+      const metadataContainer = view.querySelector('.metadata-container');
+      
+      if (!metadataContainer) {
+        console.log("⚠️ No metadata container found");
+        return;
+      }
+
+      // Remove any existing custom display first
+      const existingCustomDisplay = view.querySelector('.crm-custom-display');
+      if (existingCustomDisplay) {
+        existingCustomDisplay.remove();
+        console.log("🧹 Removed existing custom display");
+      }
+
+      // Show the original metadata container (in case it was hidden)
+      (metadataContainer as HTMLElement).style.display = '';
+
+      // Get the classe instance
+      const iFile = this.obsidianApp.toIFile(file);
+      const classe = await this.vault.getFromFile(iFile);
+      
+      if (!classe) {
+        console.log("⚠️ No classe found for file:", file.path);
+        this.currentFilePath = null;
+        return;
+      }
+      console.log("📦 Classe retrieved for file:", file.path, "->", classe.constructor.name);
+
+      // Generate custom display
+      const customDisplay = await (classe as any).getDisplay();
+      if (!customDisplay) {
+        console.log("⚠️ No custom display generated");
+        this.currentFilePath = null;
+        return;
+      }
+
+      // Hide the original metadata container
+      (metadataContainer as HTMLElement).style.display = 'none';
+
+      // Create wrapper for custom display
+      const wrapper = document.createElement('div');
+      wrapper.addClass('crm-custom-display');
+      wrapper.appendChild(customDisplay);
+
+      // Insert after the hidden metadata container
+      metadataContainer.parentElement?.insertBefore(wrapper, metadataContainer.nextSibling);
+
+      // Remember the current file path
+      this.currentFilePath = file.path;
+
+      console.log("✅ Metadata container replaced with custom display");
+    } catch (error) {
+      console.error("❌ Error replacing metadata container:", error);
+      this.currentFilePath = null;
+    }
   }
 
   // Add icon to right-click menu
   addContextMenuOption(menu: Menu, file: TAbstractFile | null) {
     menu.addItem((item) =>
-        item
-            .setTitle("Rafraichir l'objet")
-            .setIcon("refresh-ccw") // Icône (optionnel)
-            .onClick(async () =>  {
-              await this.runWithUpdateLock(async () => {
-                if (!file){return}
-                let classe = this.vault.getFromFile(file)
-                if (classe && typeof classe.update === 'function') {
-                  await classe.update();
-                } else {
-                  console.warn('Classe not found or missing update method for file:', file.path);
-                }
-              });
-            })
+      item
+        .setTitle("Rafraichir l'objet")
+        .setIcon("refresh-ccw")
+        .onClick(async () => {
+          if (!file || !(file instanceof TFile)) {
+            console.log("❌ No file selected or file is not a TFile");
+            return;
+          }
+          
+          console.log("🔄 Refreshing file:", file.path);
+          
+          try {
+            // Get the classe instance from the vault
+            const iFile = this.obsidianApp.toIFile(file);
+            console.log("📄 IFile created:", iFile);
+            
+            const classe = await this.vault.getFromFile(iFile);
+            console.log("📦 Classe retrieved:", classe ? classe.constructor.name : "null");
+            
+            if (classe) {
+              console.log("🔧 Updating classe...");
+              await classe.update();
+              console.log("✅ Classe updated successfully");
+              this.obsidianApp.sendNotice("Objet rafraîchi avec succès");
+              
+              // Log display if available
+              const display = await classe.getDisplay();
+              if (display) {
+                console.log("🎨 Display generated:", display);
+              }
+            } else {
+              console.warn("⚠️ No classe found for file:", file.path);
+              this.obsidianApp.sendNotice("Aucune classe trouvée pour ce fichier");
+            }
+          } catch (error) {
+            console.error('❌ Erreur lors du rafraîchissement:', error);
+            this.obsidianApp.sendNotice("Erreur lors du rafraîchissement");
+          }
+        })
     );
-  }
-
-
-  // Create a new file from a name
-  async createNewFile(name : string) {
-    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!activeView) return;
-
-    const file = activeView.file; // Récupère le fichier actif
-    if (!file) return;
-
-    if (!(file instanceof TFile)) return;
-    console.log("Create new object")
-    await this.vault.createLinkFile(file, name)
-  }
-
-  // Update the current file
-  async updateFile(check: boolean = false) {
-    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!activeView) return;
-
-    const file = activeView.file; 
-    if (!file) return;
-    if (!(file instanceof TFile)) return;
-
-    console.log("Update objects")
-    if (check){
-      // Validate the content of the file
-      await this.vault.checkFile(file)
-    }
-    await this.vault.updateFile(file)
-    console.log("Object updated")
-
   }
 
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
   }
-  
+
   async saveSettings() {
     await this.saveData(this.settings);
   }
 
-  async refreshVault(){
-    await this.runWithUpdateLock(async () => {
-      await this.vault.refreshAll()
-    });
-    
-  }
-
   onunload() {
-    console.log("Plugin unloaded");
+    console.log("Plugin CRM - Unloaded");
   }
 }
