@@ -1,5 +1,5 @@
 import { App, Notice, TFile, TFolder, setIcon } from 'obsidian';
-import { IApp, IFile, IFolder } from 'markdown-crm';
+import { IApp, IFile, IFolder, ISettings } from 'markdown-crm';
 import { FileSearchModal, MediaSearchModal, MultiFileSearchModal } from './Modals';
 
 /**
@@ -7,7 +7,13 @@ import { FileSearchModal, MediaSearchModal, MultiFileSearchModal } from './Modal
  * Bridges Obsidian's API to the platform-agnostic IApp interface
  */
 export class ObsidianApp implements IApp {
-    constructor(private app: App) {}
+    private settings: ISettings = {};
+
+    constructor(private app: App, settings?: ISettings) {
+        if (settings) {
+            this.settings = settings;
+        }
+    }
 
     getVaultPath(): string {
         return this.app.vault.getName();
@@ -44,13 +50,13 @@ export class ObsidianApp implements IApp {
         throw new Error(`File not found: ${file.path}`);
     }
 
-    async renameFile(file: IFile, newPath: string): Promise<void> {
-        const tfile = this.app.vault.getAbstractFileByPath(file.path);
-        if (tfile instanceof TFile) {
-            await this.app.vault.rename(tfile, newPath);
-            return;
+    async move(fileOrFolder: IFile | IFolder, newPath: string): Promise<void> {
+        const abstractFile = this.app.vault.getAbstractFileByPath(fileOrFolder.path);
+        if (!abstractFile) {
+            throw new Error(`File or folder not found: ${fileOrFolder.path}`);
         }
-        throw new Error(`File not found: ${file.path}`);
+        
+        await this.app.vault.rename(abstractFile, newPath);
     }
 
     async createFolder(path: string): Promise<IFolder> {
@@ -63,12 +69,23 @@ export class ObsidianApp implements IApp {
         const allFiles = this.app.vault.getAllLoadedFiles();
         const files = allFiles.filter(f => f instanceof TFile) as TFile[];
         
-        if (folder) {
-            return files
-                .filter(f => f.path.startsWith(folder.path))
-                .map(f => this.toIFile(f));
+        // Filter out files that don't have a Classe in frontmatter
+        // This prevents markdown-crm from trying to create classes for non-class files
+        const classFiles: IFile[] = [];
+        
+        for (const file of files) {
+            if (folder && !file.path.startsWith(folder.path)) {
+                continue;
+            }
+            
+            // Check if file has Classe in frontmatter
+            const cache = this.app.metadataCache.getCache(file.path);
+            if (cache?.frontmatter?.Classe) {
+                classFiles.push(this.toIFile(file));
+            }
         }
-        return files.map(f => this.toIFile(f));
+        
+        return classFiles;
     }
 
     async listFolders(folder?: IFolder): Promise<IFolder[]> {
@@ -167,26 +184,93 @@ export class ObsidianApp implements IApp {
     }
 
     // Converter helpers - made public so they can be used by the plugin
-    public toIFile(tfile: TFile): IFile {
+    public toIFile(tfile: TFile, includeRelations: boolean = true): IFile {
+        const parent = (includeRelations && tfile.parent) 
+            ? this.toIFolderShallow(tfile.parent) 
+            : undefined;
+        
+        // Get children if this is a folder-file (e.g., MyFile/MyFile.md)
+        const children: (IFile | IFolder)[] = [];
+        if (includeRelations && tfile.parent) {
+            const folderName = tfile.parent.name;
+            const fileBasename = tfile.basename;
+            
+            // Check if file is in a folder with the same name (folder-file pattern)
+            if (folderName === fileBasename) {
+                // Get all children in the parent folder (recursively including subfolders)
+                this.collectChildrenRecursive(tfile.parent, tfile.path, children);
+            }
+        }
+        
         return {
             path: tfile.path,
             basename: tfile.basename,
             extension: tfile.extension,
-            name: tfile.name
+            name: tfile.name,
+            parent,
+            children: children.length > 0 ? children : undefined
         };
     }
 
-    public toIFolder(tfolder: TFolder): IFolder {
+    // Helper to collect children recursively from a folder
+    private collectChildrenRecursive(folder: TFolder, excludePath: string, result: (IFile | IFolder)[]): void {
+        for (const child of folder.children) {
+            if (child.path === excludePath) {
+                continue; // Skip the file itself
+            }
+            
+            if (child instanceof TFile) {
+                result.push(this.toIFile(child, false));
+            } else if (child instanceof TFolder) {
+                const folderItem = this.toIFolderShallow(child);
+                result.push(folderItem);
+                // Recurse into subfolder to get nested files
+                this.collectChildrenRecursive(child, excludePath, result);
+            }
+        }
+    }
+
+    // Shallow folder conversion - only basic info + parent, no deep children
+    private toIFolderShallow(tfolder: TFolder): IFolder {
+        const parent = tfolder.parent ? this.toIFolderShallow(tfolder.parent) : undefined;
+        
         return {
             path: tfolder.path,
             name: tfolder.name,
-            children: [] // Obsidian doesn't provide direct access to children
+            children: [],
+            parent
+        };
+    }
+
+    public toIFolder(tfolder: TFolder, includeChildren: boolean = true): IFolder {
+        const parent = tfolder.parent ? this.toIFolderShallow(tfolder.parent) : undefined;
+        
+        const children: (IFile | IFolder)[] = [];
+        if (includeChildren) {
+            for (const child of tfolder.children) {
+                if (child instanceof TFile) {
+                    children.push(this.toIFile(child, false));
+                } else if (child instanceof TFolder) {
+                    children.push(this.toIFolder(child, false));
+                }
+            }
+        }
+        
+        return {
+            path: tfolder.path,
+            name: tfolder.name,
+            children,
+            parent
         };
     }
 
     // Additional IApp methods
-    getUrl(): string {
-        return 'app://obsidian.md';
+    getUrl(path: string): string {
+        // Generate Obsidian URI to open file
+        // Format: obsidian://open?vault=VaultName&file=path/to/file.md
+        const vaultName = encodeURIComponent(this.app.vault.getName());
+        const filePath = encodeURIComponent(path);
+        return `obsidian://open?vault=${vaultName}&file=${filePath}`;
     }
 
     async getTemplateContent(templateName: string): Promise<string> {
@@ -204,6 +288,11 @@ export class ObsidianApp implements IApp {
 
     async setSetting(key: string, value: any): Promise<void> {
         // Settings are handled by the plugin
+    }
+
+    getSettings(): ISettings {
+        // Return settings object expected by markdown-crm properties
+        return this.settings;
     }
 
     getFileIcon(extension: string): string {

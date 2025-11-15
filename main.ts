@@ -1,9 +1,10 @@
 import { MarkdownView, Menu, Plugin, TAbstractFile, TFile } from 'obsidian';
-import { Vault } from 'markdown-crm';
+import { Vault, ISettings } from 'markdown-crm';
 import { ObsidianApp } from 'src/App';
 import { CRMSettingTab } from 'settings';
+import { FileSearchModal } from 'src/Modals/FileSearchModal';
 
-interface Settings {
+interface Settings extends ISettings {
   templateFolder: string;
   dataFile: string;
   personalName: string;
@@ -17,6 +18,12 @@ const DEFAULT_SETTINGS: Settings = {
   personalName: "Léo",
   additionalFiles: [],
   configPath: "Outils/Obsidian/Config",
+  // ISettings defaults
+  phoneFormat: 'FR',
+  dateFormat: 'DD/MM/YYYY',
+  timeFormat: '24h',
+  numberLocale: 'fr-FR',
+  currencySymbol: '€',
 };
 
 export default class CRM extends Plugin {
@@ -28,6 +35,13 @@ export default class CRM extends Plugin {
   async onload() {
     console.log("🚀 Plugin CRM - Loading...");
     
+    // Load settings first
+    await this.loadSettings();
+    console.log("✅ Settings loaded:", this.settings);
+    
+    // Add settings tab once
+    this.addSettingTab(new CRMSettingTab(this.app, this));
+    
     // Wait for the vault to be fully loaded
     this.app.workspace.onLayoutReady(() => {
       this.initializePlugin();
@@ -37,14 +51,9 @@ export default class CRM extends Plugin {
   async initializePlugin() {
     console.log("✅ Vault layout ready");
     
-    // Load settings
-    this.addSettingTab(new CRMSettingTab(this.app, this));
-    await this.loadSettings();
-    console.log("✅ Settings loaded:", this.settings);
-    
-    // Initialize the ObsidianApp adapter
-    this.obsidianApp = new ObsidianApp(this.app);
-    console.log("✅ ObsidianApp adapter initialized");
+    // Initialize the ObsidianApp adapter with settings
+    this.obsidianApp = new ObsidianApp(this.app, this.settings);
+    console.log("✅ ObsidianApp adapter initialized with settings");
     
     // Initialize Vault.classes if not already initialized (library bug fix)
     if (!(Vault as any).classes) {
@@ -60,12 +69,30 @@ export default class CRM extends Plugin {
     });
     console.log("✅ Vault initialized");
 
-    // Log dynamic class factory
+    // Load class names from YAML config files
+    const knownClasses = await this.loadClassNamesFromConfig();
+    console.log("📋 Registering commands for classes from config:", knownClasses);
+    
+    for (const className of knownClasses) {
+      this.addCommand({
+        id: `open-${className.toLowerCase()}`,
+        name: `Ouvrir/Créer: ${className}`,
+        callback: async () => {
+          console.log(`🚀 Command executed: ${className}`);
+          await this.openClassFileSuggester(className);
+        }
+      });
+      console.log(`✅ Registered command: Ouvrir/Créer: ${className}`);
+    }
+    
+    console.log("✅ All commands registered");
+
+    // Log dynamic class factory (for info only)
     const factory = this.vault.getDynamicClassFactory();
     if (factory) {
       console.log("✅ Dynamic Class Factory loaded");
       const classes = (this.vault.constructor as any).classes;
-      console.log("📋 Available classes:", Object.keys(classes || {}));
+      console.log("📋 Loaded dynamic classes:", Object.keys(classes || {}));
     } else {
       console.warn("⚠️ Dynamic Class Factory not initialized");
     }
@@ -122,6 +149,123 @@ export default class CRM extends Plugin {
             console.log("⚠️ No classe found");
             this.obsidianApp.sendNotice("Aucune classe trouvée");
           }
+        } catch (error) {
+          console.error("❌ Error:", error);
+          this.obsidianApp.sendNotice("Erreur: " + error.message);
+        }
+      }
+    });
+
+    // Add test command to find children
+    this.addCommand({
+      id: "test-find-children",
+      name: "Test: Trouver les enfants du fichier actuel",
+      callback: async () => {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile) {
+          console.log("❌ No active file");
+          this.obsidianApp.sendNotice("Aucun fichier actif");
+          return;
+        }
+
+        try {
+          const iFile = this.obsidianApp.toIFile(activeFile);
+          const classe = await this.vault.getFromFile(iFile);
+          
+          if (classe) {
+            console.log("📂 Recherche des enfants de:", activeFile.path);
+            console.log("📂 Nom du fichier:", activeFile.basename);
+            
+            // Log IFile children
+            console.log("📦 IFile.children:", iFile.children?.length || 0);
+            if (iFile.children && iFile.children.length > 0) {
+              console.log("📦 Liste des children dans IFile:");
+              iFile.children.forEach(c => console.log(`  - ${c.path}`));
+            }
+            
+            // Get the dedicated folder path
+            const fileFolder = activeFile.path.substring(0, activeFile.path.lastIndexOf('/'));
+            const fileFolderName = fileFolder.substring(fileFolder.lastIndexOf("/") + 1);
+            const hasOwnFolder = fileFolderName === activeFile.basename;
+            const dedicatedFolderPath = hasOwnFolder ? fileFolder : `${fileFolder}/${activeFile.basename}`;
+            
+            console.log("📂 Dossier dédié attendu:", dedicatedFolderPath);
+            console.log("📂 A déjà son propre dossier:", hasOwnFolder);
+            
+            // List all files
+            const allFiles = await this.obsidianApp.listFiles();
+            console.log(`📋 Total de ${allFiles.length} fichier(s) avec Classe`);
+            
+            // Check which files would be in dedicated folder
+            const inDedicatedFolder = allFiles.filter(f => {
+              const folder = f.path.substring(0, f.path.lastIndexOf('/'));
+              return folder === dedicatedFolderPath || folder.startsWith(dedicatedFolderPath + '/');
+            });
+            
+            console.log(`📂 ${inDedicatedFolder.length} fichier(s) dans le dossier dédié:`);
+            inDedicatedFolder.forEach(f => console.log(`  - ${f.path}`));
+            
+            // Call findChildren
+            const children = await (classe as any).findChildren();
+            console.log(`✅ Trouvé ${children.length} enfant(s):`);
+            
+            for (const child of children) {
+              const childFile = child.getFile();
+              console.log(`  - ${childFile?.getPath()}`);
+            }
+            
+            this.obsidianApp.sendNotice(`Trouvé ${children.length} enfant(s)`);
+          } else {
+            console.log("⚠️ No classe found");
+            this.obsidianApp.sendNotice("Aucune classe trouvée");
+          }
+        } catch (error) {
+          console.error("❌ Error:", error);
+          this.obsidianApp.sendNotice("Erreur: " + error.message);
+        }
+      }
+    });
+
+    // Add test command to check IFile parent/children properties
+    this.addCommand({
+      id: "test-ifile-relations",
+      name: "Test: Vérifier parent/children IFile",
+      callback: async () => {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile) {
+          console.log("❌ No active file");
+          this.obsidianApp.sendNotice("Aucun fichier actif");
+          return;
+        }
+
+        try {
+          console.log("🔍 Testing IFile parent/children for:", activeFile.path);
+          
+          const iFile = this.obsidianApp.toIFile(activeFile);
+          
+          console.log("📁 Parent:", iFile.parent?.path || "none");
+          console.log("👶 Children count:", iFile.children?.length || 0);
+          
+          if (iFile.children && iFile.children.length > 0) {
+            console.log("👶 Children list:");
+            for (const child of iFile.children) {
+              console.log(`  - ${child.path} (${(child as any).extension || 'folder'})`);
+            }
+          }
+          
+          // Check parent chain
+          if (iFile.parent) {
+            console.log("🔗 Parent chain:");
+            let current: any = iFile.parent;
+            let depth = 0;
+            while (current && depth < 10) {
+              console.log(`  ${'  '.repeat(depth)}↑ ${current.path}`);
+              current = current.parent;
+              depth++;
+            }
+          }
+          
+          this.obsidianApp.sendNotice(`Parent: ${iFile.parent?.name || 'none'}, Children: ${iFile.children?.length || 0}`);
         } catch (error) {
           console.error("❌ Error:", error);
           this.obsidianApp.sendNotice("Erreur: " + error.message);
@@ -215,7 +359,7 @@ export default class CRM extends Plugin {
           if (!file || !(file instanceof TFile)) {
             console.log("❌ No file selected or file is not a TFile");
             return;
-          }
+          } 
           
           console.log("🔄 Refreshing file:", file.path);
           
@@ -256,6 +400,205 @@ export default class CRM extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+
+  /**
+   * Load class names from YAML config files
+   */
+  async loadClassNamesFromConfig(): Promise<string[]> {
+    try {
+      const configPath = this.settings.configPath;
+      const configFolder = this.app.vault.getAbstractFileByPath(configPath);
+      
+      if (!configFolder || !('children' in configFolder)) {
+        console.warn(`⚠️ Config folder not found: ${configPath}`);
+        return [];
+      }
+      
+      const classNames: string[] = [];
+      
+      // Scan all .yaml files in config folder
+      for (const file of (configFolder as any).children) {
+        if (file.extension === 'yaml') {
+          // Extract class name from filename (remove .yaml extension)
+          const className = file.basename;
+          classNames.push(className);
+        }
+      }
+      
+      console.log(`📂 Found ${classNames.length} class configs in ${configPath}:`, classNames);
+      return classNames;
+    } catch (error) {
+      console.error('❌ Error loading class names from config:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Register keyboard shortcuts for creating and searching each class
+   */
+  registerClassCommands(classes: any) {
+    console.log("🎹 registerClassCommands called");
+    console.log("📦 Classes object:", classes);
+    
+    if (!classes) {
+      console.error("❌ Classes is null or undefined");
+      return;
+    }
+    
+    const classNames = Object.keys(classes);
+    console.log("📋 Class names:", classNames);
+    
+    if (classNames.length === 0) {
+      console.warn("⚠️ No classes found for command registration");
+      return;
+    }
+    
+    console.log(`🎹 Registering ${classNames.length} commands for classes:`, classNames);
+    
+    for (const className of classNames) {
+      // Single command to search or create
+      const commandId = `open-${className.toLowerCase()}`;
+      const commandName = `Ouvrir/Créer: ${className}`;
+      
+      console.log(`📝 Adding command: ${commandId} - ${commandName}`);
+      
+      this.addCommand({
+        id: commandId,
+        name: commandName,
+        callback: async () => {
+          console.log(`🚀 Command executed: ${commandName}`);
+          await this.openClassFileSuggester(className);
+        }
+      });
+      
+      console.log(`✅ Registered command: ${commandName}`);
+    }
+    
+    console.log("✅ All commands registered successfully");
+  }
+
+  /**
+   * Open file suggester for a class with create option
+   */
+  async openClassFileSuggester(className: string) {
+    console.log(`🔍 Looking for ${className} files in vault...`);
+    
+    try {
+      // Use Obsidian's file cache instead of listFiles
+      const allMarkdownFiles = this.app.vault.getMarkdownFiles();
+      console.log(`📚 Total markdown files in vault: ${allMarkdownFiles.length}`);
+      
+      const classFiles: TFile[] = [];
+      let ClassConstructor: any = null;
+      let checkedCount = 0;
+      let matchedCount = 0;
+      
+      for (const file of allMarkdownFiles) {
+        try {
+          // Check file metadata for classe property using Obsidian's metadata cache
+          const cache = this.app.metadataCache.getFileCache(file);
+          const fileClasse = cache?.frontmatter?.Classe;
+          checkedCount++;
+          
+          if (fileClasse === className) {
+            matchedCount++;
+            console.log(`✅ Match found: ${file.path} has classe: ${fileClasse}`);
+            classFiles.push(file);
+            
+            // Try to load the class constructor from the first matching file
+            if (!ClassConstructor) {
+              try {
+                const iFile = this.obsidianApp.toIFile(file);
+                const obj = await this.vault.getFromFile(iFile);
+                if (obj) {
+                  ClassConstructor = obj.constructor;
+                  console.log(`✅ Constructor loaded from: ${file.path}`);
+                }
+              } catch (e) {
+                console.warn('Could not load class from file:', file.path, e);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Error checking file:', file.path, e);
+        }
+      }
+      
+      console.log(`📊 Checked ${checkedCount} files, found ${matchedCount} matches for ${className}`);
+      console.log(`📂 Found ${classFiles.length} ${className} files`);
+      
+      // If no files found and class not loaded, try to get it from the registry
+      if (!ClassConstructor) {
+        const classes = (this.vault.constructor as any).classes;
+        ClassConstructor = classes[className];
+        
+        // If still not loaded, force load from YAML config
+        if (!ClassConstructor) {
+          const factory = this.vault.getDynamicClassFactory();
+          if (factory) {
+            try {
+              ClassConstructor = await factory.getClass(className);
+              console.log(`✅ Constructor loaded from YAML config for: ${className}`);
+            } catch (e) {
+              console.warn(`Could not load class ${className} from YAML:`, e);
+            }
+          }
+        }
+        
+        if (!ClassConstructor) {
+          console.warn(`⚠️ Class ${className} not loaded yet, creating minimal constructor`);
+          // Create a minimal placeholder that will work for file creation
+          ClassConstructor = class {
+            constructor(vault: any) {}
+            template = '';
+          };
+        }
+      }
+      
+      // Show suggester with create option
+      this.showClassFileSuggester(classFiles, className, ClassConstructor);
+    } catch (error) {
+      console.error(`Error opening file suggester for ${className}:`, error);
+      this.obsidianApp.sendNotice(`Erreur lors de l'ouverture du suggester pour ${className}`);
+    }
+  }
+
+  /**
+   * Show file suggester for selecting or creating a class file
+   */
+  showClassFileSuggester(files: TFile[], className: string, ClassConstructor: any) {
+    new FileSearchModal(
+      this.app,
+      async (result) => {
+        if (!result) return;
+        
+        if (typeof result === 'string' && result.startsWith('Create: ')) {
+          // Create new file using Vault.createFile()
+          const name = result.substring('Create: '.length);
+          try {
+            const file = await this.vault.createFile(ClassConstructor, name);
+            if (file) {
+              // Open the created file
+              const tFile = this.app.vault.getAbstractFileByPath(file.path);
+              if (tFile instanceof TFile) {
+                await this.app.workspace.getLeaf().openFile(tFile);
+              }
+            }
+          } catch (error) {
+            console.error(`Error creating ${className}:`, error);
+            this.obsidianApp.sendNotice(`Erreur lors de la création de ${className}`);
+          }
+        } else if (result instanceof TFile) {
+          // Open existing file
+          await this.app.workspace.getLeaf().openFile(result);
+        }
+      },
+      [className], // Filter by this class
+      {
+        hint: `Rechercher ou créer un ${className}...`
+      }
+    ).open();
   }
 
   onunload() {
