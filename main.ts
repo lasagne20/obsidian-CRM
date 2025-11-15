@@ -1,8 +1,9 @@
-import { MarkdownView, Menu, Plugin, TAbstractFile, TFile } from 'obsidian';
+import { MarkdownView, Menu, Plugin, TAbstractFile, TFile, TFolder } from 'obsidian';
 import { Vault, ISettings } from 'markdown-crm';
 import { ObsidianApp } from 'src/App';
 import { CRMSettingTab } from 'settings';
 import { FileSearchModal } from 'src/Modals/FileSearchModal';
+import { FileFolderManager } from 'src/FileFolderManager';
 
 interface Settings extends ISettings {
   templateFolder: string;
@@ -10,6 +11,10 @@ interface Settings extends ISettings {
   personalName: string;
   additionalFiles: string[];
   configPath: string;
+  enableFolderNotes: boolean;
+  folderNotePosition: 'inside' | 'outside';
+  hideInFileExplorer: boolean;
+  underlineFolderWithNote: boolean;
 }
  
 const DEFAULT_SETTINGS: Settings = {
@@ -18,6 +23,10 @@ const DEFAULT_SETTINGS: Settings = {
   personalName: "Léo",
   additionalFiles: [],
   configPath: "Outils/Obsidian/Config",
+  enableFolderNotes: true,
+  folderNotePosition: 'inside',
+  hideInFileExplorer: true,
+  underlineFolderWithNote: true,
   // ISettings defaults
   phoneFormat: 'FR',
   dateFormat: 'DD/MM/YYYY',
@@ -31,6 +40,7 @@ export default class CRM extends Plugin {
   public obsidianApp: ObsidianApp;
   public settings: Settings = DEFAULT_SETTINGS;
   private currentFilePath: string | null = null;
+  private folderManager: FileFolderManager | null = null;
 
   async onload() {
     console.log("🚀 Plugin CRM - Loading...");
@@ -101,6 +111,37 @@ export default class CRM extends Plugin {
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file) => {
         this.addContextMenuOption(menu, file);
+      })
+    );
+
+    // Register folder notes functionality
+    if (this.settings.enableFolderNotes) {
+      this.registerFolderNotes();
+    }
+
+    // Initialize folder manager
+    this.folderManager = new FileFolderManager(this.app, {
+      enabled: this.settings.enableFolderNotes,
+      position: this.settings.folderNotePosition,
+      hideInFileExplorer: this.settings.hideInFileExplorer,
+      underlineFolderWithNote: this.settings.underlineFolderWithNote
+    });
+    this.folderManager.initialize();
+
+    // Watch for file changes to update folder styles
+    this.registerEvent(
+      this.app.vault.on('create', (file) => {
+        this.folderManager?.onFileCreated(file);
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on('delete', (file) => {
+        this.folderManager?.onFileDeleted(file);
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on('rename', (file, oldPath) => {
+        this.folderManager?.onFileRenamed(file, oldPath);
       })
     );
 
@@ -400,6 +441,16 @@ export default class CRM extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
+    
+    // Update folder manager settings
+    if (this.folderManager) {
+      this.folderManager.updateSettings({
+        enabled: this.settings.enableFolderNotes,
+        position: this.settings.folderNotePosition,
+        hideInFileExplorer: this.settings.hideInFileExplorer,
+        underlineFolderWithNote: this.settings.underlineFolderWithNote
+      });
+    }
   }
 
   /**
@@ -601,7 +652,128 @@ export default class CRM extends Plugin {
     ).open();
   }
 
+  /**
+   * Register folder notes functionality
+   */
+  registerFolderNotes() {
+    // Watch for folder creation
+    this.registerEvent(
+      this.app.vault.on('create', async (file) => {
+        if (file instanceof TFile) return; // Only handle folders
+        
+        // It's a folder
+        await this.createFolderNote(file);
+      })
+    );
+
+    // Add command to create folder note for existing folder
+    this.addCommand({
+      id: 'create-folder-note',
+      name: 'Créer une note pour ce dossier',
+      callback: async () => {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile) return;
+        
+        const folder = activeFile.parent;
+        if (folder) {
+          await this.createFolderNote(folder);
+        }
+      }
+    });
+
+    // Add folder note option to folder context menu
+    this.registerEvent(
+      this.app.workspace.on('file-menu', (menu, file) => {
+        if (file instanceof TFile) return; // Only for folders
+        
+        menu.addItem((item) =>
+          item
+            .setTitle('Créer/Ouvrir la note du dossier')
+            .setIcon('folder')
+            .onClick(async () => {
+              const folderNote = this.getFolderNotePath(file);
+              const existingFile = this.app.vault.getAbstractFileByPath(folderNote);
+              
+              if (existingFile instanceof TFile) {
+                await this.app.workspace.getLeaf().openFile(existingFile);
+              } else {
+                await this.createFolderNote(file);
+              }
+            })
+        );
+      })
+    );
+  }
+
+  /**
+   * Get the path for a folder note
+   */
+  getFolderNotePath(folder: TAbstractFile): string {
+    const folderName = folder.name;
+    if (this.settings.folderNotePosition === 'inside') {
+      return `${folder.path}/${folderName}.md`;
+    } else {
+      // outside: same level as folder
+      const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
+      return parentPath ? `${parentPath}/${folderName}.md` : `${folderName}.md`;
+    }
+  }
+
+  /**
+   * Create a folder note for a folder
+   */
+  async createFolderNote(folder: TAbstractFile) {
+    if (!this.settings.enableFolderNotes) return;
+    
+    const folderNotePath = this.getFolderNotePath(folder);
+    
+    // Check if folder note already exists
+    const existingFile = this.app.vault.getAbstractFileByPath(folderNotePath);
+    if (existingFile) {
+      console.log(`📁 Folder note already exists: ${folderNotePath}`);
+      return;
+    }
+    
+    try {
+      // Try to detect classe from folder structure or metadata
+      let classeType: typeof import('markdown-crm').Classe | null = null;
+      
+      // Check if there are files in the folder with a classe property
+      const filesInFolder = this.app.vault.getMarkdownFiles().filter(f => 
+        f.path.startsWith(folder.path + '/')
+      );
+      
+      if (filesInFolder.length > 0) {
+        const cache = this.app.metadataCache.getFileCache(filesInFolder[0]);
+        const className = cache?.frontmatter?.Classe;
+        if (className) {
+          const classes = (this.vault.constructor as any).classes;
+          classeType = classes[className];
+        }
+      }
+      
+      // Create the folder note
+      const content = classeType 
+        ? `---\nClasse: ${classeType.name}\n---\n\n# ${folder.name}\n`
+        : `# ${folder.name}\n`;
+      
+      const newFile = await this.app.vault.create(folderNotePath, content);
+      console.log(`📁 Created folder note: ${folderNotePath}`);
+      
+      // Optionally open the file
+      await this.app.workspace.getLeaf().openFile(newFile);
+    } catch (error) {
+      console.error('Error creating folder note:', error);
+    }
+  }
+
   onunload() {
     console.log("Plugin CRM - Unloaded");
+    
+    // Cleanup folder manager
+    if (this.folderManager) {
+      this.folderManager.destroy();
+      this.folderManager = null;
+    }
   }
 }

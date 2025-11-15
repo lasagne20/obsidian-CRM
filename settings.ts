@@ -179,5 +179,62 @@ export class CRMSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           });
       });
+
+    // Section pour les folder notes
+    containerEl.createEl("h3", { text: "Notes de dossier" });
+
+    // Activer les folder notes
+    new Setting(containerEl)
+      .setName("Activer les notes de dossier")
+      .setDesc("Créer automatiquement une note pour chaque nouveau dossier.")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.enableFolderNotes)
+          .onChange(async (value) => {
+            this.plugin.settings.enableFolderNotes = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Position de la note
+    new Setting(containerEl)
+      .setName("Position de la note de dossier")
+      .setDesc("Position de la note par rapport au dossier.")
+      .addDropdown((dropdown) => {
+        dropdown
+          .addOption("inside", "À l'intérieur (Dossier/Dossier.md)")
+          .addOption("outside", "À l'extérieur (Dossier.md)")
+          .setValue(this.plugin.settings.folderNotePosition)
+          .onChange(async (value) => {
+            this.plugin.settings.folderNotePosition = value as 'inside' | 'outside';
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Masquer les notes de dossier dans l'arbre
+    new Setting(containerEl)
+      .setName("Masquer les notes de dossier dans l'explorateur")
+      .setDesc("Cacher les notes de dossier dans l'arbre de fichiers.")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.hideInFileExplorer)
+          .onChange(async (value) => {
+            this.plugin.settings.hideInFileExplorer = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Souligner les dossiers avec note
+    new Setting(containerEl)
+      .setName("Souligner les dossiers avec note")
+      .setDesc("Afficher un soulignement sur les noms de dossiers qui ont une note associée.")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.underlineFolderWithNote)
+          .onChange(async (value) => {
+            this.plugin.settings.underlineFolderWithNote = value;
+            await this.plugin.saveSettings();
+          });
+      });
   }
 }
