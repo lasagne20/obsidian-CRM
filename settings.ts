@@ -22,18 +22,11 @@ export class CRMSettingTab extends PluginSettingTab {
     classesInfo.style.backgroundColor = "var(--background-secondary)";
     classesInfo.style.borderRadius = "5px";
     
-    const vault = this.plugin.vault;
-    if (vault) {
-      const factory = vault.getDynamicClassFactory();
-      if (factory) {
-        const classes = (vault.constructor as any).classes;
-        const classNames = Object.keys(classes || {});
-        classesInfo.innerHTML = `<strong>Classes chargées :</strong> ${classNames.length > 0 ? classNames.join(", ") : "Aucune classe chargée"}`;
-      } else {
-        classesInfo.innerHTML = `<strong>⚠️</strong> Factory de classes non initialisée`;
-      }
+    const loadedClasses = this.plugin.loadedClassNames;
+    if (loadedClasses && loadedClasses.length > 0) {
+      classesInfo.innerHTML = `<strong>Classes chargées :</strong> ${loadedClasses.join(", ")}`;
     } else {
-      classesInfo.innerHTML = `<strong>⚠️</strong> Vault non initialisé`;
+      classesInfo.innerHTML = `<strong>⚠️</strong> Aucune classe chargée`;
     }
 
     // Nom personnalisé

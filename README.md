@@ -8,6 +8,9 @@ Un plugin Obsidian avancé pour la gestion de relations client (CRM) avec un sys
 
 - **Classes dynamiques** : Créez et configurez des classes personnalisées via YAML
 - **Propriétés riches** : Support de nombreux types de propriétés (Email, Téléphone, Fichier, Select, etc.)
+- **Données externes** : Chargement et création automatique depuis des fichiers JSON (ex: données géographiques)
+- **Recherche intelligente** : Modal de recherche avec suggestions automatiques depuis les données
+- **Création récursive** : Génération automatique de la hiérarchie complète (parents, dossiers)
 - **Affichage personnalisable** : Configurez l'affichage de vos données avec des conteneurs flexibles
 - **Intégration Obsidian** : Utilise pleinement l'API d'Obsidian pour une expérience native
 - **Tests complets** : Suite de tests robuste avec 395 tests automatisés (100% de réussite)
@@ -82,6 +85,62 @@ display:
     - type: "line"
       properties: ["telephone"]
 ```
+
+### Configuration avec données externes
+
+Pour créer des fichiers à partir de données JSON (ex: lieux géographiques) :
+
+```yaml
+# config/Lieu.yaml
+className: "Lieu"
+classIcon: "map-pin"
+
+parent:
+  property: "Parent"
+
+data:
+  - file: data/geo.json
+    dynamic: true
+
+properties:
+  classe:
+    type: "ClasseProperty"
+    name: "Classe"
+    icon: "map-pin"
+  
+  parent:
+    type: "FileProperty"
+    name: "Parent"
+    classes: ["Lieu"]
+    icon: "map-pin"
+    static: true
+```
+
+**Format du fichier data/geo.json** :
+```json
+[
+  {
+    "nom": "59000 - Lille",
+    "title": "Lille",
+    "type": "Commune",
+    "parent": "Métropole Européenne de Lille",
+    "code_postal": "59000",
+    "code_insee": "59350"
+  },
+  {
+    "nom": "Métropole Européenne de Lille",
+    "title": "Métropole Européenne de Lille",
+    "type": "EPCI",
+    "parent": "59 - Nord"
+  }
+]
+```
+
+**Fonctionnalités** :
+- 🔍 **Recherche intelligente** : Tapez "Lille" pour trouver dans title, nom, code_postal
+- 🏗️ **Création récursive** : Crée automatiquement toute la hiérarchie (parent → grandparent → ...)
+- 📁 **Dossiers automatiques** : Génère l'arborescence de dossiers `Lieux/France/HDF/59 - Nord/...`
+- 🔄 **Rechargement dynamique** : Met à jour automatiquement si le JSON change
 
 ## 📚 Documentation complète
 

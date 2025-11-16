@@ -1,4 +1,4 @@
-import { App, TAbstractFile, TFile, TFolder } from 'obsidian';
+import { App, Menu, TAbstractFile, TFile, TFolder } from 'obsidian';
 
 export interface FolderNoteSettings {
     enabled: boolean;
@@ -11,10 +11,12 @@ export class FileFolderManager {
     private app: App;
     private settings: FolderNoteSettings;
     private styleEl: HTMLStyleElement | null = null;
+    private vault: any; // Vault from markdown-crm
 
-    constructor(app: App, settings: FolderNoteSettings) {
+    constructor(app: App, settings: FolderNoteSettings, vault?: any) {
         this.app = app;
         this.settings = settings;
+        this.vault = vault;
     }
 
     /**
@@ -408,4 +410,124 @@ export class FileFolderManager {
         this.removeStyles();
         this.removeAllFolderClasses();
     }
+
+    /**
+     * Set the vault instance (for creating folder notes with proper classes)
+     */
+    setVault(vault: any) {
+        this.vault = vault;
+    }
+
+    /**
+     * Create a folder note for a folder
+     */
+    async createFolderNote(folder: TAbstractFile): Promise<TFile | null> {
+        if (!this.settings.enabled) return null;
+        
+        const folderNotePath = this.getFolderNotePath(folder as TFolder);
+        
+        // Check if folder note already exists
+        const existingFile = this.app.vault.getAbstractFileByPath(folderNotePath);
+        if (existingFile) {
+            console.log(`📁 Folder note already exists: ${folderNotePath}`);
+            return existingFile as TFile;
+        }
+        
+        try {
+            // Try to detect classe from folder structure or metadata
+            let classeType: any = null;
+            
+            // Check if there are files in the folder with a classe property
+            const filesInFolder = this.app.vault.getMarkdownFiles().filter(f => 
+                f.path.startsWith(folder.path + '/')
+            );
+            
+            if (filesInFolder.length > 0) {
+                const cache = this.app.metadataCache.getFileCache(filesInFolder[0]);
+                const className = cache?.frontmatter?.Classe;
+                if (className && this.vault) {
+                    const classes = (this.vault.constructor as any).classes;
+                    classeType = classes[className];
+                }
+            }
+            
+            // Create the folder note
+            const content = classeType 
+                ? `---\nClasse: ${classeType.name}\n---\n\n# ${folder.name}\n`
+                : `# ${folder.name}\n`;
+            
+            const newFile = await this.app.vault.create(folderNotePath, content);
+            console.log(`📁 Created folder note: ${folderNotePath}`);
+            
+            return newFile;
+        } catch (error) {
+            console.error('Error creating folder note:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Register event handlers for folder notes (to be called by plugin)
+     */
+    registerEvents(plugin: any) {
+        // Watch for folder creation
+        plugin.registerEvent(
+            this.app.vault.on('create', async (file) => {
+                if (file instanceof TFile) return; // Only handle folders
+                
+                // It's a folder
+                await this.createFolderNote(file);
+            })
+        );
+
+        // Add folder note option to folder context menu
+        plugin.registerEvent(
+            this.app.workspace.on('file-menu', (menu: Menu, file: TAbstractFile) => {
+                if (file instanceof TFile) return; // Only for folders
+                
+                menu.addItem((item) =>
+                    item
+                        .setTitle('Créer/Ouvrir la note du dossier')
+                        .setIcon('folder')
+                        .onClick(async () => {
+                            const folderNote = this.getFolderNotePath(file as TFolder);
+                            const existingFile = this.app.vault.getAbstractFileByPath(folderNote);
+                            
+                            if (existingFile instanceof TFile) {
+                                await this.app.workspace.getLeaf().openFile(existingFile);
+                            } else {
+                                const newFile = await this.createFolderNote(file);
+                                if (newFile) {
+                                    await this.app.workspace.getLeaf().openFile(newFile);
+                                }
+                            }
+                        })
+                );
+            })
+        );
+    }
+
+    /**
+     * Register commands for folder notes (to be called by plugin)
+     */
+    registerCommands(plugin: any) {
+        // Add command to create folder note for existing folder
+        plugin.addCommand({
+            id: 'create-folder-note',
+            name: 'Créer une note pour ce dossier',
+            callback: async () => {
+                const activeFile = this.app.workspace.getActiveFile();
+                if (!activeFile) return;
+                
+                const folder = activeFile.parent;
+                if (folder) {
+                    const newFile = await this.createFolderNote(folder);
+                    if (newFile) {
+                        await this.app.workspace.getLeaf().openFile(newFile);
+                    }
+                }
+            }
+        });
+    }
 }
+

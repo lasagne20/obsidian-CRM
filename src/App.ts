@@ -337,9 +337,41 @@ export class ObsidianApp implements IApp {
     }
 
     async waitForFileMetaDataUpdate(filePath: string, key: string, callback: () => Promise<void>): Promise<void> {
-        await callback();
-        // Wait a bit for metadata to update
-        await new Promise(resolve => setTimeout(resolve, 100));
+        return new Promise((resolve) => {
+            let resolved = false;
+            
+            const handler = (file: any) => {
+                if (resolved) return;
+                
+                // Check if this is the file we're waiting for
+                const filePathToCheck = typeof file === 'string' ? file : file?.path;
+                if (filePathToCheck === filePath) {
+                    // Check if the key exists in metadata
+                    const tFile = this.app.vault.getAbstractFileByPath(filePath);
+                    if (tFile instanceof TFile) {
+                        const metadata = this.app.metadataCache.getFileCache(tFile);
+                        if (metadata?.frontmatter?.[key]) {
+                            resolved = true;
+                            this.app.metadataCache.off('changed', handler);
+                            callback().then(() => resolve());
+                        }
+                    }
+                }
+            };
+            
+            // Listen for metadata changes
+            this.app.metadataCache.on('changed', handler);
+            
+            // Fallback timeout after 5 seconds
+            setTimeout(() => {
+                if (!resolved) {
+                    console.warn(`⏱️ Timeout waiting for metadata update on ${filePath}`);
+                    resolved = true;
+                    this.app.metadataCache.off('changed', handler);
+                    callback().then(() => resolve());
+                }
+            }, 5000);
+        });
     }
 
     async waitForMetaDataCacheUpdate(action: () => Promise<void>): Promise<void> {

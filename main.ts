@@ -2,8 +2,8 @@ import { MarkdownView, Menu, Plugin, TAbstractFile, TFile, TFolder } from 'obsid
 import { Vault, ISettings } from 'markdown-crm';
 import { ObsidianApp } from 'src/App';
 import { CRMSettingTab } from 'settings';
-import { FileSearchModal } from 'src/Modals/FileSearchModal';
 import { FileFolderManager } from 'src/FileFolderManager';
+import { ClassFileModals } from 'src/Modals/Modals';
 
 interface Settings extends ISettings {
   templateFolder: string;
@@ -41,6 +41,8 @@ export default class CRM extends Plugin {
   public settings: Settings = DEFAULT_SETTINGS;
   private currentFilePath: string | null = null;
   private folderManager: FileFolderManager | null = null;
+  private classFileModals: ClassFileModals | null = null;
+  public loadedClassNames: string[] = [];
 
   async onload() {
     console.log("🚀 Plugin CRM - Loading...");
@@ -81,6 +83,7 @@ export default class CRM extends Plugin {
 
     // Load class names from YAML config files
     const knownClasses = await this.loadClassNamesFromConfig();
+    this.loadedClassNames = knownClasses; // Store for settings display
     console.log("📋 Registering commands for classes from config:", knownClasses);
     
     for (const className of knownClasses) {
@@ -89,7 +92,7 @@ export default class CRM extends Plugin {
         name: `Ouvrir/Créer: ${className}`,
         callback: async () => {
           console.log(`🚀 Command executed: ${className}`);
-          await this.openClassFileSuggester(className);
+          await this.classFileModals?.openClassFileSuggester(className);
         }
       });
       console.log(`✅ Registered command: Ouvrir/Créer: ${className}`);
@@ -103,6 +106,32 @@ export default class CRM extends Plugin {
       console.log("✅ Dynamic Class Factory loaded");
       const classes = (this.vault.constructor as any).classes;
       console.log("📋 Loaded dynamic classes:", Object.keys(classes || {}));
+      
+      // Load data for classes that have data files configured
+      console.log("🔄 Checking for classes with data files to load...");
+      for (const className of knownClasses) {
+        try {
+          const configManager = (factory as any).configManager;
+          const config = await configManager.getClassConfig(className);
+          
+          if (config.data && config.data.length > 0) {
+            console.log(`📥 Class "${className}" has ${config.data.length} data source(s), attempting to load...`);
+            
+            // Load data for this class
+            const loadedData = await configManager.loadClassData(className);
+            console.log(`✅ Loaded ${loadedData.length} data items for "${className}"`);
+            
+            // Setup dynamic reload if configured
+            const hasDynamicSource = config.data.some((ds: any) => ds.dynamic);
+            if (hasDynamicSource) {
+              console.log(`📡 Setting up dynamic reload for "${className}"...`);
+              await (factory as any).setupDynamicDataReload(className, this.vault);
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Error loading data for "${className}":`, error);
+        }
+      }
     } else {
       console.warn("⚠️ Dynamic Class Factory not initialized");
     }
@@ -114,19 +143,38 @@ export default class CRM extends Plugin {
       })
     );
 
+    // Initialize folder manager with vault
+    this.folderManager = new FileFolderManager(
+      this.app, 
+      {
+        enabled: this.settings.enableFolderNotes,
+        position: this.settings.folderNotePosition,
+        hideInFileExplorer: this.settings.hideInFileExplorer,
+        underlineFolderWithNote: this.settings.underlineFolderWithNote
+      },
+      this.vault
+    );
+    this.folderManager.initialize();
+
+    // Initialize class file modals helper
+    this.classFileModals = new ClassFileModals(
+      this.app,
+      this.vault,
+      this.obsidianApp,
+      async () => {
+        // Reset currentFilePath to force display refresh
+        this.currentFilePath = null;
+        
+        // Force replace metadata container to show the display
+        await this.replaceMetadataContainer();
+      }
+    );
+
     // Register folder notes functionality
     if (this.settings.enableFolderNotes) {
-      this.registerFolderNotes();
+      this.folderManager.registerEvents(this);
+      this.folderManager.registerCommands(this);
     }
-
-    // Initialize folder manager
-    this.folderManager = new FileFolderManager(this.app, {
-      enabled: this.settings.enableFolderNotes,
-      position: this.settings.folderNotePosition,
-      hideInFileExplorer: this.settings.hideInFileExplorer,
-      underlineFolderWithNote: this.settings.underlineFolderWithNote
-    });
-    this.folderManager.initialize();
 
     // Watch for file changes to update folder styles
     this.registerEvent(
@@ -340,11 +388,11 @@ export default class CRM extends Plugin {
         return;
       }
 
-      // Remove any existing custom display first
-      const existingCustomDisplay = view.querySelector('.crm-custom-display');
-      if (existingCustomDisplay) {
-        existingCustomDisplay.remove();
-        console.log("🧹 Removed existing custom display");
+      // Remove ALL existing custom displays (not just the first one)
+      const existingCustomDisplays = view.querySelectorAll('.crm-custom-display');
+      if (existingCustomDisplays.length > 0) {
+        existingCustomDisplays.forEach(display => display.remove());
+        console.log(`🧹 Removed ${existingCustomDisplays.length} existing custom display(s)`);
       }
 
       // Show the original metadata container (in case it was hidden)
@@ -519,7 +567,7 @@ export default class CRM extends Plugin {
         name: commandName,
         callback: async () => {
           console.log(`🚀 Command executed: ${commandName}`);
-          await this.openClassFileSuggester(className);
+          await this.classFileModals?.openClassFileSuggester(className);
         }
       });
       
@@ -527,244 +575,6 @@ export default class CRM extends Plugin {
     }
     
     console.log("✅ All commands registered successfully");
-  }
-
-  /**
-   * Open file suggester for a class with create option
-   */
-  async openClassFileSuggester(className: string) {
-    console.log(`🔍 Looking for ${className} files in vault...`);
-    
-    try {
-      // Use Obsidian's file cache instead of listFiles
-      const allMarkdownFiles = this.app.vault.getMarkdownFiles();
-      console.log(`📚 Total markdown files in vault: ${allMarkdownFiles.length}`);
-      
-      const classFiles: TFile[] = [];
-      let ClassConstructor: any = null;
-      let checkedCount = 0;
-      let matchedCount = 0;
-      
-      for (const file of allMarkdownFiles) {
-        try {
-          // Check file metadata for classe property using Obsidian's metadata cache
-          const cache = this.app.metadataCache.getFileCache(file);
-          const fileClasse = cache?.frontmatter?.Classe;
-          checkedCount++;
-          
-          if (fileClasse === className) {
-            matchedCount++;
-            console.log(`✅ Match found: ${file.path} has classe: ${fileClasse}`);
-            classFiles.push(file);
-            
-            // Try to load the class constructor from the first matching file
-            if (!ClassConstructor) {
-              try {
-                const iFile = this.obsidianApp.toIFile(file);
-                const obj = await this.vault.getFromFile(iFile);
-                if (obj) {
-                  ClassConstructor = obj.constructor;
-                  console.log(`✅ Constructor loaded from: ${file.path}`);
-                }
-              } catch (e) {
-                console.warn('Could not load class from file:', file.path, e);
-              }
-            }
-          }
-        } catch (e) {
-          console.warn('Error checking file:', file.path, e);
-        }
-      }
-      
-      console.log(`📊 Checked ${checkedCount} files, found ${matchedCount} matches for ${className}`);
-      console.log(`📂 Found ${classFiles.length} ${className} files`);
-      
-      // If no files found and class not loaded, try to get it from the registry
-      if (!ClassConstructor) {
-        const classes = (this.vault.constructor as any).classes;
-        ClassConstructor = classes[className];
-        
-        // If still not loaded, force load from YAML config
-        if (!ClassConstructor) {
-          const factory = this.vault.getDynamicClassFactory();
-          if (factory) {
-            try {
-              ClassConstructor = await factory.getClass(className);
-              console.log(`✅ Constructor loaded from YAML config for: ${className}`);
-            } catch (e) {
-              console.warn(`Could not load class ${className} from YAML:`, e);
-            }
-          }
-        }
-        
-        if (!ClassConstructor) {
-          console.warn(`⚠️ Class ${className} not loaded yet, creating minimal constructor`);
-          // Create a minimal placeholder that will work for file creation
-          ClassConstructor = class {
-            constructor(vault: any) {}
-            template = '';
-          };
-        }
-      }
-      
-      // Show suggester with create option
-      this.showClassFileSuggester(classFiles, className, ClassConstructor);
-    } catch (error) {
-      console.error(`Error opening file suggester for ${className}:`, error);
-      this.obsidianApp.sendNotice(`Erreur lors de l'ouverture du suggester pour ${className}`);
-    }
-  }
-
-  /**
-   * Show file suggester for selecting or creating a class file
-   */
-  showClassFileSuggester(files: TFile[], className: string, ClassConstructor: any) {
-    new FileSearchModal(
-      this.app,
-      async (result) => {
-        if (!result) return;
-        
-        if (typeof result === 'string' && result.startsWith('Create: ')) {
-          // Create new file using Vault.createFile()
-          const name = result.substring('Create: '.length);
-          try {
-            const file = await this.vault.createFile(ClassConstructor, name);
-            if (file) {
-              // Open the created file
-              const tFile = this.app.vault.getAbstractFileByPath(file.path);
-              if (tFile instanceof TFile) {
-                await this.app.workspace.getLeaf().openFile(tFile);
-              }
-            }
-          } catch (error) {
-            console.error(`Error creating ${className}:`, error);
-            this.obsidianApp.sendNotice(`Erreur lors de la création de ${className}`);
-          }
-        } else if (result instanceof TFile) {
-          // Open existing file
-          await this.app.workspace.getLeaf().openFile(result);
-        }
-      },
-      [className], // Filter by this class
-      {
-        hint: `Rechercher ou créer un ${className}...`
-      }
-    ).open();
-  }
-
-  /**
-   * Register folder notes functionality
-   */
-  registerFolderNotes() {
-    // Watch for folder creation
-    this.registerEvent(
-      this.app.vault.on('create', async (file) => {
-        if (file instanceof TFile) return; // Only handle folders
-        
-        // It's a folder
-        await this.createFolderNote(file);
-      })
-    );
-
-    // Add command to create folder note for existing folder
-    this.addCommand({
-      id: 'create-folder-note',
-      name: 'Créer une note pour ce dossier',
-      callback: async () => {
-        const activeFile = this.app.workspace.getActiveFile();
-        if (!activeFile) return;
-        
-        const folder = activeFile.parent;
-        if (folder) {
-          await this.createFolderNote(folder);
-        }
-      }
-    });
-
-    // Add folder note option to folder context menu
-    this.registerEvent(
-      this.app.workspace.on('file-menu', (menu, file) => {
-        if (file instanceof TFile) return; // Only for folders
-        
-        menu.addItem((item) =>
-          item
-            .setTitle('Créer/Ouvrir la note du dossier')
-            .setIcon('folder')
-            .onClick(async () => {
-              const folderNote = this.getFolderNotePath(file);
-              const existingFile = this.app.vault.getAbstractFileByPath(folderNote);
-              
-              if (existingFile instanceof TFile) {
-                await this.app.workspace.getLeaf().openFile(existingFile);
-              } else {
-                await this.createFolderNote(file);
-              }
-            })
-        );
-      })
-    );
-  }
-
-  /**
-   * Get the path for a folder note
-   */
-  getFolderNotePath(folder: TAbstractFile): string {
-    const folderName = folder.name;
-    if (this.settings.folderNotePosition === 'inside') {
-      return `${folder.path}/${folderName}.md`;
-    } else {
-      // outside: same level as folder
-      const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
-      return parentPath ? `${parentPath}/${folderName}.md` : `${folderName}.md`;
-    }
-  }
-
-  /**
-   * Create a folder note for a folder
-   */
-  async createFolderNote(folder: TAbstractFile) {
-    if (!this.settings.enableFolderNotes) return;
-    
-    const folderNotePath = this.getFolderNotePath(folder);
-    
-    // Check if folder note already exists
-    const existingFile = this.app.vault.getAbstractFileByPath(folderNotePath);
-    if (existingFile) {
-      console.log(`📁 Folder note already exists: ${folderNotePath}`);
-      return;
-    }
-    
-    try {
-      // Try to detect classe from folder structure or metadata
-      let classeType: typeof import('markdown-crm').Classe | null = null;
-      
-      // Check if there are files in the folder with a classe property
-      const filesInFolder = this.app.vault.getMarkdownFiles().filter(f => 
-        f.path.startsWith(folder.path + '/')
-      );
-      
-      if (filesInFolder.length > 0) {
-        const cache = this.app.metadataCache.getFileCache(filesInFolder[0]);
-        const className = cache?.frontmatter?.Classe;
-        if (className) {
-          const classes = (this.vault.constructor as any).classes;
-          classeType = classes[className];
-        }
-      }
-      
-      // Create the folder note
-      const content = classeType 
-        ? `---\nClasse: ${classeType.name}\n---\n\n# ${folder.name}\n`
-        : `# ${folder.name}\n`;
-      
-      const newFile = await this.app.vault.create(folderNotePath, content);
-      console.log(`📁 Created folder note: ${folderNotePath}`);
-      
-      // Optionally open the file
-      await this.app.workspace.getLeaf().openFile(newFile);
-    } catch (error) {
-      console.error('Error creating folder note:', error);
-    }
   }
 
   onunload() {

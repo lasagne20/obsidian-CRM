@@ -268,16 +268,23 @@ If your plugin does not need CSS, delete this file.
     display: flex;
     align-items: center;
     justify-content: center;
-    fill: var(--text-muted); /* Couleur par défaut des étoiles */
     transition: fill 0.2s ease-in-out, transform 0.1s;
 }
 
+.star svg {
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 2;
+}
+
 .star svg.filled-star {
-    fill: var(--interactive-accent); /* Couleur des étoiles remplies */
+    fill: var(--interactive-accent);
+    stroke: var(--interactive-accent);
 }
 
 .star svg.hovered-star {
-    fill: var(--interactive-accent-hover); /* Couleur des étoiles survolées */
+    fill: var(--interactive-accent-hover);
+    stroke: var(--interactive-accent-hover);
 }
 
 .star:hover {
