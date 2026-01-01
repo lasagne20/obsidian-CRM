@@ -1,32 +1,98 @@
 # Obsidian CRM Plugin
 
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/lasagne20/obsidian-CRM?style=for-the-badge)](https://github.com/lasagne20/obsidian-CRM/releases/latest)
+[![GitHub all releases](https://img.shields.io/github/downloads/lasagne20/obsidian-CRM/total?style=for-the-badge&color=success)](https://github.com/lasagne20/obsidian-CRM/releases)
+[![GitHub Repo stars](https://img.shields.io/github/stars/lasagne20/obsidian-CRM?style=for-the-badge)](https://github.com/lasagne20/obsidian-CRM/stargazers)
+[![License](https://img.shields.io/github/license/lasagne20/obsidian-CRM?style=for-the-badge)](LICENSE)
+
 ![Plugin Screenshot](images/image.png)
 
-Un plugin Obsidian avancé pour la gestion de relations client (CRM) avec un système de classes dynamiques configurable.
+> 🚀 **Un plugin Obsidian avancé pour la gestion de relations client (CRM) avec un système de classes dynamiques configurable.**
 
-## 🚀 Fonctionnalités
+Transformez votre vault Obsidian en un système CRM puissant et flexible ! Gérez contacts, institutions, projets et données géographiques avec une interface intuitive et des fonctionnalités avancées.
 
-- **Classes dynamiques** : Créez et configurez des classes personnalisées via YAML
-- **Propriétés riches** : Support de nombreux types de propriétés (Email, Téléphone, Fichier, Select, etc.)
-- **Données externes** : Chargement et création automatique depuis des fichiers JSON (ex: données géographiques)
-- **Recherche intelligente** : Modal de recherche avec suggestions automatiques depuis les données
-- **Création récursive** : Génération automatique de la hiérarchie complète (parents, dossiers)
-- **Affichage personnalisable** : Configurez l'affichage de vos données avec des conteneurs flexibles
-- **Intégration Obsidian** : Utilise pleinement l'API d'Obsidian pour une expérience native
-- **Tests complets** : Suite de tests robuste avec 395 tests automatisés (100% de réussite)
-- **Tables dynamiques** : Génération automatique de tableaux de données
-- **Organisation automatique** : Arrangement automatique des dossiers et fichiers
-- **Filtres géographiques** : Filtrage par localisation et bien plus
+## ✨ Fonctionnalités Principales
+
+### 🏗️ **Système de Classes Dynamiques**
+- **Configuration YAML** : Créez et configurez des classes personnalisées facilement
+- **Propriétés Riches** : Support de 15+ types de propriétés (Email, Téléphone, Fichier, MultiFile, Select, Rating, Date, etc.)
+- **Validation Automatique** : Validation des emails, URLs, et autres formats
+- **Interface Adaptative** : Interface qui s'adapte à vos configurations
+
+### 🌐 **Intégration de Données Externes**
+- **Chargement JSON** : Import automatique depuis des fichiers de données
+- **Données Géographiques** : Support complet des données françaises (régions, départements, communes)  
+- **Création Automatique** : Génération automatique de la hiérarchie complète
+- **Synchronisation** : Mise à jour automatique des données
+
+### 🔍 **Recherche & Navigation**
+- **Recherche Intelligente** : Modal avec suggestions automatiques multi-champs
+- **Filtres Géographiques** : Filtrage par région, département, commune
+- **Navigation Hiérarchique** : Parcours intuitif des relations parent/enfant
+- **Recherche Globale** : Recherche dans tous les types d'objets
+
+### 📁 **Gestion Avancée des Fichiers**
+- **Folder Notes** : Système de notes de dossier automatique
+- **Synchronisation Intelligente** : Renommage automatique des dossiers associés
+- **Organisation Automatique** : Création et organisation des dossiers
+- **Support URL Fragments** : Ouverture de fichiers avec ancres
+
+### 🎨 **Interface & Expérience**
+- **Styles Modernes** : Interface CSS responsive et intuitive
+- **Conteneurs Flexibles** : Affichage personnalisable de vos données
+- **Tables Dynamiques** : Génération automatique de tableaux
+- **Intégration Native** : Utilisation complète de l'API Obsidian
 
 ## 📦 Installation
 
-### Installation manuelle
+### 🎯 **Installation Recommandée (Community Plugin Store)**
+*Bientôt disponible dans le Community Plugin Store d'Obsidian*
 
-1. Téléchargez la dernière version depuis les [releases](https://github.com/lasagne20/obsidian-CRM/releases)
-2. Extrayez le fichier dans votre dossier `.obsidian/plugins/obsidian-CRM`
-3. Activez le plugin dans les paramètres d'Obsidian
+1. Ouvrez Obsidian → Settings → Community plugins
+2. Recherchez "CRM Plugin" 
+3. Cliquez Install → Enable
 
-### Installation via BRAT (recommandé)
+### 📋 **Installation Manuelle**
+
+#### Option 1: GitHub Release (Recommandée)
+1. Téléchargez `obsidian-crm-v1.0.0.zip` depuis les [**Releases**](https://github.com/lasagne20/obsidian-CRM/releases/latest)
+2. Extrayez dans `.obsidian/plugins/obsidian-CRM/`
+3. Redémarrez Obsidian → Settings → Community plugins → Enable "CRM"
+
+#### Option 2: Installation via BRAT
+1. Installez [BRAT Plugin](https://github.com/TfTHacker/obsidian42-brat)
+2. Ajoutez `https://github.com/lasagne20/obsidian-CRM`
+3. BRAT installera automatiquement le plugin
+
+## 🚀 Quick Start
+
+### ⚡ **Démarrage en 3 étapes**
+
+1. **📁 Configuration Initiale**
+   ```bash
+   # Le plugin créera automatiquement:
+   Config/           # ← Vos classes YAML
+   Data/            # ← Vos données JSON 
+   Templates/       # ← Modèles
+   ```
+
+2. **✏️ Créer votre première classe**
+   - Ouvrez `Config/` → Créez `MaClasse.yaml`
+   - Utilisez les exemples fournis (Personne, Institution, etc.)
+
+3. **🎯 Première utilisation**
+   - `Ctrl+P` → "CRM: Create new..."
+   - Sélectionnez votre classe
+   - Remplissez les propriétés ✨
+
+### 📖 **Exemples Inclus**
+Le plugin inclut des exemples prêts à l'emploi :
+- `Personne.yaml` - Contacts et individus
+- `Institution.yaml` - Organisations et entreprises  
+- `Commune.yaml` - Données géographiques françaises
+- `Action.yaml` - Suivi de projets et tâches
+
+## 📚 Documentation
 
 1. Installez le plugin [BRAT](https://github.com/TfTHacker/obsidian42-brat)
 2. Ajoutez `lasagne20/obsidian-CRM` comme plugin bêta
@@ -212,26 +278,56 @@ Nous accueillons les contributions ! Consultez notre **[guide de contribution d�
 - 🌐 **Traductions** et internationalisation
 - 🎨 **Amélioration UX/UI**
 
-### Développement rapide
+### 💻 **Développement & Contribution**
 
 ```bash
-# Clone et installation
+# 🔧 Clone & Installation
 git clone https://github.com/lasagne20/obsidian-CRM.git
 cd obsidian-CRM
 npm install
 
-# Développement en mode watch
+# 🚀 Développement en mode watch  
 npm run dev
 
-# Tests complets
-npm test
+# ✅ Tests complets (395 tests)
+npm test           # Test runner
+npm run test:coverage  # Avec couverture
 ```
 
-### Communauté
+**🤝 Contribuer :**
+1. Fork le repository
+2. Créez une branche (`feature/amazing-feature`)
+3. Commit vos changements (`git commit -m 'Add amazing feature'`)
+4. Push (`git push origin feature/amazing-feature`)  
+5. Ouvrez une Pull Request
 
-- 💬 **[GitHub Discussions](https://github.com/lasagne20/obsidian-CRM/discussions)** - Questions et discussions
-- 🐛 **[Issues](https://github.com/lasagne20/obsidian-CRM/issues)** - Bugs et feature requests  
-- 📢 **[Discord](https://discord.gg/obsidian-crm)** - Chat communautaire en temps réel
+## 🌟 Support & Communauté
+
+### 💬 **Besoin d'aide ?**
+- 💡 **[GitHub Discussions](https://github.com/lasagne20/obsidian-CRM/discussions)** - Questions générales et discussions
+- 🐛 **[GitHub Issues](https://github.com/lasagne20/obsidian-CRM/issues)** - Bugs et demandes de fonctionnalités
+- 📖 **[Documentation](https://github.com/lasagne20/obsidian-CRM/wiki)** - Guide complet et exemples
+- ⭐ **[Donnez une étoile](https://github.com/lasagne20/obsidian-CRM/stargazers)** - Si le plugin vous plaît !
+
+### 🏷️ **Version & Changelog**
+- **Version actuelle :** v1.0.0
+- **[📋 Changelog complet](CHANGELOG.md)** - Toutes les nouveautés
+- **[🚀 Roadmap](https://github.com/lasagne20/obsidian-CRM/milestones)** - Fonctionnalités à venir
+
+## 📄 Licence
+
+Ce projet est sous licence **MIT** - voir [LICENSE](LICENSE) pour plus de détails.
+
+---
+
+<div align="center">
+
+**⚡ Propulsé par [Obsidian](https://obsidian.md) • Fait avec ❤️ par [Léo Dupont](https://github.com/lasagne20)**
+
+[![GitHub followers](https://img.shields.io/github/followers/lasagne20?style=social)](https://github.com/lasagne20)
+[![GitHub stars](https://img.shields.io/github/stars/lasagne20/obsidian-CRM?style=social)](https://github.com/lasagne20/obsidian-CRM/stargazers)
+
+</div>
 - 📧 **Newsletter** - [S'inscrire](https://newsletter.obsidian-crm.dev) aux updates
 
 ## 🗺️ Roadmap
