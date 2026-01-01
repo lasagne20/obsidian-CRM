@@ -1,4 +1,5 @@
-import { App, TFile, FuzzySuggestModal, FuzzyMatch, prepareFuzzySearch } from 'obsidian';
+import { Classe } from 'markdown-crm';
+import { App, TFile, FuzzySuggestModal, FuzzyMatch, prepareFuzzySearch, setIcon } from 'obsidian';
 
 /**
  * Modal to search and select a file in Obsidian
@@ -7,18 +8,24 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
     private onChoose: (file: TFile | string | null) => void;
     private classes: string[];
     private hint: string;
-    private choosed: string | TFile | null = null;
-    private optionalFilter?: (file: TFile) => boolean;
+    public choosed: string | TFile | null = null;
+    private optionalFilter?: (file: Classe) => boolean;
     private dataItems: any[];
+    private vault: any;
+    private classIcons: Record<string, string>;
+    private cachedItems: (TFile | string)[] | null = null;
+    private isLoadingItems: boolean = false;
 
     constructor(
         app: App,
+        vault: any,
         onChoose: (file: TFile | string | null) => void,
         classes: string[] = [],
         args: {
             hint?: string;
-            optionalFilter?: (file: TFile) => boolean;
+            optionalFilter?: (file: Classe) => boolean;
             dataItems?: any[];
+            classIcons?: Record<string, string>;
         } = {}
     ) {
         super(app);
@@ -27,6 +34,8 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         this.hint = args.hint || "Search for a file or create a new one";
         this.optionalFilter = args.optionalFilter;
         this.dataItems = args.dataItems || [];
+        this.vault = vault;
+        this.classIcons = args.classIcons || {};
     }
 
     onOpen() {
@@ -41,9 +50,31 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         if (inputContainer) {
             inputContainer.prepend(hintEl);
         }
+        
+        // Preload items asynchronously if we have an optional filter
+        if (this.optionalFilter) {
+            this.preloadItems();
+        }
     }
-
-    getItems(): (TFile | string)[] {
+    
+    async preloadItems(): Promise<void> {
+        if (this.isLoadingItems || this.cachedItems) return;
+        
+        this.isLoadingItems = true;
+        console.log("🔄 Preloading items with optionalFilter...");
+        
+        try {
+            const items = await this.getItemsAsync();
+            this.cachedItems = items;
+            console.log(`✅ Preloaded ${items.length} items`);
+        } catch (error) {
+            console.error("❌ Error preloading items:", error);
+        } finally {
+            this.isLoadingItems = false;
+        }
+    }
+    
+    async getItemsAsync(): Promise<(TFile | string)[]> {
         const items: (TFile | string)[] = [];
         
         // Get existing files first
@@ -53,25 +84,124 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         if (this.classes.length > 0) {
             files = files.filter(file => {
                 const cache = this.app.metadataCache.getFileCache(file);
-                const className = cache?.frontmatter?.Classe;
+                // Check main property and all aliases
+                const settings = this.vault.app.getSettings() || {};
+                const classePropertyName = settings.classePropertyName || 'Classe';
+                const classePropertyAliases = settings.classePropertyAliases || ['Classe'];
+                
+                let className = cache?.frontmatter?.[classePropertyName];
+                if (!className) {
+                    for (const alias of classePropertyAliases) {
+                        className = cache?.frontmatter?.[alias];
+                        if (className) break;
+                    }
+                }
                 return this.classes.includes(className);
             });
         }
-
-        // Apply optional filter
+        console.log("Files after class filtering: ", files.length);
+        
+        // Apply optional filter if present - convert TFile to Classe first
         if (this.optionalFilter) {
-            files = files.filter(file => this.optionalFilter!(file));
+            console.log("Applying optionalFilter to files...");
+            const filteredFiles: TFile[] = [];
+            
+            for (const file of files) {
+                try {
+                    // Convert TFile to IFile
+                    const iFile = {
+                        path: file.path,
+                        basename: file.basename,
+                        extension: file.extension,
+                        name: file.name
+                    };
+                    
+                    // Get Classe instance from vault
+                    const classe = await this.vault.getFromFile(iFile);
+                    console.log(`Filtering file: ${file.path}`, classe);
+                    // Apply filter
+                    if (classe && this.optionalFilter(classe)) {
+                        filteredFiles.push(file);
+                    }
+                } catch (error) {
+                    console.warn(`Error filtering file ${file.path}:`, error);
+                }
+            }
+            
+            files = filteredFiles;
+            console.log(`Filtered files count: ${files.length}`);
         }
-
+        
         // Add existing files to items
         items.push(...files);
         
         // If there are data items, add them with "Create:" prefix
         // For classes with data, ONLY allow creation from data
         if (this.dataItems && this.dataItems.length > 0) {
-            for (const dataItem of this.dataItems.slice(0, 1000)) {
+            // Get existing file names (with .md) for comparison
+            const existingNames = new Set(files.map(f => f.name));
+            console.log("Existing file names:", existingNames);
+            
+            for (const dataItem of this.dataItems) {
                 const itemName = dataItem.nom || dataItem.name || dataItem.title || 'Unknown';
-                items.push(`Create: ${itemName}`);
+                // Only add if file doesn't already exist
+                if (!existingNames.has(itemName+".md")) {
+                    items.push(`Create: ${itemName}`);
+                }
+            }
+        }
+
+        return items;
+    }
+
+    getItems(): (TFile | string)[] {
+        // If we have cached items from async loading, use them
+        if (this.cachedItems) {
+            return this.cachedItems;
+        }
+        
+        // Otherwise, do synchronous loading (without optionalFilter)
+        const items: (TFile | string)[] = [];
+        
+        // Get existing files first
+        let files = this.app.vault.getMarkdownFiles();
+        
+        // Filter by class if specified
+        if (this.classes.length > 0) {
+            files = files.filter(file => {
+                const cache = this.app.metadataCache.getFileCache(file);
+                // Check main property and all aliases
+                const settings = this.vault.app.getSettings() || {};
+                const classePropertyName = settings.classePropertyName || 'Classe';
+                const classePropertyAliases = settings.classePropertyAliases || ['Classe'];
+                
+                let className = cache?.frontmatter?.[classePropertyName];
+                if (!className) {
+                    for (const alias of classePropertyAliases) {
+                        className = cache?.frontmatter?.[alias];
+                        if (className) break;
+                    }
+                }
+                return this.classes.includes(className);
+            });
+        }
+        
+        // Add existing files to items
+        items.push(...files);
+        
+        // If there are data items, add them with "Create:" prefix
+        // For classes with data, ONLY allow creation from data
+        if (this.dataItems && this.dataItems.length > 0) {
+            // Get existing file names (with .md) for comparison
+            const existingNames = new Set(files.map(f => f.name));
+            console.log("Existing file names:", existingNames);
+            
+            for (const dataItem of this.dataItems) {
+                const itemName = dataItem.nom || dataItem.name || dataItem.title || 'Unknown';
+                // Only add if file doesn't already exist
+                if (!existingNames.has(itemName+".md")) {
+                    items.push(`Create: ${itemName}`);
+                }
             }
         }
 
@@ -79,41 +209,14 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
     }
     
     getSuggestions(query: string): FuzzyMatch<TFile | string>[] {
-        console.log(`🔍 getSuggestions called with query: "${query}"`);
         
         const results: FuzzyMatch<TFile | string>[] = [];
-        
-        // Get existing files
-        let files = this.app.vault.getMarkdownFiles();
-        
-        // Filter by class if specified
-        if (this.classes.length > 0) {
-            files = files.filter(file => {
-                const cache = this.app.metadataCache.getFileCache(file);
-                const className = cache?.frontmatter?.Classe;
-                return this.classes.includes(className);
-            });
-        }
-
-        // Apply optional filter
-        if (this.optionalFilter) {
-            files = files.filter(file => this.optionalFilter!(file));
-        }
+        const items = this.getItems();
         
         if (!query) {
-            // Return first 50 existing files + first 50 data items
-            for (const file of files.slice(0, 50)) {
-                results.push({ item: file, match: { score: 0, matches: [] } });
-            }
-            
-            if (this.dataItems && this.dataItems.length > 0) {
-                for (const dataItem of this.dataItems.slice(0, 50)) {
-                    const itemName = dataItem.nom || dataItem.name || dataItem.title || 'Unknown';
-                    results.push({ 
-                        item: `Create: ${itemName}`, 
-                        match: { score: 0, matches: [] } 
-                    });
-                }
+            // Return first 100 items without query
+            for (const item of items.slice(0, 100)) {
+                results.push({ item, match: { score: 0, matches: [] } });
             }
             
             console.log(`📋 No query, returning ${results.length} items`);
@@ -121,65 +224,101 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         }
         
         const lowerQuery = query.toLowerCase();
-        console.log(`🔎 Searching for: "${lowerQuery}"`);
         
-        // Search in existing files
-        for (const file of files) {
-            if (file.basename.toLowerCase().includes(lowerQuery)) {
-                results.push({ item: file, match: { score: 0, matches: [] } });
-            }
-        }
-        
-        // Search in data items
-        if (this.dataItems && this.dataItems.length > 0) {
-            for (const dataItem of this.dataItems) {
-                const title = (dataItem.title || '').toLowerCase();
-                const code_postal = (dataItem.code_postal || '').toLowerCase();
-                const nom = (dataItem.nom || '').toLowerCase();
-                
-                let shouldInclude = false;
-                
-                // Check multiple fields for match
-                if (title.includes(lowerQuery)) {
-                    shouldInclude = true;
-                    if (query.length >= 3) console.log(`✅ Match in title: "${dataItem.title}" for query "${query}"`);
+        // Search in all items
+        for (const item of items) {
+            if (typeof item === 'string') {
+                // For "Create: XXX" items
+                if (item.toLowerCase().includes(lowerQuery)) {
+                    results.push({ item, match: { score: 0, matches: [] } });
                 }
-                if (code_postal.includes(lowerQuery)) {
-                    shouldInclude = true;
-                    if (query.length >= 3) console.log(`✅ Match in code_postal: "${dataItem.code_postal}" for query "${query}"`);
-                }
-                if (nom.includes(lowerQuery)) {
-                    shouldInclude = true;
-                    if (query.length >= 3) console.log(`✅ Match in nom: "${dataItem.nom}" for query "${query}"`);
-                }
-                
-                // Check name parts (e.g., "59000 - Lille" -> check "Lille")
-                const nameParts = nom.split(' - ');
-                if (nameParts.length > 1 && nameParts[1].includes(lowerQuery)) {
-                    shouldInclude = true;
-                    if (query.length >= 3) console.log(`✅ Match in name part: "${nameParts[1]}" for query "${query}"`);
-                }
-                
-                if (shouldInclude) {
-                    const itemName = dataItem.nom || dataItem.name || dataItem.title || 'Unknown';
-                    results.push({
-                        item: `Create: ${itemName}`,
-                        match: { score: 0, matches: [] }
-                    });
+            } else {
+                // For TFile items
+                if (item.basename.toLowerCase().includes(lowerQuery)) {
+                    results.push({ item, match: { score: 0, matches: [] } });
                 }
             }
         }
         
-        // If no data items, add manual "Create: {query}" option
-        if (!this.dataItems || this.dataItems.length === 0) {
-            results.unshift({
+        // If no data items and no results, add manual "Create: {query}" option
+        if (((!this.dataItems || this.dataItems.length === 0) && results.length === 0 )) {
+            results.unshift({ 
                 item: `Create: ${query}`,
                 match: { score: 0, matches: [] }
             });
         }
         
-        console.log(`✅ Found ${results.length} matching results`);
         return results.slice(0, 100); // Limit results
+    }
+
+    renderSuggestion(item: FuzzyMatch<TFile | string>, el: HTMLElement): void {
+        const content = el.createDiv({ cls: "suggestion-content" });
+        
+        // Get class name and icon
+        let className = '';
+        let iconName = '';
+        let displayText = '';
+        
+        if (typeof item.item === "string") {
+            // For "Create: XXX" items
+            if (item.item.startsWith("Create: ") && this.dataItems && this.dataItems.length > 0) {
+                const itemName = item.item.substring("Create: ".length);
+                const dataItem = this.dataItems.find(d => 
+                    (d.nom || d.name) === itemName
+                );
+                
+                if (dataItem) {
+                    className = dataItem._className || '';
+                    const title = itemName;
+                    displayText = `Create: ${title}`;
+                    
+                    if (this.classes.length > 1 && className) {
+                        iconName = this.classIcons[className] || 'folder';
+                    }
+                } else {
+                    displayText = item.item;
+                }
+            } else {
+                displayText = item.item;
+            }
+        } else {
+            // For TFile items
+            displayText = item.item.basename;
+            
+            if (this.classes.length > 1) {
+                const cache = this.app.metadataCache.getFileCache(item.item);
+                const settings = this.vault?.app?.getSettings() || {};
+                const classePropertyName = settings.classePropertyName || 'Classe';
+                const classePropertyAliases = settings.classePropertyAliases || ['Classe'];
+                
+                className = cache?.frontmatter?.[classePropertyName];
+                if (!className) {
+                    for (const alias of classePropertyAliases) {
+                        className = cache?.frontmatter?.[alias];
+                        if (className) break;
+                    }
+                }
+                
+                if (className) {
+                    iconName = this.classIcons[className] || 'folder';
+                }
+            }
+        }
+        
+        // Add the main text (bold)
+        const textEl = content.createSpan({ cls: "suggestion-title" });
+        textEl.textContent = displayText;
+        
+        // Add class info on the right if we have one
+        if (iconName && this.classes.length > 1) {
+            const classContainer = content.createSpan({ cls: "suggestion-class-container" });
+            
+            const iconEl = classContainer.createSpan({ cls: "suggestion-icon" });
+            setIcon(iconEl, iconName);
+            
+            const classNameEl = classContainer.createSpan({ cls: "suggestion-class-name" });
+            classNameEl.textContent = className;
+        }
     }
 
     getItemText(item: TFile | string): string {
@@ -191,13 +330,41 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
                     (d.nom || d.name) === itemName
                 );
                 
-                if (dataItem && dataItem.title) {
-                    return `Create: ${dataItem.title} (${itemName})`;
+                if (dataItem) {
+                    const className = dataItem._className || '';
+                    const title = dataItem.title || itemName;
+                    // Show class name if multiple classes or if class is specified
+                    if (this.classes.length > 1 && className) {
+                        const icon = this.classIcons[className] || 'folder';
+                        return `${className} • Create: ${title}`;
+                    }
+                    return `Create: ${title}`;
                 }
             }
             return item;
-        } 
-        return item.basename;
+        } else {
+            // For TFile items, show class name if multiple classes
+            if (this.classes.length > 1) {
+                const cache = this.app.metadataCache.getFileCache(item);
+                const settings = this.vault?.app?.getSettings() || {};
+                const classePropertyName = settings.classePropertyName || 'Classe';
+                const classePropertyAliases = settings.classePropertyAliases || ['Classe'];
+                
+                let className = cache?.frontmatter?.[classePropertyName];
+                if (!className) {
+                    for (const alias of classePropertyAliases) {
+                        className = cache?.frontmatter?.[alias];
+                        if (className) break;
+                    }
+                }
+                
+                if (className) {
+                    const icon = this.classIcons[className] || 'folder';
+                    return `${className} • ${item.basename}`;
+                }
+            }
+            return item.basename;
+        }
     }
 
     onChooseItem(item: TFile | string, evt: MouseEvent | KeyboardEvent): void {

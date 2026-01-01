@@ -1,5 +1,6 @@
 import { App, TFile, FuzzyMatch, setIcon } from 'obsidian';
 import { FileSearchModal } from './FileSearchModal';
+import { Classe } from 'markdown-crm';
 
 /**
  * Modal to search and select multiple files in Obsidian
@@ -10,14 +11,17 @@ export class MultiFileSearchModal extends FileSearchModal {
 
     constructor(
         app: App,
+        vault: any,
         onChooseMulti: (files: TFile[]) => void,
         classes: string[] = [],
         args: {
             hint?: string;
-            optionalFilter?: (file: TFile) => boolean;
+            optionalFilter?: (file: Classe) => boolean;
+            dataItems?: any[];
+            classIcons?: Record<string, string>;
         } = {}
     ) {
-        super(app, () => {}, classes, args);
+        super(app, vault, () => {}, classes, args);
         this.onChooseMulti = onChooseMulti;
     }
 
@@ -29,6 +33,13 @@ export class MultiFileSearchModal extends FileSearchModal {
     getItems(): (TFile | string)[] {
         // Only return TFile instances for multi-select
         return super.getItems().filter((item): item is TFile => item instanceof TFile);
+    }
+
+    onChooseItem(item: TFile | string, evt: MouseEvent | KeyboardEvent): void {
+        // Store the chosen item so it can be added in onClose
+        this.choosed = item;
+        // Close the modal
+        this.close();
     }
 
     async onKeyDown(evt: KeyboardEvent): Promise<void> {
@@ -85,6 +96,9 @@ export class MultiFileSearchModal extends FileSearchModal {
     onClose(): void {
         this.inputEl?.removeEventListener("keydown", this.onKeyDown.bind(this));
         super.onClose();
+        if (this.choosed){
+            this.selectedItems.push(this.choosed as TFile);
+        }
         setTimeout(() => {
             if (this.selectedItems.length > 0) {
                 this.onChooseMulti(this.selectedItems);

@@ -10,12 +10,13 @@ export class MediaSearchModal extends FileSearchModal {
 
     constructor(
         app: App,
+        vault: any,
         onChoose: (file: TFile | string | null) => void,
         hint: string = "Search for media files",
         extensions?: string[],
         pathFolder?: string
     ) {
-        super(app, onChoose, [], { hint });
+        super(app, vault, onChoose, [], { hint });
         this.extensions = extensions || this.extensions;
         this.pathFolder = pathFolder;
     }

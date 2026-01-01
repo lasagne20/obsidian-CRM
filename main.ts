@@ -1,4 +1,4 @@
-import { MarkdownView, Menu, Plugin, TAbstractFile, TFile, TFolder } from 'obsidian';
+import { MarkdownView, Menu, Notice, Plugin, TAbstractFile, TFile, TFolder } from 'obsidian';
 import { Vault, ISettings } from 'markdown-crm';
 import { ObsidianApp } from 'src/App';
 import { CRMSettingTab } from 'settings';
@@ -15,18 +15,26 @@ interface Settings extends ISettings {
   folderNotePosition: 'inside' | 'outside';
   hideInFileExplorer: boolean;
   underlineFolderWithNote: boolean;
+  classePropertyName: string;
+  classePropertyAliases: string[];
+  deleteAliasesAfterMigration: boolean;
+  tooltipType: "title" | "aria-label" | "both" | undefined;
 }
  
 const DEFAULT_SETTINGS: Settings = {
   templateFolder: "Outils/Obsidian/Templates",
   dataFile: "Outils/Obsidian/Data/geo.json",
   personalName: "Léo",
+  tooltipType: "aria-label",
   additionalFiles: [],
   configPath: "Outils/Obsidian/Config",
   enableFolderNotes: true,
   folderNotePosition: 'inside',
   hideInFileExplorer: true,
   underlineFolderWithNote: true,
+  classePropertyName: 'classe',
+  classePropertyAliases: ['Classe'],
+  deleteAliasesAfterMigration: true,
   // ISettings defaults
   phoneFormat: 'FR',
   dateFormat: 'DD/MM/YYYY',
@@ -40,6 +48,7 @@ export default class CRM extends Plugin {
   public obsidianApp: ObsidianApp;
   public settings: Settings = DEFAULT_SETTINGS;
   private currentFilePath: string | null = null;
+  private currentDisplayGeneration: number = 0;
   private folderManager: FileFolderManager | null = null;
   private classFileModals: ClassFileModals | null = null;
   public loadedClassNames: string[] = [];
@@ -63,9 +72,20 @@ export default class CRM extends Plugin {
   async initializePlugin() {
     console.log("✅ Vault layout ready");
     
+    // Show loading notice
+    const loadingNotice = new Notice("🔄 Chargement de markdown-crm en cours...", 0);
+    
     // Initialize the ObsidianApp adapter with settings
     this.obsidianApp = new ObsidianApp(this.app, this.settings);
     console.log("✅ ObsidianApp adapter initialized with settings");
+    
+    // Register display refresh callback
+    this.obsidianApp.setDisplayRefreshCallback(() => {
+      console.log("🔄 Display refresh requested");
+      this.currentFilePath = null;
+      this.currentDisplayGeneration++; // Invalidate any in-progress display creation
+      this.replaceMetadataContainer();
+    });
     
     // Initialize Vault.classes if not already initialized (library bug fix)
     if (!(Vault as any).classes) {
@@ -92,49 +112,22 @@ export default class CRM extends Plugin {
         name: `Ouvrir/Créer: ${className}`,
         callback: async () => {
           console.log(`🚀 Command executed: ${className}`);
-          await this.classFileModals?.openClassFileSuggester(className);
+          await this.classFileModals?.openClassFileSuggester(className, async (file) => {
+            console.log(`📂 Opening file for class ${className}:`, file);
+            if (file) {
+              const filePath = file.getPath ? file.getPath() : file.path;
+              const tFile = this.app.vault.getAbstractFileByPath(filePath);
+              if (tFile instanceof TFile) {
+                await this.app.workspace.getLeaf().openFile(tFile);
+              }
+            }
+          });
         }
       });
       console.log(`✅ Registered command: Ouvrir/Créer: ${className}`);
     }
     
     console.log("✅ All commands registered");
-
-    // Log dynamic class factory (for info only)
-    const factory = this.vault.getDynamicClassFactory();
-    if (factory) {
-      console.log("✅ Dynamic Class Factory loaded");
-      const classes = (this.vault.constructor as any).classes;
-      console.log("📋 Loaded dynamic classes:", Object.keys(classes || {}));
-      
-      // Load data for classes that have data files configured
-      console.log("🔄 Checking for classes with data files to load...");
-      for (const className of knownClasses) {
-        try {
-          const configManager = (factory as any).configManager;
-          const config = await configManager.getClassConfig(className);
-          
-          if (config.data && config.data.length > 0) {
-            console.log(`📥 Class "${className}" has ${config.data.length} data source(s), attempting to load...`);
-            
-            // Load data for this class
-            const loadedData = await configManager.loadClassData(className);
-            console.log(`✅ Loaded ${loadedData.length} data items for "${className}"`);
-            
-            // Setup dynamic reload if configured
-            const hasDynamicSource = config.data.some((ds: any) => ds.dynamic);
-            if (hasDynamicSource) {
-              console.log(`📡 Setting up dynamic reload for "${className}"...`);
-              await (factory as any).setupDynamicDataReload(className, this.vault);
-            }
-          }
-        } catch (error) {
-          console.error(`❌ Error loading data for "${className}":`, error);
-        }
-      }
-    } else {
-      console.warn("⚠️ Dynamic Class Factory not initialized");
-    }
 
     // Register right-click menu
     this.registerEvent(
@@ -195,176 +188,19 @@ export default class CRM extends Plugin {
 
     // Replace metadata container with custom display
     this.registerEvent(
-      this.app.workspace.on("active-leaf-change", () => {
-        this.replaceMetadataContainer();
+      this.app.workspace.on("active-leaf-change", async () => {
+        await this.replaceMetadataContainer();
       })
     );
 
     // Initial replacement
-    this.replaceMetadataContainer();
- 
-    // Add test command to display current file info
-    this.addCommand({
-      id: "test-display-current-file",
-      name: "Test: Afficher les infos du fichier actuel",
-      callback: async () => {
-        const activeFile = this.app.workspace.getActiveFile();
-        if (!activeFile) {
-          console.log("❌ No active file");
-          this.obsidianApp.sendNotice("Aucun fichier actif");
-          return;
-        }
+    await this.replaceMetadataContainer();
 
-        console.log("📄 Active file:", activeFile.path);
-        
-        try {
-          const iFile = this.obsidianApp.toIFile(activeFile);
-          const classe = await this.vault.getFromFile(iFile);
-          
-          if (classe) {
-            console.log("✅ Classe found:", classe.constructor.name);
-            console.log("📦 Properties:", classe.getProperties().map(p => p.name));
-            
-            const display = await classe.getDisplay();
-            if (display) {
-              console.log("🎨 Display generated successfully");
-              console.log("🎨 Display element:", display);
-              this.obsidianApp.sendNotice(`Display généré pour ${classe.constructor.name}`);
-            } else {
-              console.log("⚠️ No display generated");
-              this.obsidianApp.sendNotice("Aucun display généré");
-            }
-          } else {
-            console.log("⚠️ No classe found");
-            this.obsidianApp.sendNotice("Aucune classe trouvée");
-          }
-        } catch (error) {
-          console.error("❌ Error:", error);
-          this.obsidianApp.sendNotice("Erreur: " + error.message);
-        }
-      }
-    });
-
-    // Add test command to find children
-    this.addCommand({
-      id: "test-find-children",
-      name: "Test: Trouver les enfants du fichier actuel",
-      callback: async () => {
-        const activeFile = this.app.workspace.getActiveFile();
-        if (!activeFile) {
-          console.log("❌ No active file");
-          this.obsidianApp.sendNotice("Aucun fichier actif");
-          return;
-        }
-
-        try {
-          const iFile = this.obsidianApp.toIFile(activeFile);
-          const classe = await this.vault.getFromFile(iFile);
-          
-          if (classe) {
-            console.log("📂 Recherche des enfants de:", activeFile.path);
-            console.log("📂 Nom du fichier:", activeFile.basename);
-            
-            // Log IFile children
-            console.log("📦 IFile.children:", iFile.children?.length || 0);
-            if (iFile.children && iFile.children.length > 0) {
-              console.log("📦 Liste des children dans IFile:");
-              iFile.children.forEach(c => console.log(`  - ${c.path}`));
-            }
-            
-            // Get the dedicated folder path
-            const fileFolder = activeFile.path.substring(0, activeFile.path.lastIndexOf('/'));
-            const fileFolderName = fileFolder.substring(fileFolder.lastIndexOf("/") + 1);
-            const hasOwnFolder = fileFolderName === activeFile.basename;
-            const dedicatedFolderPath = hasOwnFolder ? fileFolder : `${fileFolder}/${activeFile.basename}`;
-            
-            console.log("📂 Dossier dédié attendu:", dedicatedFolderPath);
-            console.log("📂 A déjà son propre dossier:", hasOwnFolder);
-            
-            // List all files
-            const allFiles = await this.obsidianApp.listFiles();
-            console.log(`📋 Total de ${allFiles.length} fichier(s) avec Classe`);
-            
-            // Check which files would be in dedicated folder
-            const inDedicatedFolder = allFiles.filter(f => {
-              const folder = f.path.substring(0, f.path.lastIndexOf('/'));
-              return folder === dedicatedFolderPath || folder.startsWith(dedicatedFolderPath + '/');
-            });
-            
-            console.log(`📂 ${inDedicatedFolder.length} fichier(s) dans le dossier dédié:`);
-            inDedicatedFolder.forEach(f => console.log(`  - ${f.path}`));
-            
-            // Call findChildren
-            const children = await (classe as any).findChildren();
-            console.log(`✅ Trouvé ${children.length} enfant(s):`);
-            
-            for (const child of children) {
-              const childFile = child.getFile();
-              console.log(`  - ${childFile?.getPath()}`);
-            }
-            
-            this.obsidianApp.sendNotice(`Trouvé ${children.length} enfant(s)`);
-          } else {
-            console.log("⚠️ No classe found");
-            this.obsidianApp.sendNotice("Aucune classe trouvée");
-          }
-        } catch (error) {
-          console.error("❌ Error:", error);
-          this.obsidianApp.sendNotice("Erreur: " + error.message);
-        }
-      }
-    });
-
-    // Add test command to check IFile parent/children properties
-    this.addCommand({
-      id: "test-ifile-relations",
-      name: "Test: Vérifier parent/children IFile",
-      callback: async () => {
-        const activeFile = this.app.workspace.getActiveFile();
-        if (!activeFile) {
-          console.log("❌ No active file");
-          this.obsidianApp.sendNotice("Aucun fichier actif");
-          return;
-        }
-
-        try {
-          console.log("🔍 Testing IFile parent/children for:", activeFile.path);
-          
-          const iFile = this.obsidianApp.toIFile(activeFile);
-          
-          console.log("📁 Parent:", iFile.parent?.path || "none");
-          console.log("👶 Children count:", iFile.children?.length || 0);
-          
-          if (iFile.children && iFile.children.length > 0) {
-            console.log("👶 Children list:");
-            for (const child of iFile.children) {
-              console.log(`  - ${child.path} (${(child as any).extension || 'folder'})`);
-            }
-          }
-          
-          // Check parent chain
-          if (iFile.parent) {
-            console.log("🔗 Parent chain:");
-            let current: any = iFile.parent;
-            let depth = 0;
-            while (current && depth < 10) {
-              console.log(`  ${'  '.repeat(depth)}↑ ${current.path}`);
-              current = current.parent;
-              depth++;
-            }
-          }
-          
-          this.obsidianApp.sendNotice(`Parent: ${iFile.parent?.name || 'none'}, Children: ${iFile.children?.length || 0}`);
-        } catch (error) {
-          console.error("❌ Error:", error);
-          this.obsidianApp.sendNotice("Erreur: " + error.message);
-        }
-      }
-    });
+    // Hide loading notice and show ready notice
+    loadingNotice.hide();
 
     console.log("✅ Plugin CRM - Loaded successfully");
   }
-
   async replaceMetadataContainer() {
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (!activeView) return;
@@ -372,11 +208,22 @@ export default class CRM extends Plugin {
     const file = activeView.file;
     if (!file) return;
 
-    // Check if we're still on the same file - if so, don't recreate the display
+    // Check if we're still on the same file - if so, check if display still exists
     if (this.currentFilePath === file.path) {
-      console.log("✅ Same file, keeping existing display");
-      return;
+      const view = activeView.contentEl;
+      const existingDisplay = view.querySelector('.crm-custom-display');
+      if (existingDisplay) {
+        console.log("✅ Same file, keeping existing display");
+        return;
+      }
+      console.log("🔄 Same file but display missing, recreating...");
     }
+
+    // Set the current file path immediately to prevent race conditions
+    this.currentFilePath = file.path;
+    
+    // Capture the current generation to detect if we've been invalidated
+    const myGeneration = ++this.currentDisplayGeneration;
 
     try {
       // Find the metadata container
@@ -400,7 +247,15 @@ export default class CRM extends Plugin {
 
       // Get the classe instance
       const iFile = this.obsidianApp.toIFile(file);
+      console.log("📄 IFile created for file:", file.path, iFile);
       const classe = await this.vault.getFromFile(iFile);
+      console.log("📦 Classe retrieved for file:", file.path, classe ? classe.constructor.name : "null");
+      
+      // Check if we've been invalidated during the async operation
+      if (myGeneration !== this.currentDisplayGeneration) {
+        console.log("🚫 Display generation invalidated, aborting");
+        return;
+      }
       
       if (!classe) {
         console.log("⚠️ No classe found for file:", file.path);
@@ -411,6 +266,13 @@ export default class CRM extends Plugin {
 
       // Generate custom display
       const customDisplay = await (classe as any).getDisplay();
+      
+      // Check again if we've been invalidated during display generation
+      if (myGeneration !== this.currentDisplayGeneration) {
+        console.log("🚫 Display generation invalidated after getDisplay, aborting");
+        return;
+      }
+      
       if (!customDisplay) {
         console.log("⚠️ No custom display generated");
         this.currentFilePath = null;

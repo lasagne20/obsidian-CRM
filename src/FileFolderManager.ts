@@ -12,6 +12,7 @@ export class FileFolderManager {
     private settings: FolderNoteSettings;
     private styleEl: HTMLStyleElement | null = null;
     private vault: any; // Vault from markdown-crm
+    private observer: MutationObserver | null = null;
 
     constructor(app: App, settings: FolderNoteSettings, vault?: any) {
         this.app = app;
@@ -33,10 +34,106 @@ export class FileFolderManager {
                 this.updateAllFolderStyles();
             }, 500);
             
+            // Watch for file explorer DOM changes
+            this.setupDOMObserver();
+            
+            // Setup breadcrumb click handlers
+            this.setupBreadcrumbHandlers();
+            
             console.log("✅ FileFolderManager: Initialized");
         } else {
             console.log("⚠️ FileFolderManager: Disabled in settings");
         }
+    }
+
+    /**
+     * Setup click handlers for breadcrumbs to open folder notes
+     */
+    private setupBreadcrumbHandlers() {
+        // Watch for breadcrumb clicks
+        this.app.workspace.on('layout-change', () => {
+            setTimeout(() => {
+                const breadcrumbs = document.querySelectorAll('.view-header-breadcrumb');
+                breadcrumbs.forEach((breadcrumb) => {
+                    if ((breadcrumb as any)._folderNoteHandler) return;
+                    
+                    const handler = (evt: MouseEvent) => {
+                        evt.preventDefault();
+                        evt.stopPropagation();
+                        
+                        const folderName = breadcrumb.getAttribute('aria-label');
+                        if (!folderName) return;
+                        
+                        // Find folder by name in the vault
+                        const folders = this.app.vault.getAllLoadedFiles().filter(f => f instanceof TFolder && f.name === folderName);
+                        
+                        for (const folder of folders) {
+                            if (this.hasFolderNote(folder as TFolder)) {
+                                const notePath = this.getFolderNotePath(folder as TFolder);
+                                const file = this.app.vault.getAbstractFileByPath(notePath);
+                                
+                                if (file instanceof TFile) {
+                                    this.app.workspace.getLeaf().openFile(file);
+                                    return;
+                                }
+                            }
+                        }
+                    };
+                    
+                    breadcrumb.addEventListener('click', handler);
+                    (breadcrumb as any)._folderNoteHandler = handler;
+                });
+            }, 100);
+        });
+    }
+
+    /**
+     * Setup DOM observer to watch for file explorer changes
+     */
+    private setupDOMObserver() {
+        // Cleanup existing observer
+        if (this.observer) {
+            this.observer.disconnect();
+        }
+
+        // Wait for file explorer to be ready
+        const checkFileExplorer = () => {
+            const leaves = this.app.workspace.getLeavesOfType('file-explorer');
+            if (leaves.length === 0) {
+                setTimeout(checkFileExplorer, 500);
+                return;
+            }
+
+            const fileExplorer = leaves[0];
+            const view = (fileExplorer.view as any);
+            
+            if (!view || !view.containerEl) {
+                setTimeout(checkFileExplorer, 500);
+                return;
+            }
+
+            // Create observer to watch for DOM changes in file explorer
+            this.observer = new MutationObserver(() => {
+                // Debounce updates
+                if ((this as any)._updateTimeout) {
+                    clearTimeout((this as any)._updateTimeout);
+                }
+                (this as any)._updateTimeout = setTimeout(() => {
+                    this.updateAllFolderStyles();
+                }, 100);
+            });
+
+            // Observe the file explorer tree
+            this.observer.observe(view.containerEl, {
+                childList: true,
+                subtree: true,
+                attributes: false
+            });
+
+            console.log("✅ FileFolderManager: DOM observer setup");
+        };
+
+        checkFileExplorer();
     }
 
     /**
@@ -147,6 +244,35 @@ export class FileFolderManager {
         if (this.settings.position === 'outside') {
             const siblingFolder = parentFolder.children.find(
                 child => child instanceof TFolder && child.name === fileName
+            );
+            if (siblingFolder instanceof TFolder) {
+                return siblingFolder;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the folder associated with a folder note using old path and name
+     */
+    getFolderForNoteByName(oldPath: string, oldFileName: string): TFolder | null {
+        const oldParentPath = oldPath.substring(0, oldPath.lastIndexOf('/'));
+        const parentFolder = this.app.vault.getAbstractFileByPath(oldParentPath);
+        
+        if (!parentFolder || !(parentFolder instanceof TFolder)) return null;
+
+        // Check if this is an "inside" folder note
+        if (this.settings.position === 'inside') {
+            if (parentFolder.name === oldFileName) {
+                return parentFolder;
+            }
+        }
+        
+        // Check if this is an "outside" folder note
+        if (this.settings.position === 'outside') {
+            const siblingFolder = parentFolder.children.find(
+                child => child instanceof TFolder && child.name === oldFileName
             );
             if (siblingFolder instanceof TFolder) {
                 return siblingFolder;
@@ -380,16 +506,43 @@ export class FileFolderManager {
     /**
      * Handle file/folder rename
      */
-    onFileRenamed(file: TAbstractFile, oldPath: string) {
+    async onFileRenamed(file: TAbstractFile, oldPath: string) {
         if (!this.settings.enabled) return;
 
         if (file instanceof TFolder) {
             this.updateFolderStyle(file);
         } else if (file instanceof TFile) {
+            // Extract old file name without extension
+            const oldFileName = oldPath.split('/').pop()?.replace(/\.md$/, '') || '';
+            const newFileName = file.basename;
+            
+            console.log(`📁 File renamed from "${oldFileName}" to "${newFileName}"`);
+            
+            // Check if this was a folder note using the old file name
+            const folder = this.getFolderForNoteByName(oldPath, oldFileName);
+            
+            console.log(`Associated folder:`, folder);
+            if (folder && oldFileName !== newFileName) {
+                // Add delay to let Obsidian finish its automatic link updates first
+                setTimeout(async () => {
+                    try {
+                        // Calculate new folder path
+                        const newFolderPath = folder.path.replace(new RegExp(`/${folder.name}$`), `/${newFileName}`);
+                        
+                        console.log(`📁 Renaming folder from "${folder.path}" to "${newFolderPath}" to match renamed file "${file.name}"`);
+                        
+                        // Rename the folder to match the new file name
+                        await this.app.vault.rename(folder, newFolderPath);
+                        
+                    } catch (error) {
+                        console.error(`❌ Failed to rename folder for file "${file.name}":`, error);
+                    }
+                }, 500); // 500ms delay to let Obsidian finish its link updates
+            }
+            
             this.updateFileStyle(file);
             
             // Update folders
-            const folder = this.getFolderForNote(file);
             if (folder) {
                 this.updateFolderStyle(folder);
             }
@@ -407,6 +560,13 @@ export class FileFolderManager {
      * Cleanup
      */
     destroy() {
+        if (this.observer) {
+            this.observer.disconnect();
+            this.observer = null;
+        }
+        if ((this as any)._updateTimeout) {
+            clearTimeout((this as any)._updateTimeout);
+        }
         this.removeStyles();
         this.removeAllFolderClasses();
     }
@@ -419,66 +579,11 @@ export class FileFolderManager {
     }
 
     /**
-     * Create a folder note for a folder
-     */
-    async createFolderNote(folder: TAbstractFile): Promise<TFile | null> {
-        if (!this.settings.enabled) return null;
-        
-        const folderNotePath = this.getFolderNotePath(folder as TFolder);
-        
-        // Check if folder note already exists
-        const existingFile = this.app.vault.getAbstractFileByPath(folderNotePath);
-        if (existingFile) {
-            console.log(`📁 Folder note already exists: ${folderNotePath}`);
-            return existingFile as TFile;
-        }
-        
-        try {
-            // Try to detect classe from folder structure or metadata
-            let classeType: any = null;
-            
-            // Check if there are files in the folder with a classe property
-            const filesInFolder = this.app.vault.getMarkdownFiles().filter(f => 
-                f.path.startsWith(folder.path + '/')
-            );
-            
-            if (filesInFolder.length > 0) {
-                const cache = this.app.metadataCache.getFileCache(filesInFolder[0]);
-                const className = cache?.frontmatter?.Classe;
-                if (className && this.vault) {
-                    const classes = (this.vault.constructor as any).classes;
-                    classeType = classes[className];
-                }
-            }
-            
-            // Create the folder note
-            const content = classeType 
-                ? `---\nClasse: ${classeType.name}\n---\n\n# ${folder.name}\n`
-                : `# ${folder.name}\n`;
-            
-            const newFile = await this.app.vault.create(folderNotePath, content);
-            console.log(`📁 Created folder note: ${folderNotePath}`);
-            
-            return newFile;
-        } catch (error) {
-            console.error('Error creating folder note:', error);
-            return null;
-        }
-    }
-
-    /**
      * Register event handlers for folder notes (to be called by plugin)
      */
     registerEvents(plugin: any) {
         // Watch for folder creation
-        plugin.registerEvent(
-            this.app.vault.on('create', async (file) => {
-                if (file instanceof TFile) return; // Only handle folders
-                
-                // It's a folder
-                await this.createFolderNote(file);
-            })
-        );
+      
 
         // Add folder note option to folder context menu
         plugin.registerEvent(
@@ -495,12 +600,8 @@ export class FileFolderManager {
                             
                             if (existingFile instanceof TFile) {
                                 await this.app.workspace.getLeaf().openFile(existingFile);
-                            } else {
-                                const newFile = await this.createFolderNote(file);
-                                if (newFile) {
-                                    await this.app.workspace.getLeaf().openFile(newFile);
-                                }
-                            }
+                            } 
+                            
                         })
                 );
             })
@@ -520,12 +621,6 @@ export class FileFolderManager {
                 if (!activeFile) return;
                 
                 const folder = activeFile.parent;
-                if (folder) {
-                    const newFile = await this.createFolderNote(folder);
-                    if (newFile) {
-                        await this.app.workspace.getLeaf().openFile(newFile);
-                    }
-                }
             }
         });
     }

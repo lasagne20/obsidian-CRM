@@ -26,130 +26,121 @@ export class ClassFileModals {
 
     /**
      * Open file suggester for a class with create option
+     * @param className - Single class name or array of class names to search for
+     * @param onFileSelected - Optional callback when file is selected or created
+     * @param options - Optional filter and hint options
      */
-    async openClassFileSuggester(className: string) {
-        console.log(`🔍 Looking for ${className} files in vault...`);
+    async openClassFileSuggester(className: string | string[], onFileSelected?: (file: any) => void, options?: any) {
+        const classNames = Array.isArray(className) ? className : [className];
+        console.log(`🔍 Opening suggester for ${classNames.join(', ')}...`);
         
         try {
-            // Use Obsidian's file cache instead of listFiles
-            const allMarkdownFiles = this.app.vault.getMarkdownFiles();
-            console.log(`📚 Total markdown files in vault: ${allMarkdownFiles.length}`);
+            // Get extended classes (classes that inherit from requested classes)
+            const expandedClassNames = await this.vault.getExtendedClasses(classNames);
+            console.log(`🔍 Expanded classes: ${expandedClassNames.join(', ')}`);
             
-            const classFiles: TFile[] = [];
+            if (expandedClassNames.length > classNames.length) {
+                console.log(`🔗 Extended classes found: ${expandedClassNames.join(', ')}`);
+            }
+            
+            // Load class constructor
             let ClassConstructor: any = null;
-            let checkedCount = 0;
-            let matchedCount = 0;
+            const classes = (this.vault.constructor as any).classes;
             
-            for (const file of allMarkdownFiles) {
-                try {
-                    // Check file metadata for classe property using Obsidian's metadata cache
-                    const cache = this.app.metadataCache.getFileCache(file);
-                    const fileClasse = cache?.frontmatter?.Classe;
-                    checkedCount++;
-                    
-                    if (fileClasse === className) {
-                        matchedCount++;
-                        console.log(`✅ Match found: ${file.path} has classe: ${fileClasse}`);
-                        classFiles.push(file);
-                        
-                        // Try to load the class constructor from the first matching file
-                        if (!ClassConstructor) {
-                            try {
-                                const iFile = this.obsidianApp.toIFile(file);
-                                const obj = await this.vault.getFromFile(iFile);
-                                if (obj) {
-                                    ClassConstructor = obj.constructor;
-                                    console.log(`✅ Constructor loaded from: ${file.path}`);
-                                }
-                            } catch (e) {
-                                console.warn('Could not load class from file:', file.path, e);
-                            }
+            // Try to load constructor from the first class in the list
+            for (const cn of expandedClassNames) {
+                ClassConstructor = classes[cn];
+                if (ClassConstructor) break;
+            }
+            
+            // If not loaded, try from YAML config
+            if (!ClassConstructor) {
+                const factory = this.vault.getDynamicClassFactory();
+                if (factory) {
+                    for (const cn of expandedClassNames) {
+                        try {
+                            ClassConstructor = await factory.getClass(cn);
+                            console.log(`✅ Constructor loaded from YAML config for: ${cn}`);
+                            break;
+                        } catch (e) {
+                            console.warn(`Could not load class ${cn} from YAML:`, e);
                         }
                     }
-                } catch (e) {
-                    console.warn('Error checking file:', file.path, e);
                 }
             }
             
-            console.log(`📊 Checked ${checkedCount} files, found ${matchedCount} matches for ${className}`);
-            console.log(`📂 Found ${classFiles.length} ${className} files`);
-            
-            // If no files found and class not loaded, try to get it from the registry
             if (!ClassConstructor) {
-                const classes = (this.vault.constructor as any).classes;
-                ClassConstructor = classes[className];
-                
-                // If still not loaded, force load from YAML config
-                if (!ClassConstructor) {
-                    const factory = this.vault.getDynamicClassFactory();
-                    if (factory) {
-                        try {
-                            ClassConstructor = await factory.getClass(className);
-                            console.log(`✅ Constructor loaded from YAML config for: ${className}`);
-                        } catch (e) {
-                            console.warn(`Could not load class ${className} from YAML:`, e);
-                        }
-                    }
-                }
-                
-                if (!ClassConstructor) {
-                    console.warn(`⚠️ Class ${className} not loaded yet, creating minimal constructor`);
-                    // Create a minimal placeholder that will work for file creation
-                    ClassConstructor = class {
-                        constructor(vault: any) {}
-                        template = '';
-                    };
-                }
+                console.warn(`⚠️ Classes ${classNames.join(', ')} not loaded yet, creating minimal constructor`);
+                ClassConstructor = class {
+                    constructor(vault: any) {}
+                    template = '';
+                };
             }
 
-            // Check if class has data sources
+            // Check if classes have data sources and aggregate all data items
             let dataItems: any[] = [];
+            const classIcons: Record<string, string> = {};
             const factory = this.vault.getDynamicClassFactory();
             if (factory) {
-                try {
-                    const configManager = (factory as any).configManager;
-                    const config = await configManager.getClassConfig(className);
-                    
-                    if (config.data && config.data.length > 0) {
-                        console.log(`📥 Class "${className}" has data sources, loading...`);
-                        dataItems = await configManager.loadClassData(className);
-                        console.log(`✅ Loaded ${dataItems.length} data items for "${className}"`);
+                const configManager = (factory as any).configManager;
+                for (const cn of expandedClassNames) {
+                    try {
+                        const config = await configManager.getClassConfig(cn);
+                        
+                        // Store the class icon for later use
+                        classIcons[cn] = config.classIcon || 'folder';
+                        
+                        if (config.data && config.data.length > 0) {
+                            console.log(`📥 Class "${cn}" has data sources, loading...`);
+                            const classData = await configManager.loadClassData(cn);
+                            // Tag each data item with its class name for later use
+                            classData.forEach((item: any) => item._className = cn);
+                            dataItems.push(...classData);
+                            console.log(`✅ Loaded ${classData.length} data items for "${cn}"`);
+                        }
+                    } catch (error) {
+                        console.warn(`Could not load data for ${cn}:`, error);
                     }
-                } catch (error) {
-                    console.warn(`Could not load data for ${className}:`, error);
                 }
             }
             
             // Show suggester with create option and data items
-            this.showClassFileSuggester(classFiles, className, ClassConstructor, dataItems);
+            console.log(`🚀 Showing file suggester for classes: ${expandedClassNames.join(', ')}`);
+            this.showClassFileSuggester(expandedClassNames, ClassConstructor, dataItems, classIcons, onFileSelected, options);
         } catch (error) {
-            console.error(`Error opening file suggester for ${className}:`, error);
-            this.obsidianApp.sendNotice(`Erreur lors de l'ouverture du suggester pour ${className}`);
+            console.error(`Error opening file suggester for ${classNames.join(', ')}:`, error);
+            this.obsidianApp.sendNotice(`Erreur lors de l'ouverture du suggester pour ${classNames.join(', ')}`);
         }
     }
 
     /**
      * Show file suggester for selecting or creating a class file
      */
-    showClassFileSuggester(files: TFile[], className: string, ClassConstructor: any, dataItems: any[] = []) {
+    showClassFileSuggester(classNames: string[], ClassConstructor: any, dataItems: any[] = [], classIcons: Record<string, string> = {}, onFileSelected?: (file: any) => void, options?: any) {
         new FileSearchModal(
             this.app,
+            this.vault,
             async (result) => {
                 if (!result) return;
                 
                 if (typeof result === 'string' && result.startsWith('Create: ')) {
                     // Extract the name from "Create: XXX"
                     const name = result.substring('Create: '.length);
+                    console.log(`🆕 Creating new file: ${name}`);
+                    
+                    // Check if this name comes from data items
+                    const dataItem = dataItems.find(item => {
+                        const itemName = item.nom || item.name || '';
+                        return itemName === name || name.includes(itemName);
+                    });
+                    
+                    // Determine which class to create from
+                    const className = dataItem?._className || classNames[0];
                     
                     try {
-                        // Check if this name comes from data items
-                        const dataItem = dataItems.find(item => {
-                            const itemName = item.nom || item.name || '';
-                            return itemName === name || name.includes(itemName);
-                        });
-                        
                         let createdFile: any = null;
-                        
+                        console.log(`🚀 Creating instance of ${className}...`);
+                        console.log(`🔧 data :`, dataItem);
                         if (dataItem) {
                             // Create from data using DynamicClassFactory
                             console.log(`📦 Creating ${className} from data:`, dataItem);
@@ -170,13 +161,9 @@ export class ClassFileModals {
                                     console.log(`✅ Created ${className} from data at:`, filePath);
                                     this.obsidianApp.sendNotice(`${className} créé: ${dataItem.title || dataItem.nom || name}`);
                                     
-                                    // Open the file and wait for metadata to be ready
-                                    const tFile = this.app.vault.getAbstractFileByPath(filePath);
-                                    if (tFile instanceof TFile) {
-                                        await this.app.workspace.getLeaf().openFile(tFile);
-                                        
-                                        // Wait for metadata cache to update for the Classe property
-                                        await this.obsidianApp.waitForFileMetaDataUpdate(filePath, 'Classe', this.onMetadataUpdate);
+                                    // Call callback with created file
+                                    if (onFileSelected) {
+                                        onFileSelected(createdFile);
                                     }
                                 } else {
                                     throw new Error("Failed to create instance from data");
@@ -190,30 +177,33 @@ export class ClassFileModals {
                             createdFile = await this.vault.createFile(ClassConstructor, name);
                             
                             if (createdFile) {
-                                // Open the created file
-                                const filePath = createdFile.getPath ? createdFile.getPath() : createdFile.path;
-                                const tFile = this.app.vault.getAbstractFileByPath(filePath);
-                                if (tFile instanceof TFile) {
-                                    await this.app.workspace.getLeaf().openFile(tFile);
-                                    
-                                    // Wait for metadata cache to update for the Classe property
-                                    await this.obsidianApp.waitForFileMetaDataUpdate(filePath, 'Classe', this.onMetadataUpdate);
+                                // Call callback with created file
+                                if (onFileSelected) {
+                                    onFileSelected(createdFile);
                                 }
                             }
                         }
                     } catch (error) {
-                        console.error(`Error creating ${className}:`, error);
-                        this.obsidianApp.sendNotice(`Erreur lors de la création de ${className}: ${(error as Error).message}`);
+                        const errorClassName = dataItem?._className || classNames[0];
+                        console.error(`Error creating ${errorClassName}:`, error);
+                        this.obsidianApp.sendNotice(`Erreur lors de la création de ${errorClassName}: ${(error as Error).message}`);
                     }
                 } else if (result instanceof TFile) {
-                    // Open existing file
-                    await this.app.workspace.getLeaf().openFile(result);
+                    
+                    // Get the File object from the classe
+                    if (onFileSelected) {
+                        const classe = await this.vault.getFromFile(this.obsidianApp.toIFile(result));
+                        const fileObj = classe?.getFile();
+                        onFileSelected(fileObj);
+                    }
                 }
             },
-            [className], // Filter by this class
+            classNames, // Filter by these classes
             {
-                hint: `Rechercher ou créer un ${className}...`,
-                dataItems: dataItems // Pass data items to modal
+                hint: options?.hint || `Rechercher ou créer: ${classNames.join(', ')}...`,
+                optionalFilter: options?.validationFunction,
+                dataItems: dataItems, // Pass data items to modal
+                classIcons: classIcons, // Pass class icons to modal
             }
         ).open();
     }

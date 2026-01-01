@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../Outils/Obsidian/Config"
+		},
+		{
+			"path": "../../../Outils/Obsidian/Data"
+		},
+		{
+			"path": "../../../Outils/Obsidian/Templates"
+		}
+	],
+	"settings": {}
+}

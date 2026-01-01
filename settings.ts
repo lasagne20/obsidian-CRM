@@ -29,6 +29,38 @@ export class CRMSettingTab extends PluginSettingTab {
       classesInfo.innerHTML = `<strong>⚠️</strong> Aucune classe chargée`;
     }
 
+    // Bouton pour refresh complet du vault
+    new Setting(containerEl)
+      .setName("Actualiser tout le vault")
+      .setDesc("Actualise tous les fichiers et recalcule les relations et propriétés.")
+      .addButton((button) => {
+        button
+          .setButtonText("🔄 Actualiser")
+          .setTooltip("Actualise tous les objets du vault")
+          .onClick(async () => {
+            try {
+              console.log("🔄 Launching refreshAll from settings...");
+              button.setButtonText("⏳ En cours...");
+              button.setDisabled(true);
+              
+              await this.plugin.vault.refreshAll();
+              
+              button.setButtonText("✅ Terminé!");
+              setTimeout(() => {
+                button.setButtonText("🔄 Actualiser");
+                button.setDisabled(false);
+              }, 2000);
+            } catch (error) {
+              console.error("❌ Error during refreshAll:", error);
+              button.setButtonText("❌ Erreur");
+              setTimeout(() => {
+                button.setButtonText("🔄 Actualiser");
+                button.setDisabled(false);
+              }, 2000);
+            }
+          });
+      });
+
     // Nom personnalisé
     new Setting(containerEl)
       .setName("Nom personnalisé")
@@ -169,6 +201,51 @@ export class CRMSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.currencySymbol || "€")
           .onChange(async (value) => {
             this.plugin.settings.currencySymbol = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Nom de la propriété de classe
+    new Setting(containerEl)
+      .setName("Nom de la propriété de classe")
+      .setDesc("Nom de la propriété dans le frontmatter qui indique la classe d'un fichier (par défaut: Classe).")
+      .addText((text) => {
+        text
+          .setPlaceholder("Classe")
+          .setValue(this.plugin.settings.classePropertyName || "Classe")
+          .onChange(async (value) => {
+            this.plugin.settings.classePropertyName = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Aliases de la propriété de classe
+    new Setting(containerEl)
+      .setName("Aliases de la propriété de classe")
+      .setDesc("Noms alternatifs pour la propriété de classe (séparés par des virgules, ex: Classe, Class, Type).")
+      .addText((text) => {
+        text
+          .setPlaceholder("Classe")
+          .setValue((this.plugin.settings.classePropertyAliases || ["Classe"]).join(", "))
+          .onChange(async (value) => {
+            // Convertir la chaîne en tableau, en supprimant les espaces
+            this.plugin.settings.classePropertyAliases = value
+              .split(",")
+              .map(alias => alias.trim())
+              .filter(alias => alias.length > 0);
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Supprimer les aliases après migration
+    new Setting(containerEl)
+      .setName("Supprimer les aliases après migration")
+      .setDesc("Supprimer automatiquement les anciennes propriétés après migration vers le nouveau format (recommandé).")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.deleteAliasesAfterMigration ?? true)
+          .onChange(async (value) => {
+            this.plugin.settings.deleteAliasesAfterMigration = value;
             await this.plugin.saveSettings();
           });
       });

@@ -5,6 +5,52 @@ All notable changes to the Obsidian CRM Plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-01-01
+
+### 🎉 First Major Release
+
+Major stable release with enhanced functionality, improved performance, and new features.
+
+### ✨ Added
+
+#### Core Features
+- **Enhanced File/Folder Management**: Complete support for folder operations including move, delete, and rename
+- **Folder Notes System**: Automatic folder note creation and management with configurable positioning (inside/outside)
+- **Smart Folder-File Synchronization**: Automatic folder renaming when associated folder notes are renamed
+- **Advanced URL Fragment Handling**: Support for opening files with URL fragments (#animations[0])
+- **Comprehensive Property Configuration**: Full tooltip and title support for all property types
+
+#### Interface Improvements
+- **Enhanced CSS Styling**: Improved property alignment with icon positioning on same line as content
+- **Refresh Functionality**: Settings panel refresh button for vault synchronization
+- **Better Visual Feedback**: Enhanced folder styles with underline indicators for folder notes
+- **Improved Error Handling**: Better error messages and logging throughout the system
+
+#### Data Management
+- **Geographic Data Integration**: Complete French geographic data with proper encoding (regions, departments, communes)
+- **Region Code Standardization**: Official region abbreviations (AURA, HDF, PACA, etc.) with proper encoding
+- **UTF-8 Encoding Fixes**: Resolved all character encoding issues in geographic data
+
+#### Developer Experience
+- **Enhanced TypeScript Support**: Improved type definitions and better IDE support
+- **Separated Concerns**: Split file and folder operations into dedicated methods (getFile/getFolder)
+- **Better Debugging**: Enhanced logging and error tracking for troubleshooting
+
+### 🔄 Changed
+- **Improved Move Operations**: Enhanced folder moving with better validation and logging
+- **Optimized Performance**: Better handling of large folder structures and file operations
+- **Refined UI Components**: More consistent and accessible user interface elements
+
+### 🐛 Fixed
+- **Encoding Issues**: Resolved UTF-8 character display problems in French geographic data
+- **Folder Operations**: Fixed folder moving and renaming with non-empty directories
+- **Link Updates**: Preserved Obsidian's automatic link correction during file operations
+- **Memory Leaks**: Better cleanup of event listeners and observers
+
+### 📚 Documentation
+- **Updated Configuration Examples**: Better examples for property configurations
+- **Enhanced README**: More comprehensive setup and usage instructions
+
 ## [0.1.0] - 2025-11-16
 
 ### 🎉 Initial Beta Release

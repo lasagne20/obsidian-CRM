@@ -1,6 +1,6 @@
 import { App, Notice, TFile, TFolder, setIcon } from 'obsidian';
 import { IApp, IFile, IFolder, ISettings } from 'markdown-crm';
-import { FileSearchModal, MediaSearchModal, MultiFileSearchModal } from './Modals';
+import { FileSearchModal, MediaSearchModal, MultiFileSearchModal, SelectFromListModal, MultiSelectFromListModal } from './Modals';
 
 /**
  * ObsidianApp - Adapter implementing IApp interface from markdown-crm library
@@ -8,10 +8,30 @@ import { FileSearchModal, MediaSearchModal, MultiFileSearchModal } from './Modal
  */
 export class ObsidianApp implements IApp {
     private settings: ISettings = {};
+    private displayRefreshCallback: (() => void) | null = null;
 
     constructor(private app: App, settings?: ISettings) {
         if (settings) {
             this.settings = settings;
+        }
+    }
+
+    /**
+     * Set callback to be called when display needs to be refreshed
+     */
+    setDisplayRefreshCallback(callback: () => void) {
+        this.displayRefreshCallback = callback;
+    }
+
+    /**
+     * Trigger display refresh
+     */
+    needDisplayRefresh(): void {
+        console.log("🔄 needDisplayRefresh called");
+        if (this.displayRefreshCallback) {
+            this.displayRefreshCallback();
+        } else {
+            console.warn("⚠️ No display refresh callback registered");
         }
     }
 
@@ -37,17 +57,37 @@ export class ObsidianApp implements IApp {
     }
 
     async createFile(path: string, content: string): Promise<IFile> {
+        // Ensure parent folders exist
+        const folderPath = path.substring(0, path.lastIndexOf('/'));
+        if (folderPath) {
+            const folder = this.app.vault.getAbstractFileByPath(folderPath);
+            if (!folder) {
+                try {
+                    await this.app.vault.createFolder(folderPath);
+                } catch (error) {
+                    // Folder might already exist or be created by concurrent operation
+                    console.log(`Note: Could not create folder ${folderPath}:`, error);
+                }
+            }
+        }
+        
         const tfile = await this.app.vault.create(path, content);
         return this.toIFile(tfile);
     }
 
     async delete(file: IFile): Promise<void> {
-        const tfile = this.app.vault.getAbstractFileByPath(file.path);
-        if (tfile instanceof TFile) {
-            await this.app.vault.delete(tfile);
+        const abstractFile = this.app.vault.getAbstractFileByPath(file.path);
+        if (abstractFile instanceof TFile || abstractFile instanceof TFolder) {
+            try {
+                await this.app.vault.delete(abstractFile);
+            } catch (error) {
+                console.error(`Error deleting ${file.path}:`, error);
+                throw error;
+            }
             return;
         }
-        throw new Error(`File not found: ${file.path}`);
+        
+        throw new Error(`File or folder not found: ${file.path}`);
     }
 
     async move(fileOrFolder: IFile | IFolder, newPath: string): Promise<void> {
@@ -56,7 +96,36 @@ export class ObsidianApp implements IApp {
             throw new Error(`File or folder not found: ${fileOrFolder.path}`);
         }
         
-        await this.app.vault.rename(abstractFile, newPath);
+        console.log(`Moving ${fileOrFolder.path} to ${newPath}`);
+        
+        try {
+            if (abstractFile instanceof TFolder) {
+                // Pour les dossiers, vérifier s'il est non vide
+                const children = abstractFile.children;
+                console.log(`Folder has ${children.length} children`);
+                
+                if (children.length > 0) {
+                    console.log(`Moving non-empty folder with ${children.length} items`);
+                }
+                
+                // Obsidian peut gérer le déplacement de dossiers non vides avec rename
+                await this.app.vault.rename(abstractFile, newPath);
+                
+                // Vérifier que le déplacement a fonctionné
+                const movedFolder = this.app.vault.getAbstractFileByPath(newPath);
+                if (!movedFolder) {
+                    throw new Error(`Failed to move folder: destination not found at ${newPath}`);
+                }
+                console.log(`Folder successfully moved to ${newPath}`);
+            } else {
+                // Pour les fichiers, utiliser rename normalement
+                await this.app.vault.rename(abstractFile, newPath);
+                console.log(`File successfully moved to ${newPath}`);
+            }
+        } catch (error) {
+            console.error(`Error moving ${fileOrFolder.path} to ${newPath}:`, error);
+            throw error;
+        }
     }
 
     async createFolder(path: string): Promise<IFolder> {
@@ -77,12 +146,7 @@ export class ObsidianApp implements IApp {
             if (folder && !file.path.startsWith(folder.path)) {
                 continue;
             }
-            
-            // Check if file has Classe in frontmatter
-            const cache = this.app.metadataCache.getCache(file.path);
-            if (cache?.frontmatter?.Classe) {
-                classFiles.push(this.toIFile(file));
-            }
+            classFiles.push(this.toIFile(file));
         }
         
         return classFiles;
@@ -90,23 +154,55 @@ export class ObsidianApp implements IApp {
 
     async listFolders(folder?: IFolder): Promise<IFolder[]> {
         const folders: IFolder[] = [];
-        const allFiles = this.app.vault.getAllLoadedFiles();
+        const allFolders = this.app.vault.getAllFolders();
         
-        for (const file of allFiles) {
-            if (file instanceof TFolder) {
-                if (!folder || file.path.startsWith(folder.path)) {
-                    folders.push(this.toIFolder(file));
-                }
+        for (const tfolder of allFolders) {
+            if (!folder || tfolder.path.startsWith(folder.path)) {
+                folders.push(this.toIFolder(tfolder));
             }
         }
+        console.log(`Found ${folders.length} folders${folder ? ` in folder ${folder.path}` : ''}`);
+        console.log(folders);
         return folders;
     }
 
     async getFile(path: string): Promise<IFile | null> {
-        const file = this.app.vault.getAbstractFileByPath(path);
-        if (file instanceof TFile) {
-            return this.toIFile(file);
+        const abstractFile = this.app.vault.getAbstractFileByPath(path);
+        if (abstractFile instanceof TFile) {
+            return this.toIFile(abstractFile);
         }
+        
+        // Extraire le nom du fichier du path
+        const fileName = path.split('/').pop() || path;
+        
+        // Chercher dans tous les fichiers de la vault
+        const allFiles = this.app.vault.getFiles();
+        for (const f of allFiles) {
+            if (f.name === fileName || f.path === path) {
+                return this.toIFile(f);
+            }
+        }
+        
+        return null;
+    }
+
+    async getFolder(path: string): Promise<IFolder | null> {
+        const abstractFile = this.app.vault.getAbstractFileByPath(path);
+        if (abstractFile instanceof TFolder) {
+            return this.toIFolder(abstractFile);
+        }
+        
+        // Extraire le nom du dossier du path
+        const folderName = path.split('/').pop() || path;
+        
+        // Chercher dans tous les dossiers de la vault
+        const allFolders = this.app.vault.getAllFolders();
+        for (const folder of allFolders) {
+            if (folder.name === folderName || folder.path === path) {
+                return this.toIFolder(folder);
+            }
+        }
+        
         return null;
     }
 
@@ -143,6 +239,11 @@ export class ObsidianApp implements IApp {
         }
 
         await this.app.fileManager.processFrontMatter(tfile, (frontmatter) => {
+            // Supprimer toutes les propriétés existantes
+            for (const key in frontmatter) {
+                delete frontmatter[key];
+            }
+            // Ajouter uniquement les nouvelles propriétés
             Object.assign(frontmatter, metadata);
             console.log("✅ Frontmatter updated:", frontmatter);
         });
@@ -333,7 +434,21 @@ export class ObsidianApp implements IApp {
     }
 
     async open(url: string): Promise<void> {
-        window.open(url, '_blank');
+        // Check if it's a file path or external URL
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            // External URL - open in browser
+            window.open(url, '_blank');
+        } else {
+            // Internal file path - open in Obsidian
+            // Remove fragment (anything after #) from the URL
+            const filePath = url.split('#')[0];
+            const file = this.app.vault.getAbstractFileByPath(filePath);
+            if (file instanceof TFile) {
+                await this.app.workspace.getLeaf().openFile(file);
+            } else {
+                console.error('File not found:', filePath);
+            }
+        }
     }
 
     async waitForFileMetaDataUpdate(filePath: string, key: string, callback: () => Promise<void>): Promise<void> {
@@ -362,7 +477,7 @@ export class ObsidianApp implements IApp {
             // Listen for metadata changes
             this.app.metadataCache.on('changed', handler);
             
-            // Fallback timeout after 5 seconds
+            // Fallback timeout after 1 seconds
             setTimeout(() => {
                 if (!resolved) {
                     console.warn(`⏱️ Timeout waiting for metadata update on ${filePath}`);
@@ -370,7 +485,7 @@ export class ObsidianApp implements IApp {
                     this.app.metadataCache.off('changed', handler);
                     callback().then(() => resolve());
                 }
-            }, 5000);
+            }, 1000);
         });
     }
 
@@ -380,10 +495,11 @@ export class ObsidianApp implements IApp {
         await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    async selectMedia(): Promise<IFile | null> {
+    async selectMedia(vault: any, message: string): Promise<IFile | null> {
         return new Promise((resolve) => {
             const modal = new MediaSearchModal(
                 this.app,
+                vault,
                 (file) => {
                     if (file instanceof TFile) {
                         resolve(this.toIFile(file));
@@ -391,7 +507,7 @@ export class ObsidianApp implements IApp {
                         resolve(null);
                     }
                 },
-                "Select a media file"
+                message
             );
             modal.open();
         });
@@ -420,6 +536,7 @@ export class ObsidianApp implements IApp {
         return new Promise((resolve) => {
             const modal = new MultiFileSearchModal(
                 this.app,
+                vault,
                 async (files) => {
                     // Get Classe instances from vault for each file, then extract File
                     const classePromises = files.map(async (f) => {
@@ -431,7 +548,8 @@ export class ObsidianApp implements IApp {
                 },
                 classes,
                 {
-                    hint: options?.hint || "Select multiple files (use Space to select/deselect)"
+                    hint: options?.hint || "Select multiple files (use Space to select/deselect)",
+                    optionalFilter: options?.validationFunction
                 }
             );
             modal.open();
@@ -439,35 +557,72 @@ export class ObsidianApp implements IApp {
     }
 
     async selectFile(vault: any, classes: string[], options: any): Promise<any> {
+        // Import ClassFileModals dynamically to avoid circular dependencies
+        const { ClassFileModals } = await import('./Modals/Modals');
         return new Promise((resolve) => {
-            const modal = new FileSearchModal(
+            const classFileModals = new ClassFileModals(
                 this.app,
-                async (file) => {
-                    if (file instanceof TFile) {
-                        // Get Classe instance from vault, then return its File object
-                        const classe = await vault.getFromFile(this.toIFile(file));
-                        const fileObj = classe?.getFile(); // File has getLink() method
-                        resolve(fileObj);
-                    } else if (typeof file === 'string') {
-                        // Handle "Create: filename" format - create new file
-                        const filename = file.replace(/^Create:\s*/, '').trim();
-                        // TODO: Create file through vault
-                        resolve(null);
-                    } else {
-                        resolve(null);
-                    }
-                },
-                classes,
-                {
-                    hint: options?.hint || "Select a file or create a new one"
-                }
+                vault,
+                this,
+                async () => {} // Empty callback since we don't need metadata update here
             );
-            modal.open();
+            
+            // Use openClassFileSuggester with result callback and options
+            classFileModals.openClassFileSuggester(classes, (file) => {
+                resolve(file);
+            }, options);
         });
     }
 
     async selectClasse(classes: string[]): Promise<string | null> {
         // Would need a custom modal in Obsidian
         return null;
+    }
+
+    async selectFromList<T>(
+        items: T[],
+        options: { multiple: boolean; title?: string }
+    ): Promise<T | T[] | null> {
+        // Default display function - try to convert to string
+        const defaultDisplayFunc = (item: T): string => {
+            if (typeof item === 'string') return item;
+            if (typeof item === 'object' && item !== null) {
+                // Try common properties
+                const obj = item as any;
+                return obj.name || obj.title || obj.label || obj.toString();
+            }
+            return String(item);
+        };
+
+        if (options.multiple) {
+            // Multiple selection mode
+            return new Promise((resolve) => {
+                const modal = new MultiSelectFromListModal<T>(
+                    this.app,
+                    items,
+                    (selectedItems) => {
+                        // Return the array of selected items, or null if none selected
+                        resolve(selectedItems.length > 0 ? selectedItems : null);
+                    },
+                    defaultDisplayFunc,
+                    options?.title || "Select items from the list (Space to toggle, Enter to confirm)"
+                );
+                modal.open();
+            });
+        } else {
+            // Single selection mode
+            return new Promise((resolve) => {
+                const modal = new SelectFromListModal<T>(
+                    this.app,
+                    items,
+                    (selectedItem) => {
+                        resolve(selectedItem);
+                    },
+                    defaultDisplayFunc,
+                    options?.title || "Select an item from the list"
+                );
+                modal.open();
+            });
+        }
     }
 }
