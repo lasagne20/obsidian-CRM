@@ -39,6 +39,14 @@ export class ObsidianApp implements IApp {
         return this.app.vault.getName();
     }
 
+    getCurrentFile(): IFile | null {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (activeFile instanceof TFile) {
+            return this.toIFile(activeFile);
+        }
+        return null;
+    }
+
     async readFile(file: IFile): Promise<string> {
         const tfile = this.app.vault.getAbstractFileByPath(file.path);
         if (tfile instanceof TFile) {
