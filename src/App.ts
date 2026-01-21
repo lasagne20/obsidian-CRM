@@ -134,12 +134,9 @@ export class ObsidianApp implements IApp {
     }
 
     async listFiles(folder?: IFolder): Promise<IFile[]> {
-        // Get ALL files, not just markdown files (to include .yaml config files)
-        const allFiles = this.app.vault.getAllLoadedFiles();
-        const files = allFiles.filter(f => f instanceof TFile) as TFile[];
+        // Get ALL files from vault (including newly created files)
+        const files = this.app.vault.getFiles();
         
-        // Filter out files that don't have a Classe in frontmatter
-        // This prevents markdown-crm from trying to create classes for non-class files
         const classFiles: IFile[] = [];
         
         for (const file of files) {
@@ -239,11 +236,8 @@ export class ObsidianApp implements IApp {
         }
 
         await this.app.fileManager.processFrontMatter(tfile, (frontmatter) => {
-            // Supprimer toutes les propriétés existantes
-            for (const key in frontmatter) {
-                delete frontmatter[key];
-            }
-            // Ajouter uniquement les nouvelles propriétés
+            // Merge new metadata with existing instead of replacing all
+            // This preserves properties not included in the metadata parameter
             Object.assign(frontmatter, metadata);
             console.log("✅ Frontmatter updated:", frontmatter);
         });
@@ -367,10 +361,31 @@ export class ObsidianApp implements IApp {
 
     // Additional IApp methods
     getUrl(path: string): string {
+        // First, check if the file exists at the given path
+        let actualPath = path;
+        const abstractFile = this.app.vault.getAbstractFileByPath(path);
+        
+        if (!abstractFile || !(abstractFile instanceof TFile)) {
+            // File not found at given path, try to find it by filename
+            const fileName = path.split('/').pop() || path;
+            const allFiles = this.app.vault.getFiles();
+            
+            // Look for file by name or exact path match
+            const foundFile = allFiles.find(f => f.name === fileName || f.path === path);
+            
+            if (foundFile) {
+                actualPath = foundFile.path;
+            } else {
+                // If still not found, use original path (might be an external reference)
+                console.warn(`File not found: ${path}, using original path for URL`);
+                actualPath = path;
+            }
+        }
+        
         // Generate Obsidian URI to open file
         // Format: obsidian://open?vault=VaultName&file=path/to/file.md
         const vaultName = encodeURIComponent(this.app.vault.getName());
-        const filePath = encodeURIComponent(path);
+        const filePath = encodeURIComponent(actualPath);
         return `obsidian://open?vault=${vaultName}&file=${filePath}`;
     }
 
@@ -414,15 +429,6 @@ export class ObsidianApp implements IApp {
             // @ts-ignore
             this.app.workspace.revealInFolder?.(tfile);
         }
-    }
-
-    async copyToClipboard(text: string): Promise<void> {
-        await navigator.clipboard.writeText(text);
-    }
-
-    getOS(): string {
-        // @ts-ignore
-        return this.app.platform || 'unknown';
     }
 
     async searchFiles(query: string): Promise<IFile[]> {
@@ -513,38 +519,54 @@ export class ObsidianApp implements IApp {
         });
     }
 
-    isValidEmail(email: string): boolean {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    }
-
-    isValidUrl(url: string): boolean {
-        try {
-            new URL(url);
-            return true;
-        } catch {
-            return false;
-        }
-    }
-
-    async saveJson(file: IFile, data: any): Promise<void> {
-        const content = JSON.stringify(data, null, 2);
-        await this.writeFile(file, content);
-    }
-
     async selectMultipleFile(vault: any, classes: string[], options: any): Promise<any[]> {
         return new Promise((resolve) => {
             const modal = new MultiFileSearchModal(
                 this.app,
                 vault,
                 async (files) => {
-                    // Get Classe instances from vault for each file, then extract File
-                    const classePromises = files.map(async (f) => {
-                        const classe = await vault.getFromFile(this.toIFile(f));
-                        return classe?.getFile(); // Return the File object which has getLink()
+                    // Handle both TFile instances and Create options
+                    const resultPromises = files.map(async (f) => {
+                        if (f instanceof TFile) {
+                            // Handle existing TFile
+                            const classe = await vault.getFromFile(this.toIFile(f));
+                            return classe?.getFile(); // Return the File object which has getLink()
+                        } else if (typeof f === 'string' && f.startsWith('Create: ')) {
+                            // Handle Create option - replicate the creation logic from openClassFileSuggester
+                            const name = f.substring('Create: '.length);
+                            console.log(`🆕 Creating new file: ${name}`);
+                            
+                            try {
+                                // Get the class constructor
+                                const classeConstructors = (vault.constructor as any).classes;
+                                let ClassConstructor = null;
+                                
+                                for (const className of classes) {
+                                    if (classeConstructors[className]) {
+                                        ClassConstructor = classeConstructors[className];
+                                        break;
+                                    }
+                                }
+                                
+                                if (!ClassConstructor) {
+                                    throw new Error(`No constructor found for classes: ${classes.join(', ')}`);
+                                }
+                                
+                                // Manual creation without data (for now)
+                                console.log(`📝 Creating ${classes[0]} manually: ${name}`);
+                                const createdFile = await vault.createFile(ClassConstructor, name);
+                                
+                                return createdFile;
+                            } catch (error) {
+                                console.error('Error creating file:', error);
+                                this.sendNotice(`Error creating file: ${error.message}`);
+                                return undefined;
+                            }
+                        }
+                        return undefined;
                     });
-                    const fileObjects = await Promise.all(classePromises);
-                    resolve(fileObjects.filter(f => f !== undefined));
+                    const results = await Promise.all(resultPromises);
+                    resolve(results.filter(r => r !== undefined));
                 },
                 classes,
                 {

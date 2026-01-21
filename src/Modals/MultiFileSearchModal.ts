@@ -7,12 +7,12 @@ import { Classe } from 'markdown-crm';
  */
 export class MultiFileSearchModal extends FileSearchModal {
     private selectedItems: TFile[] = [];
-    private onChooseMulti: (files: TFile[]) => void;
+    private onChooseMulti: (files: (TFile | string)[]) => void;
 
     constructor(
         app: App,
         vault: any,
-        onChooseMulti: (files: TFile[]) => void,
+        onChooseMulti: (files: (TFile | string)[]) => void,
         classes: string[] = [],
         args: {
             hint?: string;
@@ -21,6 +21,10 @@ export class MultiFileSearchModal extends FileSearchModal {
             classIcons?: Record<string, string>;
         } = {}
     ) {
+        // Set default hint for multi-select if not provided
+        if (!args.hint) {
+            args.hint = "Search files (Ctrl+Space to select, Enter to confirm)";
+        }
         super(app, vault, () => {}, classes, args);
         this.onChooseMulti = onChooseMulti;
     }
@@ -31,8 +35,8 @@ export class MultiFileSearchModal extends FileSearchModal {
     }
 
     getItems(): (TFile | string)[] {
-        // Only return TFile instances for multi-select
-        return super.getItems().filter((item): item is TFile => item instanceof TFile);
+        // Return both TFile instances and Create options for multi-select
+        return super.getItems();
     }
 
     onChooseItem(item: TFile | string, evt: MouseEvent | KeyboardEvent): void {
@@ -43,7 +47,8 @@ export class MultiFileSearchModal extends FileSearchModal {
     }
 
     async onKeyDown(evt: KeyboardEvent): Promise<void> {
-        if (evt.code === "Space") {
+        // Use Ctrl+Space for selection to avoid conflict with typing spaces in Create options
+        if (evt.code === "Space" && evt.ctrlKey) {
             evt.preventDefault();
             const activeItem = this.resultContainerEl?.querySelector(".suggestion-item.is-selected");
 
@@ -51,13 +56,19 @@ export class MultiFileSearchModal extends FileSearchModal {
                 const index = Array.from(this.resultContainerEl?.children ?? []).indexOf(activeItem);
                 const suggestions = this.getSuggestions(this.inputEl?.value ?? "");
                 const fuzzyMatch = suggestions[index];
-                const file = fuzzyMatch?.item instanceof TFile ? fuzzyMatch.item : null;
                 
-                if (file) {
-                    if (this.selectedItems.includes(file)) {
-                        this.selectedItems = this.selectedItems.filter(f => f !== file);
-                    } else {
-                        this.selectedItems.push(file);
+                if (fuzzyMatch?.item) {
+                    if (fuzzyMatch.item instanceof TFile) {
+                        // Handle TFile selection
+                        const file = fuzzyMatch.item;
+                        if (this.selectedItems.includes(file)) {
+                            this.selectedItems = this.selectedItems.filter(f => f !== file);
+                        } else {
+                            this.selectedItems.push(file);
+                        }
+                    } else if (typeof fuzzyMatch.item === 'string' && fuzzyMatch.item.startsWith('Create: ')) {
+                        // Handle Create option - store it for later processing
+                        this.choosed = fuzzyMatch.item;
                     }
                 }
                 this.renderAllSuggestions();
@@ -67,17 +78,30 @@ export class MultiFileSearchModal extends FileSearchModal {
 
     renderSuggestion(item: FuzzyMatch<string | TFile>, el: HTMLElement): void {
         super.renderSuggestion(item, el);
-        const file = item.item instanceof TFile ? item.item : null;
         
-        if (file && this.selectedItems.includes(file)) {
-            el.classList.add("multi-file-search-modal-selected");
-            // Add a check icon if selected
-            const icon = document.createElement("span");
-            setIcon(icon, "circle-check-big");
-            icon.style.marginRight = "4px";
-            el.prepend(icon);
-        } else {
-            el.classList.remove("multi-file-search-modal-selected");
+        if (item.item instanceof TFile) {
+            const file = item.item;
+            if (this.selectedItems.includes(file)) {
+                el.classList.add("multi-file-search-modal-selected");
+                // Add a check icon if selected
+                const icon = document.createElement("span");
+                setIcon(icon, "circle-check-big");
+                icon.style.marginRight = "4px";
+                el.prepend(icon);
+            } else {
+                el.classList.remove("multi-file-search-modal-selected");
+            }
+        } else if (typeof item.item === 'string' && item.item.startsWith('Create: ')) {
+            // Style Create options differently
+            el.classList.add("create-option-item");
+            if (item.item === this.choosed) {
+                el.classList.add("multi-file-search-modal-selected");
+                // Add a check icon if this Create option is chosen
+                const icon = document.createElement("span");
+                setIcon(icon, "circle-check-big");
+                icon.style.marginRight = "4px";
+                el.prepend(icon);
+            }
         }
     }
 
@@ -96,12 +120,26 @@ export class MultiFileSearchModal extends FileSearchModal {
     onClose(): void {
         this.inputEl?.removeEventListener("keydown", this.onKeyDown.bind(this));
         super.onClose();
-        if (this.choosed){
-            this.selectedItems.push(this.choosed as TFile);
+        
+        // Prepare the final selection list
+        const finalSelection: (TFile | string)[] = [...this.selectedItems];
+        
+        // Add the chosen item (from Enter key or click) if it exists
+        if (this.choosed) {
+            if (this.choosed instanceof TFile) {
+                // Only add if not already in selection
+                if (!this.selectedItems.includes(this.choosed)) {
+                    finalSelection.push(this.choosed);
+                }
+            } else if (typeof this.choosed === 'string' && this.choosed.startsWith('Create: ')) {
+                // Add Create option to selection
+                finalSelection.push(this.choosed);
+            }
         }
+        
         setTimeout(() => {
-            if (this.selectedItems.length > 0) {
-                this.onChooseMulti(this.selectedItems);
+            if (finalSelection.length > 0) {
+                this.onChooseMulti(finalSelection);
             }
         }, 100);
     }

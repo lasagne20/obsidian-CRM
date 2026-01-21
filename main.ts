@@ -82,6 +82,18 @@ export default class CRM extends Plugin {
     // Register display refresh callback
     this.obsidianApp.setDisplayRefreshCallback(() => {
       console.log("🔄 Display refresh requested");
+      
+      // Force removal of existing display before refresh
+      const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+      if (activeView) {
+        const view = activeView.contentEl;
+        const existingCustomDisplays = view.querySelectorAll('.crm-custom-display');
+        if (existingCustomDisplays.length > 0) {
+          existingCustomDisplays.forEach(display => display.remove());
+          console.log(`🧹 Forced removal of ${existingCustomDisplays.length} display(s) before refresh`);
+        }
+      }
+      
       this.currentFilePath = null;
       this.currentDisplayGeneration++; // Invalidate any in-progress display creation
       this.replaceMetadataContainer();
@@ -192,6 +204,7 @@ export default class CRM extends Plugin {
         await this.replaceMetadataContainer();
       })
     );
+
 
     // Initial replacement
     await this.replaceMetadataContainer();

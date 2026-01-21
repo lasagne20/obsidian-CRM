@@ -15,6 +15,11 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
     private classIcons: Record<string, string>;
     private cachedItems: (TFile | string)[] | null = null;
     private isLoadingItems: boolean = false;
+    // Cache for getItemText to avoid repeated normalization and metadata access
+    private itemTextCache: WeakMap<TFile, string> = new WeakMap();
+    private stringItemTextCache: Map<string, string> = new Map();
+    // Index dataItems by name for O(1) lookup instead of O(n) find
+    private dataItemsByName: Map<string, any> = new Map();
 
     constructor(
         app: App,
@@ -36,6 +41,22 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         this.dataItems = args.dataItems || [];
         this.vault = vault;
         this.classIcons = args.classIcons || {};
+        
+        // Build index for fast dataItem lookup
+        this.buildDataItemsIndex();
+    }
+    
+    /**
+     * Build an index of dataItems by name for O(1) lookup
+     */
+    private buildDataItemsIndex(): void {
+        this.dataItemsByName.clear();
+        for (const dataItem of this.dataItems) {
+            const name = dataItem.nom || dataItem.name;
+            if (name) {
+                this.dataItemsByName.set(name, dataItem);
+            }
+        }
     }
 
     onOpen() {
@@ -66,12 +87,23 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         try {
             const items = await this.getItemsAsync();
             this.cachedItems = items;
+            // Clear cache when items change
+            this.clearItemTextCache();
             console.log(`✅ Preloaded ${items.length} items`);
         } catch (error) {
             console.error("❌ Error preloading items:", error);
         } finally {
             this.isLoadingItems = false;
         }
+    }
+    
+    /**
+     * Clear the item text cache
+     */
+    private clearItemTextCache(): void {
+        this.stringItemTextCache.clear();
+        // WeakMap doesn't have clear(), but it will be garbage collected automatically
+        this.itemTextCache = new WeakMap();
     }
     
     async getItemsAsync(): Promise<(TFile | string)[]> {
@@ -157,7 +189,10 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
     getItems(): (TFile | string)[] {
         // If we have cached items from async loading, use them
         if (this.cachedItems) {
-            return this.cachedItems;
+            const items = [...this.cachedItems];
+            // Add dynamic Create option based on input
+            this.addCreateOption(items);
+            return items;
         }
         
         // Otherwise, do synchronous loading (without optionalFilter)
@@ -194,7 +229,6 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         if (this.dataItems && this.dataItems.length > 0) {
             // Get existing file names (with .md) for comparison
             const existingNames = new Set(files.map(f => f.name));
-            console.log("Existing file names:", existingNames);
             
             for (const dataItem of this.dataItems) {
                 const itemName = dataItem.nom || dataItem.name || dataItem.title || 'Unknown';
@@ -204,51 +238,69 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
                 }
             }
         }
+        
+        // Add dynamic Create option based on input
+        this.addCreateOption(items);
 
         return items;
     }
     
+    /**
+     * Add dynamic "Create: XXX" option based on current input value
+     * Only adds if no dataItems or if dataItems don't cover all classes
+     */
+    private addCreateOption(items: (TFile | string)[]): void {
+        // Get current input value (if modal is open)
+        const inputValue = this.inputEl?.value?.trim();
+        if (!inputValue) {
+            return;
+        }
+        
+        // Check if we should show generic create option
+        const shouldShowGenericCreate = !this.dataItems || this.dataItems.length === 0 || 
+            (this.classes.length > 0 && !this.allClassesCoveredByDataItems());
+        
+        if (shouldShowGenericCreate) {
+            const createOption = `Create: ${inputValue}`;
+            // Add at the beginning so it appears first in suggestions
+            items.unshift(createOption);
+        }
+    }
+    
+    /**
+     * Vérifie si toutes les classes spécifiées sont couvertes par les dataItems
+     */
+    private allClassesCoveredByDataItems(): boolean {
+        if (!this.classes.length || !this.dataItems || !this.dataItems.length) {
+            return false;
+        }
+        
+        // Obtenir les classes uniques présentes dans les dataItems
+        const dataItemClasses = new Set(
+            this.dataItems
+                .map(item => item._className)
+                .filter(className => className) // Enlever les undefined/null
+        );
+        
+        // Vérifier si toutes les classes spécifiées sont dans les dataItems
+        return this.classes.every(classe => dataItemClasses.has(classe));
+    }
+
+    // Normalize text to remove accents and diacritics for accent-insensitive search
+    private normalizeText(text: string): string {
+        return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+    
+    /**
+     * Get suggestions for a query using Obsidian's native fuzzy matching
+     * This delegates to the parent FuzzySuggestModal which uses getItemText()
+     * Normalizes the query to handle accents in search
+     */
     getSuggestions(query: string): FuzzyMatch<TFile | string>[] {
-        
-        const results: FuzzyMatch<TFile | string>[] = [];
-        const items = this.getItems();
-        
-        if (!query) {
-            // Return first 100 items without query
-            for (const item of items.slice(0, 100)) {
-                results.push({ item, match: { score: 0, matches: [] } });
-            }
-            
-            console.log(`📋 No query, returning ${results.length} items`);
-            return results;
-        }
-        
-        const lowerQuery = query.toLowerCase();
-        
-        // Search in all items
-        for (const item of items) {
-            if (typeof item === 'string') {
-                // For "Create: XXX" items
-                if (item.toLowerCase().includes(lowerQuery)) {
-                    results.push({ item, match: { score: 0, matches: [] } });
-                }
-            } else {
-                // For TFile items
-                if (item.basename.toLowerCase().includes(lowerQuery)) {
-                    results.push({ item, match: { score: 0, matches: [] } });
-                }
-            }
-        }
-        
-        // If no data items and no results, add manual "Create: {query}" option
-        if (((!this.dataItems || this.dataItems.length === 0) && results.length === 0 )) {
-            results.unshift({ 
-                item: `Create: ${query}`,
-                match: { score: 0, matches: [] }
-            });
-        }
-        
-        return results.slice(0, 100); // Limit results
+        // Normalize query to remove accents for matching
+        const normalizedQuery = this.normalizeText(query);
+        // Call parent's getSuggestions which will use our getItemText() for matching
+        return super.getSuggestions(normalizedQuery);
     }
 
     renderSuggestion(item: FuzzyMatch<TFile | string>, el: HTMLElement): void {
@@ -263,9 +315,8 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
             // For "Create: XXX" items
             if (item.item.startsWith("Create: ") && this.dataItems && this.dataItems.length > 0) {
                 const itemName = item.item.substring("Create: ".length);
-                const dataItem = this.dataItems.find(d => 
-                    (d.nom || d.name) === itemName
-                );
+                // Use index for O(1) lookup instead of O(n) find
+                const dataItem = this.dataItemsByName.get(itemName);
                 
                 if (dataItem) {
                     className = dataItem._className || '';
@@ -321,27 +372,46 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         }
     }
 
+    /**
+     * Get the display text for an item
+     * This method is used by Obsidian for fuzzy matching and display
+     * Returns normalized text (without accents) for better matching
+     * Uses caching to avoid repeated normalization and metadata access
+     */
     getItemText(item: TFile | string): string {
+        // Check cache first
+        if (typeof item === "string") {
+            const cached = this.stringItemTextCache.get(item);
+            if (cached !== undefined) return cached;
+        } else {
+            const cached = this.itemTextCache.get(item);
+            if (cached !== undefined) return cached;
+        }
+        
+        let text: string;
+        
         if (typeof item === "string") {
             // For "Create: XXX" items, try to find the title from data
             if (item.startsWith("Create: ") && this.dataItems && this.dataItems.length > 0) {
                 const itemName = item.substring("Create: ".length);
-                const dataItem = this.dataItems.find(d => 
-                    (d.nom || d.name) === itemName
-                );
+                // Use index for O(1) lookup instead of O(n) find
+                const dataItem = this.dataItemsByName.get(itemName);
                 
                 if (dataItem) {
                     const className = dataItem._className || '';
                     const title = dataItem.title || itemName;
                     // Show class name if multiple classes or if class is specified
                     if (this.classes.length > 1 && className) {
-                        const icon = this.classIcons[className] || 'folder';
-                        return `${className} • Create: ${title}`;
+                        text = `${className} • Create: ${title}`;
+                    } else {
+                        text = `Create: ${title}`;
                     }
-                    return `Create: ${title}`;
+                } else {
+                    text = item;
                 }
+            } else {
+                text = item;
             }
-            return item;
         } else {
             // For TFile items, show class name if multiple classes
             if (this.classes.length > 1) {
@@ -359,12 +429,26 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
                 }
                 
                 if (className) {
-                    const icon = this.classIcons[className] || 'folder';
-                    return `${className} • ${item.basename}`;
+                    text = `${className} • ${item.basename}`;
+                } else {
+                    text = item.basename;
                 }
+            } else {
+                text = item.basename;
             }
-            return item.basename;
         }
+        
+        // Normalize text for fuzzy matching (remove accents)
+        const normalized = this.normalizeText(text);
+        
+        // Store in cache
+        if (typeof item === "string") {
+            this.stringItemTextCache.set(item, normalized);
+        } else {
+            this.itemTextCache.set(item, normalized);
+        }
+        
+        return normalized;
     }
 
     onChooseItem(item: TFile | string, evt: MouseEvent | KeyboardEvent): void {

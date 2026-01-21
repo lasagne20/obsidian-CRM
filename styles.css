@@ -620,49 +620,62 @@ button.mod-cta:active {
 
 }
 
-.select-dropdown{
-    font-weight: bold;
-    text-align: center;
-    padding: 6px 12px;
+/* ================================================
+   SELECT DROPDOWN - Compatible avec markdown-crm
+   Permet les couleurs d'arrière-plan mais améliore la lisibilité
+   ================================================ */
+
+.select-dropdown {
+    font-family: inherit;
+    font-size: var(--df-font-size-base);
+    font-weight: 500;
+    padding: 8px 32px 8px 12px;
     border: 1px solid var(--background-modifier-border);
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-    border-radius: 6px;
+    /* background-color is set by JS - don't override */
+    color: var(--text-normal);
+    border-radius: var(--df-radius-base);
     cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
     text-align: center;
-    transition: background-color 0.2s, transform 0.1s;;
+    /* Add dropdown arrow */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23000000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    min-width: 150px;
+    min-height: 36px;
+    line-height: 1.5;
+    /* Force dark text for better contrast */
+    text-shadow: 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
-.select-dropdown:hover{
-    padding: 6px 12px;
-    border: 1px solid var(--background-modifier-border);
-    background: var(--background-secondary);
-    color: var(--text-normal);
-    border-radius: 6px;
-    cursor: pointer;
-    text-align: center;
-    transition: background-color 0.2s, transform 0.1s;;
+.select-dropdown:hover {
+    border-color: var(--interactive-accent);
+    opacity: 0.9;
+}
+
+.select-dropdown:focus {
+    outline: none;
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px var(--background-modifier-border);
 }
 
 .select-dropdown-option {
     font-weight: normal;
-    padding: 6px 12px;
-    background-color: var(--background-secondary);
+    padding: 8px 12px;
+    min-height: 32px;
+    line-height: 1.5;
+    /* background-color is set by JS */
+}
+
+.select-dropdown option {
+    padding: 8px 12px;
+    min-height: 32px;
+    line-height: 1.5;
     color: var(--text-normal);
-    cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
-}
-
-.select.select-dropdown-option option:hover {
-    /* TODO */
-    background-color: red;
-    color: var(--text-on-accent);
-}
-
-/* Styles d'option survolée (ce n'est pas appliqué nativement, mais peut être simulé via JS ou des éléments personnalisés) */
-.select-dropdown:focus option:hover {
-    background-color: var(--background-modifier-hover);
-    color: var(--text-on-accent);
 }
 
 
@@ -687,8 +700,8 @@ button.mod-cta:active {
 .time-field-link {
     padding: 6px 12px;
     border: 1px solid var(--background-modifier-border);
-    background: var(--text-accent);
-    color: var(--text-normal);
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.2s, transform 0.1s;
@@ -700,7 +713,7 @@ button.mod-cta:active {
 
 .date-field-link:hover,
 .time-field-link:hover {
-    background: var(--interactive-accent);
+    background: var(--interactive-accent-hover);
     transform: scale(1.05);
 }
 
@@ -722,59 +735,101 @@ button.mod-cta:active {
 
 .metadata-multiFiles-container {
     display: flex;
-    flex-wrap: wrap; /* Permet le retour à la ligne si nécessaire */
-    gap: 2px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: flex-start;
 }
 
 .metadata-multiFiles-row-inline {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 8px;
+    padding: 6px 10px;
+    background: var(--background-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--background-modifier-border);
+    transition: all 0.2s ease;
+    max-width: fit-content;
+}
+
+.metadata-multiFiles-row-inline:hover {
+    background: var(--background-modifier-hover);
+    border-color: var(--interactive-accent);
 }
 
 .metadata-multiFiles-property-inline {
-    flex: 1;
-    min-width: 150px; /* Largeur minimale pour les propriétés */
+    display: flex;
+    align-items: center;
+}
+
+.metadata-multiFiles-property-inline .metadata-field {
+    margin: 0;
+}
+
+.metadata-multiFiles-property-inline .metadata-title {
+    display: none;
+}
+
+.metadata-multiFiles-property-inline .field-link {
+    font-weight: 500;
+    color: var(--text-normal);
+    white-space: nowrap;
+}
+
+.metadata-multiFiles-row-inline .icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--text-muted);
 }
 
 .metadata-delete-button-inline-small {
-    background: var(--background-modifier-error);
-    color: var(--text-on-accent);
-    width: 17px; /* Largeur spécifique */
-    height: 17px; /* Hauteur spécifique */
+    background: transparent;
+    color: var(--text-muted);
+    width: 18px;
+    height: 18px;
     border: none;
-    padding: 5px;
-    border-radius: 6px;
+    padding: 0;
+    border-radius: 4px;
     cursor: pointer;
-    transition: background-color 0.2s ease-in-out;
+    transition: all 0.2s ease;
     display: flex;
     justify-content: center;
     align-items: center;
+    opacity: 0.6;
 }
 
 .metadata-delete-button-inline-small:hover {
-    background: var(--background-modifier-error-hover);
+    background: var(--background-modifier-error);
+    color: var(--text-on-accent);
+    opacity: 1;
 }
 
 .metadata-add-button-inline-small {
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-    width: 30px; /* Largeur spécifique */
-    height: 30px; /* Hauteur spécifique */
-    border: none;
-    padding: 5px;
-    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    width: 32px;
+    height: 32px;
+    border: 2px dashed var(--background-modifier-border);
+    padding: 0;
+    border-radius: 8px;
     cursor: pointer;
-    transition: background-color 0.2s ease-in-out;
+    transition: all 0.2s ease;
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-top: 8px; /* Espace au-dessus du bouton */
-    align-self: flex-end; /* Aligne le bouton à la fin de la dernière ligne */
+    margin-top: 4px;
 }
 
 .metadata-add-button-inline-small:hover {
-    background: var(--interactive-accent-hover);
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+    border-style: solid;
 }
 
 
