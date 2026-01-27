@@ -389,4 +389,86 @@ describe('FileSearchModal', () => {
       }).not.toThrow();
     });
   });
+
+  describe('Modal close behavior', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should call onChoose with null when modal is closed without selection (Escape key)', () => {
+      const onChooseMock = jest.fn();
+      const modal = new FileSearchModal(mockApp, mockVault, onChooseMock, ['Personne']);
+      
+      // Simulate modal opening
+      modal.open();
+      
+      // Close modal without selecting anything (simulating Escape key press)
+      modal.close();
+      modal.onClose();
+      
+      // Fast-forward setTimeout in onClose
+      jest.runAllTimers();
+      
+      // Should have been called with null
+      expect(onChooseMock).toHaveBeenCalledWith(null);
+      expect(onChooseMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call onChoose with selected file when item is chosen', () => {
+      const onChooseMock = jest.fn();
+      const mockFile = {
+        path: 'People/John Doe.md',
+        basename: 'John Doe',
+        extension: 'md',
+        name: 'John Doe.md'
+      } as TFile;
+      
+      const modal = new FileSearchModal(mockApp, mockVault, onChooseMock, ['Personne']);
+      
+      // Simulate modal opening
+      modal.open();
+      
+      // Simulate choosing an item
+      modal.onChooseItem(mockFile, {} as MouseEvent);
+      
+      // Close modal
+      modal.close();
+      modal.onClose();
+      
+      // Fast-forward setTimeout in onClose
+      jest.runAllTimers();
+      
+      // Should have been called with the selected file
+      expect(onChooseMock).toHaveBeenCalledWith(mockFile);
+      expect(onChooseMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call onChoose with create option when create option is chosen', () => {
+      const onChooseMock = jest.fn();
+      const createOption = 'Create: New Person';
+      
+      const modal = new FileSearchModal(mockApp, mockVault, onChooseMock, ['Personne']);
+      
+      // Simulate modal opening
+      modal.open();
+      
+      // Simulate choosing a create option
+      modal.onChooseItem(createOption, {} as MouseEvent);
+      
+      // Close modal
+      modal.close();
+      modal.onClose();
+      
+      // Fast-forward setTimeout in onClose
+      jest.runAllTimers();
+      
+      // Should have been called with the create option string
+      expect(onChooseMock).toHaveBeenCalledWith(createOption);
+      expect(onChooseMock).toHaveBeenCalledTimes(1);
+    });
+  });
 });

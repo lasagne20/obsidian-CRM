@@ -121,7 +121,13 @@ export class ClassFileModals {
             this.app,
             this.vault,
             async (result) => {
-                if (!result) return;
+                if (!result) {
+                    // User closed modal without selecting - notify callback with null
+                    if (onFileSelected) {
+                        onFileSelected(null);
+                    }
+                    return;
+                }
                 
                 if (typeof result === 'string' && result.startsWith('Create: ')) {
                     // Extract the name from "Create: XXX"
