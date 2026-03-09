@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import CRM from "./main";
 
 export class CRMSettingTab extends PluginSettingTab {
@@ -304,6 +304,83 @@ export class CRMSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.underlineFolderWithNote = value;
             await this.plugin.saveSettings();
+          });
+      });
+
+    // Section pour Ollama (IA)
+    containerEl.createEl("h3", { text: "Intelligence Artificielle (Ollama)" });
+
+    // Activer Ollama
+    new Setting(containerEl)
+      .setName("Activer l'extraction IA")
+      .setDesc("Activer l'extraction automatique d'entités avec Ollama.")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.ollamaEnabled)
+          .onChange(async (value) => {
+            this.plugin.settings.ollamaEnabled = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // URL Ollama
+    new Setting(containerEl)
+      .setName("URL Ollama")
+      .setDesc("URL de l'API Ollama (ex: http://localhost:11434).")
+      .addText((text) => {
+        text
+          .setPlaceholder("http://localhost:11434")
+          .setValue(this.plugin.settings.ollamaUrl || "http://localhost:11434")
+          .onChange(async (value) => {
+            this.plugin.settings.ollamaUrl = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Modèle Ollama
+    new Setting(containerEl)
+      .setName("Modèle Ollama")
+      .setDesc("Nom du modèle à utiliser (ex: mistral, llama3, qwen2.5:7b).")
+      .addText((text) => {
+        text
+          .setPlaceholder("mistral")
+          .setValue(this.plugin.settings.ollamaModel || "mistral")
+          .onChange(async (value) => {
+            this.plugin.settings.ollamaModel = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Température
+    new Setting(containerEl)
+      .setName("Température")
+      .setDesc("Créativité du modèle (0.0 = précis, 1.0 = créatif). Recommandé: 0.1 pour l'extraction de données.")
+      .addSlider((slider) => {
+        slider
+          .setLimits(0, 1, 0.1)
+          .setValue(this.plugin.settings.ollamaTemperature ?? 0.1)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.ollamaTemperature = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Bouton pour tester la connexion
+    new Setting(containerEl)
+      .setName("Tester la connexion")
+      .setDesc("Vérifier qu'Ollama est accessible et que le modèle est disponible.")
+      .addButton((button) => {
+        button
+          .setButtonText("🔍 Tester")
+          .onClick(async () => {
+            // Accéder au service Ollama via le plugin
+            const ollamaService = (this.plugin as any).ollamaService;
+            if (ollamaService) {
+              await ollamaService.testConnection();
+            } else {
+              new Notice("⚠️ Les services IA ne sont pas initialisés. Activez l'extraction IA.");
+            }
           });
       });
   }

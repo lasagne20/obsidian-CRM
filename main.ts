@@ -4,6 +4,8 @@ import { ObsidianApp } from 'src/App';
 import { CRMSettingTab } from 'settings';
 import { FileFolderManager } from 'src/FileFolderManager';
 import { ClassFileModals } from 'src/Modals/Modals';
+import { OllamaService, EntityExtractor } from 'src/Services/IA';
+import { AIExtractModal } from 'src/Modals/AIExtractModal';
 
 interface Settings extends ISettings {
   templateFolder: string;
@@ -19,6 +21,11 @@ interface Settings extends ISettings {
   classePropertyAliases: string[];
   deleteAliasesAfterMigration: boolean;
   tooltipType: "title" | "aria-label" | "both" | undefined;
+  // Ollama settings
+  ollamaUrl: string;
+  ollamaModel: string;
+  ollamaTemperature: number;
+  ollamaEnabled: boolean;
 }
  
 const DEFAULT_SETTINGS: Settings = {
@@ -35,6 +42,11 @@ const DEFAULT_SETTINGS: Settings = {
   classePropertyName: 'classe',
   classePropertyAliases: ['Classe'],
   deleteAliasesAfterMigration: true,
+  // Ollama settings
+  ollamaUrl: 'http://localhost:11434',
+  ollamaModel: 'mistral',
+  ollamaTemperature: 0.1,
+  ollamaEnabled: true,
   // ISettings defaults
   phoneFormat: 'FR',
   dateFormat: 'DD/MM/YYYY',
@@ -52,6 +64,9 @@ export default class CRM extends Plugin {
   private folderManager: FileFolderManager | null = null;
   private classFileModals: ClassFileModals | null = null;
   public loadedClassNames: string[] = [];
+  // Services IA
+  private ollamaService: OllamaService | null = null;
+  private entityExtractor: EntityExtractor | null = null;
 
   async onload() {
     console.log("🚀 Plugin CRM - Loading...");
@@ -113,10 +128,27 @@ export default class CRM extends Plugin {
     });
     console.log("✅ Vault initialized");
 
+    // Initialize AI services
+    if (this.settings.ollamaEnabled) {
+      this.ollamaService = new OllamaService({
+        url: this.settings.ollamaUrl,
+        model: this.settings.ollamaModel,
+        temperature: this.settings.ollamaTemperature
+      });
+      // On créera l'EntityExtractor après avoir chargé les noms de classes
+      console.log("✅ OllamaService initialized");
+    }
+
     // Load class names from YAML config files
     const knownClasses = await this.loadClassNamesFromConfig();
     this.loadedClassNames = knownClasses; // Store for settings display
     console.log("📋 Registering commands for classes from config:", knownClasses);
+    
+    // Initialize EntityExtractor with loaded class names
+    if (this.settings.ollamaEnabled && this.ollamaService) {
+      this.entityExtractor = new EntityExtractor(this.ollamaService, this.vault, knownClasses);
+      console.log("✅ EntityExtractor initialized with classes:", knownClasses);
+    }
     
     for (const className of knownClasses) {
       this.addCommand({
@@ -141,12 +173,59 @@ export default class CRM extends Plugin {
     
     console.log("✅ All commands registered");
 
+    // Add AI commands if enabled
+    if (this.settings.ollamaEnabled && this.ollamaService) {
+      // Command to test Ollama connection
+      this.addCommand({
+        id: 'test-ollama-connection',
+        name: '🤖 Tester la connexion Ollama',
+        callback: async () => {
+          await this.ollamaService?.testConnection();
+        }
+      });
+
+      // Command to extract entities from selection
+      this.addCommand({
+        id: 'extract-entities-from-selection',
+        name: '✨ Extraire les entités (sélection)',
+        editorCallback: async (editor, view) => {
+          const selection = editor.getSelection();
+          if (!selection) {
+            new Notice('Veuillez sélectionner du texte');
+            return;
+          }
+          await this.extractEntitiesFromText(selection, view.file?.path);
+        }
+      });
+
+      console.log("✅ AI commands registered");
+    }
+
     // Register right-click menu
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file) => {
         this.addContextMenuOption(menu, file);
       })
     );
+
+    // Register editor context menu for AI extraction
+    if (this.settings.ollamaEnabled) {
+      this.registerEvent(
+        this.app.workspace.on("editor-menu", (menu, editor, view) => {
+          const selection = editor.getSelection();
+          if (selection) {
+            menu.addItem((item) =>
+              item
+                .setTitle("✨ Extraire avec IA")
+                .setIcon("sparkles")
+                .onClick(async () => {
+                  await this.extractEntitiesFromText(selection, view.file?.path);
+                })
+            );
+          }
+        })
+      );
+    }
 
     // Initialize folder manager with vault
     this.folderManager = new FileFolderManager(
@@ -358,6 +437,256 @@ export default class CRM extends Plugin {
     );
   }
 
+  /**
+   * Extract entities from text using AI
+   */
+  async extractEntitiesFromText(text: string, currentFile?: string) {
+    if (!this.entityExtractor || !this.settings.ollamaEnabled) {
+      new Notice('Les services IA ne sont pas activés');
+      return;
+    }
+
+    const loadingNotice = new Notice('🤖 Extraction en cours...', 0);
+
+    try {
+      // Extract entities
+      const result = await this.entityExtractor.extractFromText(text, {
+        currentFile
+      });
+
+      loadingNotice.hide();
+
+      // Show modal to validate and edit
+      const modal = new AIExtractModal(
+        this.app,
+        this.vault,
+        result,
+        async (entities) => {
+          // Create files for each entity
+          // Use a shared Map to track created entities for linking
+          const createdEntities = new Map<string, any>();
+          
+          for (const entity of entities) {
+            await this.createEntityFile(entity, createdEntities);
+          }
+        }
+      );
+      modal.open();
+
+    } catch (error) {
+      loadingNotice.hide();
+      new Notice(`❌ Erreur: ${error.message}`);
+      console.error('Error extracting entities:', error);
+    }
+  }
+
+  /**
+   * Convert property value based on its type from class config
+   */
+  async convertPropertyValue(
+    propertyConfig: any,
+    value: any,
+    createdEntities: Map<string, any> = new Map()
+  ): Promise<any> {
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    const propType = propertyConfig.type;
+
+    switch (propType) {
+      case 'FileProperty':
+        // Handle link to another entity
+        if (typeof value === 'string') {
+          // Check if we already created this entity in this batch
+          const existingEntity = createdEntities.get(value);
+          if (existingEntity) {
+            const file = existingEntity.getFile();
+            const filename = file.getName ? file.getName() : file.name;
+            return `[[${filename}]]`;
+          }
+
+          // Search for existing file or create it
+          const classes = propertyConfig.classes || [];
+          if (classes.length > 0) {
+            // Try to find existing file
+            const files = this.app.vault.getMarkdownFiles();
+            const existingFile = files.find(f => 
+              f.basename.toLowerCase() === value.toLowerCase() &&
+              f.path.includes(classes[0]) // Check if in correct folder
+            );
+
+            if (existingFile) {
+              // Return wikilink format [[filename]]
+              return `[[${existingFile.basename}]]`;
+            }
+
+            // If not found, create the linked entity
+            console.log(`🔗 Creating linked entity: ${classes[0]} - ${value}`);
+            const ClassConstructor = (this.vault.constructor as any).classes[classes[0]];
+            if (ClassConstructor) {
+              const newEntity = await this.vault.createFile(ClassConstructor, value);
+              createdEntities.set(value, newEntity);
+              const file = newEntity.getFile();
+              const filename = file.getName ? file.getName() : file.name;
+              return `[[${filename}]]`;
+            }
+          }
+        }
+        return value;
+
+      case 'ObjectProperty':
+        // Handle nested properties
+        if (typeof value === 'object' && !Array.isArray(value) && propertyConfig.properties) {
+          const convertedObject: any = {};
+          for (const [subKey, subValue] of Object.entries(value)) {
+            const subPropConfig = propertyConfig.properties[subKey];
+            if (subPropConfig) {
+              convertedObject[subKey] = await this.convertPropertyValue(
+                subPropConfig, 
+                subValue, 
+                createdEntities
+              );
+            } else {
+              convertedObject[subKey] = subValue;
+            }
+          }
+          return convertedObject;
+        }
+        return value;
+
+      case 'MultiSelectProperty':
+        // Ensure it's an array
+        if (!Array.isArray(value)) {
+          return [value];
+        }
+        return value;
+
+      case 'PhoneProperty':
+        // Normalize phone format if needed
+        if (typeof value === 'string') {
+          // Keep the value as-is, normalization done by AI
+          return value;
+        }
+        return value;
+
+      default:
+        // For other types (Property, EmailProperty, LinkProperty, etc.)
+        return value;
+    }
+  }
+
+  /**
+   * Create a file for an extracted entity
+   */
+  async createEntityFile(entity: any, createdEntities: Map<string, any> = new Map()) {
+    try {
+      console.log('\n📝 ===== CREATE ENTITY FILE START =====');
+      console.log('🏷️  Class:', entity.className);
+      console.log('📊 Confidence:', entity.confidence);
+      console.log('🔑 Properties:', Object.keys(entity.properties));
+      console.log('📋 Property values:', entity.properties);
+
+      // Get class constructor
+      const ClassConstructor = (this.vault.constructor as any).classes[entity.className];
+      if (!ClassConstructor) {
+        throw new Error(`Class ${entity.className} not found in vault`);
+      }
+
+      // Get class config to understand property types
+      const factory = this.vault.getDynamicClassFactory();
+      if (!factory) {
+        throw new Error('No dynamic class factory available');
+      }
+
+      const configManager = (factory as any).configManager;
+      const config = await configManager.getClassConfig(entity.className);
+
+      // Convert properties based on their types
+      console.log('\n🔄 Converting properties...');
+      const convertedProperties: any = {};
+      for (const [key, value] of Object.entries(entity.properties)) {
+        const propertyConfig = config.properties[key];
+        console.log(`  - ${key}: ${JSON.stringify(value)} (type: ${propertyConfig?.type || 'unknown'})`);
+        if (propertyConfig) {
+          convertedProperties[key] = await this.convertPropertyValue(
+            propertyConfig,
+            value,
+            createdEntities
+          );
+        } else {
+          // If no config found, keep the value as-is
+          convertedProperties[key] = value;
+        }
+      }
+
+      // Generate entity name from properties
+      console.log('\n🏷️  Determining entity name...');
+      console.log('  - nom:', convertedProperties.nom);
+      console.log('  - name:', convertedProperties.name);
+      console.log('  - title:', convertedProperties.title);
+      console.log('  - email:', convertedProperties.email);
+      
+      const nameProperty = convertedProperties.nom || 
+                          convertedProperties.name || 
+                          convertedProperties.title ||
+                          convertedProperties.email ||
+                          Object.values(convertedProperties)[0];
+      
+      console.log('  → Selected nameProperty:', nameProperty);
+      
+      if (!nameProperty) {
+        console.error('❌ Cannot determine entity name from properties:', convertedProperties);
+        throw new Error('Cannot determine entity name from properties');
+      }
+
+      const entityName = typeof nameProperty === 'string' 
+        ? nameProperty 
+        : String(nameProperty);
+      
+      console.log('  → Final entity name:', entityName);
+
+      // Create the entity file using markdown-crm's vault.createFile
+      console.log(`🆕 Creating ${entity.className}: ${entityName} with properties:`, convertedProperties);
+      
+      // Use createInstanceFromDataObject for better handling
+      // markdown-crm expects a 'name' property for the file name
+      const dataObject = {
+        name: entityName,  // Required by markdown-crm
+        _className: entity.className,
+        ...convertedProperties
+      };
+
+      const instance = await (factory as any).createInstanceFromDataObject(
+        entity.className,
+        dataObject,
+        this.vault,
+        [] // No additional data items
+      );
+
+      if (instance) {
+        createdEntities.set(entityName, instance);
+        const file = instance.getFile();
+        const filePath = file.getPath ? file.getPath() : file.path;
+        new Notice(`✅ Créé: ${entityName}`);
+        console.log(`✅ Entity created at: ${filePath}`);
+        console.log('📝 ===== CREATE ENTITY FILE END (SUCCESS) ===== \n');
+        return instance;
+      } else {
+        console.error('❌ createInstanceFromDataObject returned null/undefined');
+        throw new Error('Failed to create instance');
+      }
+
+    } catch (error) {
+      console.error('❌ Error creating entity file:', error);
+      console.error('   Entity:', entity);
+      console.error('   Stack:', error.stack);
+      console.log('📝 ===== CREATE ENTITY FILE END (ERROR) ===== \n');
+      new Notice(`❌ Erreur: ${error.message}`);
+      throw error;
+    }
+  }
+
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
   }
@@ -372,6 +701,15 @@ export default class CRM extends Plugin {
         position: this.settings.folderNotePosition,
         hideInFileExplorer: this.settings.hideInFileExplorer,
         underlineFolderWithNote: this.settings.underlineFolderWithNote
+      });
+    }
+
+    // Update Ollama service settings
+    if (this.ollamaService) {
+      this.ollamaService.updateOptions({
+        url: this.settings.ollamaUrl,
+        model: this.settings.ollamaModel,
+        temperature: this.settings.ollamaTemperature
       });
     }
   }

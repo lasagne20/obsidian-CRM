@@ -2381,3 +2381,107 @@ span.flatpickr-weekday {
 .fold-content .metadata-object-property {
     margin-bottom: 12px;
 }
+
+/* ================================================
+   AI EXTRACT MODAL STYLES
+   ================================================ */
+
+.ai-extract-modal .modal {
+    width: 700px;
+    max-width: 90vw;
+}
+
+.ai-extract-modal h2 {
+    margin-bottom: 20px;
+    color: var(--text-normal);
+}
+
+.ai-extract-header {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: var(--background-secondary);
+    border-radius: 8px;
+}
+
+.ai-extract-header p {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+.ai-extract-error {
+    padding: 15px;
+    background-color: var(--background-modifier-error);
+    color: var(--text-on-accent);
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.no-entities {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.ai-entity-container {
+    margin-bottom: 25px;
+    padding: 20px;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.ai-entity-container:hover {
+    box-shadow: var(--shadow-m);
+}
+
+.ai-entity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ai-entity-title {
+    margin: 0;
+    font-size: 1.2em;
+    color: var(--text-accent);
+}
+
+.ai-entity-confidence {
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    color: white;
+    font-weight: 600;
+}
+
+.ai-entity-properties {
+    margin-top: 15px;
+}
+
+.ai-entity-properties .setting-item {
+    border: none;
+    padding: 8px 0;
+}
+
+.ai-entity-properties .setting-item-name {
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.ai-extract-actions {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 2px solid var(--background-modifier-border);
+}
+
+.ai-extract-actions .setting-item {
+    border: none;
+}
+
+.ai-extract-actions button {
+    min-width: 120px;
+}
