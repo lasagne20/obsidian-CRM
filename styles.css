@@ -160,6 +160,31 @@ If your plugin does not need CSS, delete this file.
     text-align: center; /* Centre le texte à l'intérieur des éléments */
 }
 
+/* Style pour les boutons dans les displays */
+button.mod-cta {
+    padding: 8px 16px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    font-size: 14px;
+    font-weight: 500;
+    pointer-events: auto;
+    flex: 0 0 auto;
+    min-width: auto;
+}
+
+button.mod-cta:hover {
+    background: var(--interactive-accent-hover);
+    transform: scale(1.05);
+}
+
+button.mod-cta:active {
+    transform: scale(0.98);
+}
+
 .metadata-object-property{
     display: flex;
     flex-direction: column; /* Organisation en colonne */
@@ -216,10 +241,10 @@ If your plugin does not need CSS, delete this file.
 /* Ligne de contenu (icône + champ) - centrée */
 .metadata-content-line {
     display: flex;
-    align-items: baseline; /* Aligne sur la ligne de base du texte */
-    justify-content: center;
+    align-items: center; /* Centre verticalement icône et contenu */
+    justify-content: center; /* Centre horizontalement l'ensemble icône + contenu */
     width: 100%;
-    gap: 0; /* Aucun espace entre icône et texte */
+    gap: 4px; /* Petit espace entre icône et texte */
 }
 
 /* Conteneur pour l'icône et le champ - sur une ligne horizontale */
@@ -269,15 +294,13 @@ If your plugin does not need CSS, delete this file.
     margin: 0;  /* Enlève toute marge */
     padding: 0;  /* Enlève tout espacement interne */
     display: flex;
-    align-items: baseline; /* Aligne sur la baseline pour correspondre à l'icône */
+    align-items: center; /* Centre verticalement avec l'icône */
     justify-content: center; /* Centre le contenu du lien */
     text-align: center; /* Centre le texte */
     max-width: 300px;
     word-wrap: break-word;  
     overflow-wrap: break-word; 
     white-space: normal; 
-    line-height: 1; /* Ligne de base standard comme les labels */
-    vertical-align: baseline; /* Force l'alignement baseline */
 }
 
 /* Spécifique aux liens <a> dans les FileProperty */
@@ -285,39 +308,36 @@ If your plugin does not need CSS, delete this file.
     margin: 0;
     padding: 0;
     line-height: 1;
-    vertical-align: baseline;
+    vertical-align: middle; /* Aligne au milieu pour centrer avec l'icône */
     text-decoration: none; /* Enlève le soulignement par défaut */
+    display: flex;
+    align-items: center; /* Centre le contenu du lien */
+    justify-content: center; /* Centre le texte */
 }
 
 .icon-container {
     display: flex;
-    align-items: baseline; /* Aligne sur la ligne de base */
-    justify-content: center;
+    align-items: center; /* Centre l'icône verticalement */
+    justify-content: center; /* Centre l'icône horizontalement */
     flex-shrink: 0;
     height: auto;
-    margin-right: 2px; /* Très petit espace entre icône et texte */
-}
-
-.icon-container svg,
-.icon-container .lucide {
-    display: block;
-    margin: 0;
-    padding: 0;
+    width: auto; /* Prend seulement l'espace nécessaire */
+    margin: 0; /* Supprime la marge pour un meilleur centrage */
 }
 
 .field-container{
-    flex: 0 0 auto; /* Ne prend que l'espace nécessaire */
+    flex: 0 0 auto; /* Ne prend que l'espace nécessaire pour centrer correctement */
     display: flex;
-    align-items: baseline; /* Aligne sur la baseline */
-    justify-content: flex-start; /* Aligne le texte à gauche du container */
-    gap: 0; /* Aucun gap interne */
+    align-items: center;  /* Aligne l'input ou le lien avec l'icône */
+    justify-content: center; /* Centre le contenu */
+    gap: 4px;
 }
 
 .field-container-column{
     flex: 1;
     flex-direction: column;
     display: flex;
-    align-items: center;
+    align-items: center;  /* Aligne l'input ou le lien avec l'icône */
     gap: 4px;
 }
 
@@ -331,6 +351,56 @@ If your plugin does not need CSS, delete this file.
     border-bottom: 1px solid var(--background-modifier-border);
     margin-bottom: 5px;
     width: 100%; /* Prend toute la largeur */
+}
+
+/* Style pour les icônes et noms de classes dans les suggestions */
+.suggestion-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.suggestion-title {
+    flex: 1;
+}
+
+.suggestion-class-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.suggestion-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.6;
+}
+
+.suggestion-icon svg {
+    width: 13px;
+    height: 13px;
+}
+
+.suggestion-class-name {
+    font-size: 0.75em;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+/* Style when suggestion is selected */
+.suggestion-item.is-selected .suggestion-icon,
+.suggestion-item.is-selected .suggestion-class-name {
+    color: var(--text-on-accent);
+    opacity: 1;
+}
+
+.suggestion-item.is-selected .suggestion-icon svg {
+    color: var(--text-on-accent);
 }
 
 
@@ -464,13 +534,13 @@ If your plugin does not need CSS, delete this file.
 
 /* Style par défaut des étoiles */
 .star {
-    width: var(--df-width-icon);
-    height: var(--df-width-icon);
+    width: var(--df-width-icon, 24px);
+    height: var(--df-width-icon, 24px);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: transform var(--df-transition-fast), opacity var(--df-transition-base), filter var(--df-transition-base);
+    transition: transform var(--df-transition-fast, 0.1s), opacity var(--df-transition-base, 0.2s), filter var(--df-transition-base, 0.2s);
     user-select: none;
     opacity: 0.3; /* Par défaut, étoiles non remplies sont semi-transparentes */
 }
@@ -478,6 +548,7 @@ If your plugin does not need CSS, delete this file.
 /* Étoile remplie (emoji ou icône) */
 .star.star-filled {
     opacity: 1;
+    filter: drop-shadow(0 0 4px var(--interactive-accent)); /* Ajoute un effet lumineux */
 }
 
 /* SVG par défaut (vide) */
@@ -485,24 +556,26 @@ If your plugin does not need CSS, delete this file.
     fill: none;
     stroke: var(--text-muted);
     stroke-width: 2;
-    transition: fill var(--df-transition-base), stroke var(--df-transition-base);
+    transition: fill var(--df-transition-base, 0.2s), stroke var(--df-transition-base, 0.2s);
 }
 
 /* Étoile SVG remplie (sélectionnée) */
 .star svg.filled-star {
     fill: var(--interactive-accent);
     stroke: var(--interactive-accent);
+    filter: drop-shadow(0 0 3px var(--interactive-accent)); /* Effet lumineux pour plus de visibilité */
 }
 
 /* Étoile SVG survolée */
 .star svg.hovered-star {
     fill: var(--interactive-accent-hover);
     stroke: var(--interactive-accent-hover);
+    filter: drop-shadow(0 0 4px var(--interactive-accent-hover)); /* Effet plus prononcé au survol */
 }
 
 /* Effet de zoom au survol */
 .star:hover {
-    transform: scale(var(--df-scale-star));
+    transform: scale(var(--df-scale-star, 1.1));
 }
 
 /* Conteneur des boutons */
@@ -547,42 +620,62 @@ If your plugin does not need CSS, delete this file.
 
 }
 
-.select-dropdown{
+/* ================================================
+   SELECT DROPDOWN - Compatible avec markdown-crm
+   Permet les couleurs d'arrière-plan mais améliore la lisibilité
+   ================================================ */
+
+.select-dropdown {
+    font-family: inherit;
+    font-size: var(--df-font-size-base);
     font-weight: 500;
-    padding: 4px 8px;
+    padding: 8px 32px 8px 12px;
     border: 1px solid var(--background-modifier-border);
-    background: var(--background-primary);
+    /* background-color is set by JS - don't override */
     color: var(--text-normal);
-    border-radius: 4px;
+    border-radius: var(--df-radius-base);
     cursor: pointer;
-    transition: background-color 0.2s, border-color 0.2s;
-    font-size: 0.9em;
+    transition: all 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    text-align: center;
+    /* Add dropdown arrow */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23000000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    min-width: 150px;
+    min-height: 36px;
+    line-height: 1.5;
+    /* Force dark text for better contrast */
+    text-shadow: 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
-.select-dropdown:hover{
-    background: var(--background-modifier-hover);
+.select-dropdown:hover {
     border-color: var(--interactive-accent);
+    opacity: 0.9;
+}
+
+.select-dropdown:focus {
+    outline: none;
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px var(--background-modifier-border);
 }
 
 .select-dropdown-option {
     font-weight: normal;
-    padding: 6px 12px;
-    background-color: var(--background-secondary);
+    padding: 8px 12px;
+    min-height: 32px;
+    line-height: 1.5;
+    /* background-color is set by JS */
+}
+
+.select-dropdown option {
+    padding: 8px 12px;
+    min-height: 32px;
+    line-height: 1.5;
     color: var(--text-normal);
-    cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
-}
-
-.select.select-dropdown-option option:hover {
-    /* TODO */
-    background-color: red;
-    color: var(--text-on-accent);
-}
-
-/* Styles d'option survolée (ce n'est pas appliqué nativement, mais peut être simulé via JS ou des éléments personnalisés) */
-.select-dropdown:focus option:hover {
-    background-color: var(--background-modifier-hover);
-    color: var(--text-on-accent);
 }
 
 
@@ -602,14 +695,26 @@ If your plugin does not need CSS, delete this file.
     transform: scale(1.05);
 }
 
-.date-field-link{
+/* DateProperty & TimeProperty - Style avec couleur accent */
+.date-field-link,
+.time-field-link {
     padding: 6px 12px;
     border: 1px solid var(--background-modifier-border);
-    background: var(--background-secondary);
-    color: var(--text-normal);
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.2s, transform 0.1s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.date-field-link:hover,
+.time-field-link:hover {
+    background: var(--interactive-accent-hover);
+    transform: scale(1.05);
 }
 
 .new-link {
@@ -622,110 +727,9 @@ If your plugin does not need CSS, delete this file.
 .new-link:hover {
     color: var(--text-accent); /* Couleur au survol */
 }
-
-/* ================================================
-   Style pour le bouton de BooleanProperty
-   ================================================ */
-
-/* État de base du bouton Boolean (false) - Fond blanc/transparent */
-.boolean-property-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    user-select: none;
-    color: var(--text-muted);
-    background-color: var(--background-primary);
-    transition: all var(--df-transition-base);
-    padding: var(--df-spacing-md);
-    border-radius: var(--df-radius-md);
-    border: 1px solid var(--background-modifier-border);
-}
-
-/* État hover du bouton Boolean (false) */
-.boolean-property-button:hover {
-    color: var(--text-normal);
-    background-color: var(--background-secondary);
-    transform: scale(var(--df-scale-hover));
-}
-
-/* État actif du bouton Boolean (true) - Fond coloré */
+/* Style pour le bouton de BooleanProperty */
 .boolean-property-button-active {
-    color: var(--text-on-accent);
-    background-color: var(--interactive-accent);
-    border-color: var(--interactive-accent);
-}
-
-.boolean-property-button-active:hover {
-    background-color: var(--interactive-accent-hover);
-    border-color: var(--interactive-accent-hover);
-    transform: scale(var(--df-scale-hover));
-}
-
-/* État focus pour l'accessibilité */
-.boolean-property-button:focus {
-    outline: 2px solid var(--interactive-accent);
-    outline-offset: 2px;
-}
-
-/* Style for phone format toggle button */
-.phone-format-toggle {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 1px solid var(--background-modifier-border);
-    background: var(--background-primary);
-    font-size: 10px;
-    padding: 0;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s, transform 0.1s;
-    z-index: 10;
-}
-
-.phone-format-toggle:hover {
-    background: var(--background-modifier-hover);
-    transform: scale(1.1);
-}
-
-.phone-format-toggle:active {
-    transform: scale(0.95);
-}
-
-
-.date-field-link {
-    padding: 6px 12px;
-    border: 1px solid var(--background-modifier-border);
-    background: var(--text-accent);
-    color: var(--text-normal);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
-    white-space: nowrap; /* Empêche le retour à la ligne */
-    overflow: hidden; /* Cache le dépassement */
-    text-overflow: ellipsis; /* Affiche "..." si le texte dépasse */
-    max-width: 100%; /* Ajuste la largeur maximale */
-}
-
-/* TimeProperty - Style identique à DateProperty */
-.time-field-link {
-    padding: 6px 12px;
-    border: 1px solid var(--background-modifier-border);
-    background: var(--text-accent);
-    color: var(--text-normal);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    font-variant-numeric: tabular-nums; /* Pour aligner les chiffres */
+    color: var(--interactive-accent);
 }
 
 
@@ -830,35 +834,45 @@ If your plugin does not need CSS, delete this file.
 
 
 /* Style for the TABLE */
-.dynamic-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 20px;
+.dynamic-table,
+.data-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-bottom: 20px !important;
+    border: 2px solid var(--background-modifier-border) !important;
 }
 
-.dynamic-table th, .dynamic-table td {
-    border: 1px solid var(--background-modifier-border);
-    padding: 8px;
-    text-align: center;
+.dynamic-table th, 
+.dynamic-table td,
+.data-table th,
+.data-table td {
+    border: 2px solid var(--background-modifier-border) !important;
+    padding: 10px !important;
+    text-align: center !important;
 }
 
-.dynamic-table th {
-    background-color: var(--background-secondary);
-    font-weight: bold;
-    color: var(--text-accent);
+.dynamic-table th,
+.data-table th {
+    background-color: var(--background-secondary) !important;
+    font-weight: bold !important;
+    color: var(--text-accent) !important;
+    border-bottom: 3px solid var(--interactive-accent) !important;
 }
 
-.dynamic-table tbody tr:nth-child(even) {
-    background-color: var(--background-modifier-hover);
+.dynamic-table tbody tr:nth-child(even),
+.data-table tbody tr:nth-child(even) {
+    background-color: var(--background-modifier-hover) !important;
 }
 
-.dynamic-table tbody tr:hover {
-    background-color: var(--background-modifier-hover);
+.dynamic-table tbody tr:hover,
+.data-table tbody tr:hover {
+    background-color: var(--background-modifier-hover) !important;
 }
 
 .total-row {
-    font-weight: bold;
-    color: var(--interactive-accent);
+    font-weight: bold !important;
+    color: var(--interactive-accent) !important;
+    border-top: 3px solid var(--interactive-accent) !important;
 }
 
 /* Style for metadata-object-table (like dynamic-table) */
@@ -921,128 +935,16 @@ If your plugin does not need CSS, delete this file.
   background: var(--background-modifier-error-hover);
 }
 
-/* ================================================
-   OBJECT PROPERTY - TABS MODE
-   ================================================ */
-
-.metadata-object-tabs-container {
-    width: 100%;
-    margin-top: var(--df-spacing-lg);
-}
-
-.metadata-object-tab-bar {
-    display: flex;
-    gap: var(--df-spacing-xs);
-    border-bottom: 2px solid var(--background-modifier-border);
-    margin-bottom: var(--df-spacing-lg);
-    align-items: flex-end;
-}
-
-.metadata-object-tab {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: var(--df-spacing-sm);
-    padding: var(--df-spacing-md) var(--df-spacing-xl);
-    background: var(--background-secondary);
-    border: 1px solid var(--background-modifier-border);
-    border-bottom: none;
-    border-radius: var(--df-radius-base) var(--df-radius-base) 0 0;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    min-width: 100px;
-    max-width: 200px;
-}
-
-.metadata-object-tab:hover {
-    background: var(--background-secondary-alt);
-}
-
-.metadata-object-tab.active {
-    background: var(--background-primary);
-    border-bottom: 2px solid var(--background-primary);
-    margin-bottom: -2px;
-    font-weight: 600;
-    color: var(--text-accent);
-}
-
-.metadata-object-tab-add {
-    min-width: 40px;
-    max-width: 40px;
-    justify-content: center;
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-    padding: var(--df-spacing-md);
-}
-
-.metadata-object-tab-add:hover {
-    background: var(--interactive-accent-hover);
-}
-
-.metadata-tab-delete-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    padding: 0;
-    background: var(--background-modifier-error);
-    color: white;
-    border: none;
-    border-radius: var(--df-radius-circle);
-    cursor: pointer;
-    opacity: 0.7;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-}
-
-.metadata-tab-delete-button:hover {
-    opacity: 1;
-    background: var(--background-modifier-error-hover);
-    transform: scale(1.1);
-}
-
-.metadata-tab-delete-button svg {
-    width: 12px;
-    height: 12px;
-}
-
-.metadata-tab-label {
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: var(--df-font-size-sm);
-}
-
-.metadata-object-tab-content {
-    width: 100%;
-}
-
-.metadata-object-tab-pane {
-    width: 100%;
-    padding: var(--df-spacing-lg);
-    background: var(--background-primary);
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--df-radius-base);
-}
-
-.metadata-object-properties-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--df-spacing-lg);
-    width: 100%;
-}
-
-.metadata-object-properties-grid .metadata-object-property {
-    min-width: 0;
-}
-
 /* Style for TextProperty field container */
 .metadata-textfield {
     display: flex;
     flex-direction: column;
     width: 100%;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    background-color: var(--background-secondary);
 }
 
 /* Style for autocomplete dropdown */
@@ -1097,66 +999,68 @@ If your plugin does not need CSS, delete this file.
     width: 100%;
     padding: 10px;
     font-size: 16px;
-    color: var(--text-normal);
+    color: var(--text-accent);
     background-color: var(--background-secondary);
     border: 1px solid var(--background-modifier-border);
     border-radius: 6px;
     word-wrap: break-word;
     white-space: pre-wrap;
+    cursor: pointer;
     overflow-wrap: break-word;
-    max-height: 150px;
-    overflow-y: auto;
 }
 
 
 /* Style for Grid.js container */
 .gridjs-container {
-    width: 100%;
-    overflow-x: auto; /* Enable horizontal scrolling for large tables */
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 6px;
-    background-color: var(--background-secondary);
-    padding: 10px;
-    box-shadow: var(--shadow-m);
+    width: 100% !important;
+    overflow-x: auto !important; /* Enable horizontal scrolling for large tables */
+    border: 2px solid var(--background-modifier-border) !important;
+    border-radius: 6px !important;
+    background-color: var(--background-secondary) !important;
+    padding: 10px !important;
+    box-shadow: var(--shadow-m) !important;
 }
 
 /* Style for Grid.js table */
 .gridjs-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
-    font-size: 14px;
-    color: var(--text-normal);
+    width: 100% !important;
+    border-collapse: collapse !important;
+    text-align: left !important;
+    font-size: 14px !important;
+    color: var(--text-normal) !important;
+    border: 2px solid var(--background-modifier-border) !important;
 }
 
 /* Style for table headers */
 .gridjs-th {
-    background-color: var(--background-secondary-alt);
-    color: var(--text-accent);
-    font-weight: bold;
-    padding: 10px;
-    border-bottom: 2px solid var(--background-modifier-border);
-    text-align: center;
+    background-color: var(--background-secondary-alt) !important;
+    color: var(--text-accent) !important;
+    font-weight: bold !important;
+    padding: 12px !important;
+    border: 2px solid var(--background-modifier-border) !important;
+    border-bottom: 3px solid var(--interactive-accent) !important;
+    text-align: center !important;
 }
 
 /* Style for table rows */
 .gridjs-tr {
-    border-bottom: 1px solid var(--background-modifier-border);
-    transition: background-color 0.2s ease-in-out;
+    border: 2px solid var(--background-modifier-border) !important;
+    transition: background-color 0.2s ease-in-out !important;
 }
 
 /* Style for table cells */
 .gridjs-td {
-    padding: 10px;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding: 12px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    border: 2px solid var(--background-modifier-border) !important;
 }
 
 /* Highlight row on hover */
 .gridjs-tr:hover {
-    background-color: var(--background-modifier-hover);
+    background-color: var(--interactive-accent-hover) !important;
 }
 
 /* Style for pagination buttons */
@@ -1344,7 +1248,6 @@ If your plugin does not need CSS, delete this file.
     background: var(--interactive-accent);
     transition: width 0.5s;
 }
-
 
 .metadata-field.media-field{
     display: flex;
@@ -2196,318 +2099,6 @@ span.flatpickr-weekday {
     transform: translate3d(0, 0, 0);
   }
 }
-
-/* ================================================
-   TABS CONTAINER STYLES
-   ================================================ */
-
-.metadata-tabs-container {
-    margin: 10px 0;
-}
-
-.tab-headers {
-    display: flex;
-    gap: 5px;
-    border-bottom: 2px solid var(--background-modifier-border);
-    margin-bottom: 15px;
-}
-
-.tab-header {
-    background: transparent;
-    border: none;
-    padding: 10px 20px;
-    cursor: pointer;
-    font-size: 14px;
-    color: var(--text-muted);
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-    transition: all 0.2s ease;
-}
-
-.tab-header:hover {
-    color: var(--text-normal);
-    background: var(--background-modifier-hover);
-}
-
-.tab-header.active {
-    color: var(--interactive-accent);
-    border-bottom-color: var(--interactive-accent);
-    font-weight: 600;
-}
-
-.tab-contents {
-    position: relative;
-}
-
-.tab-content {
-    display: none;
-    animation: fadeIn 0.3s ease;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* ================================================
-   FOLD CONTAINER STYLES
-   ================================================ */
-
-.metadata-fold-container {
-    margin: 10px 0;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 6px;
-    overflow: hidden;
-}
-
-.fold-header {
-    width: 100%;
-    padding: 12px 15px;
-    background: var(--background-secondary);
-    border: none;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-normal);
-    text-align: left;
-    display: flex;
-    align-items: center;
-    transition: background 0.2s ease;
-    position: relative;
-}
-
-.fold-header::before {
-    content: '▶';
-    margin-right: 10px;
-    transition: transform 0.2s ease;
-    display: inline-block;
-}
-
-.fold-header.expanded::before {
-    transform: rotate(90deg);
-}
-
-.fold-header:hover {
-    background: var(--background-modifier-hover);
-}
-
-.fold-content {
-    padding: 15px;
-    background: var(--background-primary);
-    max-height: 2000px;
-    overflow: hidden;
-    transition: max-height 0.3s ease, padding 0.3s ease;
-}
-
-.fold-content.collapsed {
-    max-height: 0;
-    padding: 0 15px;
-}
-
-/* ================================================
-   CONTAINER SECTION TITLE
-   ================================================ */
-
-.container-section-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text-normal);
-    margin: 20px 0 10px 0;
-    padding-bottom: 5px;
-    border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.display-container-wrapper {
-    margin-bottom: 20px;
-}
-
-/* ================================================
-   DATA TABLE - Dynamic Table with Filters & Sort
-   ================================================ */
-
-.data-table-container {
-    background-color: var(--background-primary);
-    border-radius: 8px;
-    padding: 16px;
-    box-shadow: var(--shadow-m);
-    margin-bottom: 20px;
-}
-
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 12px;
-}
-
-.data-table thead {
-    background-color: var(--background-secondary);
-    border-bottom: 2px solid var(--interactive-accent);
-}
-
-.data-table th {
-    padding: 12px 16px;
-    text-align: left;
-    font-weight: 600;
-    color: var(--text-normal);
-    position: relative;
-    cursor: pointer;
-    user-select: none;
-}
-
-.data-table th:hover {
-    background-color: var(--background-modifier-hover);
-}
-
-.data-table th.sortable::after {
-    content: '⇅';
-    position: absolute;
-    right: 8px;
-    opacity: 0.3;
-    font-size: 12px;
-}
-
-.data-table th.sorted-asc::after {
-    content: '↑';
-    opacity: 1;
-    color: var(--interactive-accent);
-}
-
-.data-table th.sorted-desc::after {
-    content: '↓';
-    opacity: 1;
-    color: var(--interactive-accent);
-}
-
-.data-table tbody tr {
-    border-bottom: 1px solid var(--background-modifier-border);
-    transition: background-color 0.2s ease;
-}
-
-.data-table tbody tr:hover {
-    background-color: var(--background-modifier-hover);
-}
-
-.data-table tbody tr:nth-child(even) {
-    background-color: var(--background-secondary-alt);
-}
-
-.data-table td {
-    padding: 10px 16px;
-    color: var(--text-normal);
-}
-
-/* Property displays in table cells */
-.data-table td .metadata-property {
-    margin: 0;
-    padding: 0;
-}
-
-.data-table td .metadata-field {
-    margin: 0;
-    width: 100%;
-}
-
-.data-table td .metadata-field input,
-.data-table td .metadata-field select,
-.data-table td .metadata-field textarea {
-    font-size: 13px;
-    padding: 6px 8px;
-    min-width: 120px;
-}
-
-.data-table td .metadata-field-label {
-    display: none; /* Hide labels in table */
-}
-
-.data-table td .metadata-icon {
-    display: none; /* Hide icons in table for compact view */
-}
-
-/* File link in table */
-.data-table td .file-link {
-    color: var(--interactive-accent);
-    text-decoration: none;
-    font-weight: 500;
-    cursor: pointer;
-    transition: color 0.2s ease;
-}
-
-.data-table td .file-link:hover {
-    color: var(--interactive-accent-hover);
-    text-decoration: underline;
-}
-
-.data-table tfoot {
-    border-top: 2px solid var(--interactive-accent);
-    background-color: var(--background-secondary);
-    font-weight: 600;
-}
-
-.data-table tfoot td {
-    padding: 12px 16px;
-    color: var(--interactive-accent);
-}
-
-/* Filter row */
-.data-table .filter-row {
-    background-color: var(--background-primary);
-    border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.data-table .filter-row th {
-    padding: 8px 16px;
-    cursor: default;
-}
-
-.data-table .filter-row input[type="text"] {
-    width: 100%;
-    padding: 6px 8px;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 4px;
-    background-color: var(--background-primary);
-    color: var(--text-normal);
-    font-size: 13px;
-}
-
-.data-table .filter-row input[type="text"]:focus {
-    outline: none;
-    border-color: var(--interactive-accent);
-}
-
-.data-table .filter-row select {
-    width: 100%;
-    padding: 6px 8px;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 4px;
-    background-color: var(--background-primary);
-    color: var(--text-normal);
-    font-size: 13px;
-    cursor: pointer;
-}
-
-.data-table .filter-row select:focus {
-    outline: none;
-    border-color: var(--interactive-accent);
-}
-
-/* Empty state */
-.data-table-empty {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--text-muted);
-    font-style: italic;
-}
-
 @keyframes fpFadeInDown {
   from {
     opacity: 0;
@@ -2519,4 +2110,317 @@ span.flatpickr-weekday {
     -webkit-transform: translate3d(0, 0, 0);
     transform: translate3d(0, 0, 0);
   }
+}
+
+/* ================================================
+   OBJECT PROPERTY - TABS MODE (from markdown-crm)
+   ================================================ */
+
+.metadata-object-tabs-container {
+    width: 100%;
+    margin-top: var(--df-spacing-lg, 16px);
+}
+
+.metadata-object-tab-bar {
+    display: flex;
+    gap: var(--df-spacing-xs, 4px);
+    border-bottom: 2px solid var(--background-modifier-border);
+    margin-bottom: var(--df-spacing-lg, 16px);
+    align-items: flex-end;
+}
+
+.metadata-object-tab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--df-spacing-sm, 8px);
+    padding: var(--df-spacing-md, 12px) var(--df-spacing-xl, 20px);
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-bottom: none;
+    border-radius: var(--df-radius-base, 6px) var(--df-radius-base, 6px) 0 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 100px;
+    max-width: 200px;
+}
+
+.metadata-object-tab:hover {
+    background: var(--background-secondary-alt);
+}
+
+.metadata-object-tab.active {
+    background: var(--background-primary);
+    border-bottom: 2px solid var(--background-primary);
+    margin-bottom: -2px;
+    font-weight: 600;
+    color: var(--text-accent);
+}
+
+.metadata-object-tab-add {
+    min-width: 40px;
+    max-width: 40px;
+    justify-content: center;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    padding: var(--df-spacing-md, 12px);
+}
+
+.metadata-object-tab-add:hover {
+    background: var(--interactive-accent-hover);
+}
+
+.metadata-tab-delete-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    background: var(--background-modifier-error);
+    color: white;
+    border: none;
+    border-radius: var(--df-radius-circle, 50%);
+    cursor: pointer;
+    opacity: 0.7;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.metadata-tab-delete-button:hover {
+    opacity: 1;
+    background: var(--background-modifier-error-hover);
+    transform: scale(1.1);
+}
+
+.metadata-tab-delete-button svg {
+    width: 12px;
+    height: 12px;
+}
+
+.metadata-tab-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--df-font-size-sm, 13px);
+}
+
+.metadata-object-tab-content {
+    width: 100%;
+}
+
+.metadata-object-tab-pane {
+    width: 100%;
+    padding: var(--df-spacing-lg, 16px);
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--df-radius-base, 6px);
+}
+
+.metadata-object-properties-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--df-spacing-lg, 16px);
+    width: 100%;
+}
+
+.metadata-object-properties-grid .metadata-object-property {
+    min-width: 0;
+}
+
+/* ============================================
+   TABS STYLING FOR DYNAMIC DISPLAY
+   ============================================ */
+
+/* Container for tabs */
+.metadata-tabs-container {
+    width: 100%;
+    margin: 16px 0;
+    border: 2px solid var(--background-modifier-border);
+    border-radius: 10px;
+    background-color: var(--background-primary);
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Tab headers container */
+.tab-headers {
+    display: flex;
+    flex-direction: row;
+    background: linear-gradient(to bottom, var(--background-secondary), var(--background-secondary-alt));
+    border-bottom: none;
+    gap: 2px;
+    padding: 4px;
+}
+
+/* Individual tab header button */
+.tab-header {
+    flex: 1;
+    padding: 14px 24px;
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+    border: none;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    transition: all 0.3s ease-in-out;
+    position: relative;
+    letter-spacing: 0.5px;
+}
+
+.tab-header:last-child {
+    border-right: none;
+}
+
+.tab-header:hover {
+    background-color: var(--background-primary);
+    color: var(--text-accent);
+    transform: translateY(-2px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Active tab header */
+.tab-header.active {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    font-weight: 700;
+    border-bottom: none;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 1;
+}
+
+/* Tab contents container */
+.tab-contents {
+    position: relative;
+    min-height: 250px;
+    background-color: var(--background-primary);
+}
+
+/* Individual tab content */
+.tab-content {
+    display: none;
+    padding: 24px;
+    background-color: var(--background-primary);
+    animation: fadeIn 0.4s ease-in-out;
+    border-top: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Fade in animation for tab content */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Styling for properties inside tabs */
+.tab-content .metadata-field,
+.tab-content .metadata-object-property {
+    margin-bottom: 12px;
+}
+
+/* Container section title (if tabs have titles) */
+.container-section-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-accent);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--background-modifier-border);
+}
+
+/* Display container wrapper */
+.display-container-wrapper {
+    margin-bottom: 16px;
+}
+
+/* ============================================
+   FOLD STYLING FOR DYNAMIC DISPLAY
+   ============================================ */
+
+/* Container for foldable sections */
+.metadata-fold-container {
+    width: 100%;
+    margin: 12px 0;
+    border: 2px solid var(--background-modifier-border);
+    border-radius: 8px;
+    background-color: var(--background-primary);
+    overflow: hidden;
+    transition: all 0.3s ease-in-out;
+}
+
+.metadata-fold-container:hover {
+    border-color: var(--interactive-accent);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Fold header (clickable button) */
+.fold-header {
+    width: 100%;
+    padding: 14px 20px;
+    background: linear-gradient(to right, var(--background-secondary), var(--background-secondary-alt));
+    color: var(--text-normal);
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: left;
+    transition: all 0.3s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+}
+
+.fold-header::after {
+    content: "▼";
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: transform 0.3s ease-in-out;
+}
+
+.fold-header.expanded::after {
+    transform: rotate(180deg);
+}
+
+.fold-header:hover {
+    background: linear-gradient(to right, var(--interactive-accent), var(--interactive-accent-hover));
+    color: var(--text-on-accent);
+}
+
+.fold-header:hover::after {
+    color: var(--text-on-accent);
+}
+
+/* Fold content (collapsible) */
+.fold-content {
+    max-height: 1000px;
+    padding: 20px;
+    background-color: var(--background-primary);
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out, opacity 0.3s ease-in-out;
+    opacity: 1;
+}
+
+.fold-content.collapsed {
+    max-height: 0;
+    padding: 0 20px;
+    opacity: 0;
+}
+
+/* Styling for properties inside folds */
+.fold-content .metadata-field,
+.fold-content .metadata-object-property {
+    margin-bottom: 12px;
 }
