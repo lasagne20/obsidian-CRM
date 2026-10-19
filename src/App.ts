@@ -526,17 +526,29 @@ export class ObsidianApp implements IApp {
     }
 
     async selectMultipleFile(vault: any, classes: string[], options: any): Promise<(IFile | undefined)[]> {
+        console.log(`🔍 [ObsidianApp] selectMultipleFile called - classes: [${classes.join(', ')}]`);
         return new Promise((resolve) => {
             const modal = new MultiFileSearchModal(
                 this.app,
                 vault,
                 async (files) => {
+                    console.log(`📥 MultiFileSearch: processing ${files.length} selected item(s)`);
                     // Handle both TFile instances and Create options
                     const resultPromises = files.map(async (f) => {
                         if (f instanceof TFile) {
                             // Handle existing TFile
-                            const classe = await vault.getFromFile(this.toIFile(f));
-                            return classe?.getFile(); // Return the File object which has getLink()
+                            try {
+                                const classe = await vault.getFromFile(this.toIFile(f));
+                                if (!classe) {
+                                    console.warn(`⚠️ getFromFile returned no class for "${f.path}" - the file will be skipped`);
+                                    return undefined;
+                                }
+                                return classe.getFile(); // Return the File object which has getLink()
+                            } catch (error) {
+                                console.error(`❌ Error loading class from selected file "${f.path}":`, error);
+                                this.sendNotice(`Error loading file: ${(error as Error).message}`);
+                                return undefined;
+                            }
                         } else if (typeof f === 'string' && f.startsWith('Create: ')) {
                             // Handle Create option - replicate the creation logic from openClassFileSuggester
                             const name = f.substring('Create: '.length);
@@ -572,11 +584,13 @@ export class ObsidianApp implements IApp {
                         return undefined;
                     });
                     const results = await Promise.all(resultPromises);
-                    resolve(results.filter(r => r !== undefined));
+                    const validResults = results.filter(r => r !== undefined);
+                    console.log(`✅ MultiFileSearch: ${validResults.length}/${files.length} item(s) resolved to File objects`);
+                    resolve(validResults);
                 },
                 classes,
                 {
-                    hint: options?.hint || "Select multiple files (use Space to select/deselect)",
+                    hint: options?.hint || "Select files (Enter to select, Ctrl+Space for multi-select)",
                     optionalFilter: options?.validationFunction
                 }
             );

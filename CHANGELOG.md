@@ -5,6 +5,22 @@ All notable changes to the Obsidian CRM Plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-10-19
+
+### 🐛 Fixed
+
+#### Multi-File Selection (fuzzy search)
+- **Enter now selects directly**: pressing Enter on the active suggestion adds the item and validates immediately (no more Ctrl+Space then Enter required)
+- **Root cause fixed**: Obsidian calls `close()` BEFORE `onChooseItem`, so the final selection was built too early (always empty) and `onChooseMulti` was never called — the selection is now built inside the timeout, after Obsidian has registered the chosen item
+- **Robust error handling in `selectMultipleFile`**: `getFromFile` failures are now caught and logged instead of leaving the promise unresolved forever (the add button silently did nothing)
+- **Notice on load errors**: when a selected file cannot be resolved to a class, the user sees the error and the file is skipped instead of blocking the whole selection
+- **Fixed keydown listener leak**: `removeEventListener` never matched the handler because `bind()` created a new function on each call; the handler is now bound once in the constructor
+- **Ctrl+Space multi-select kept**: toggle multiple files without closing, then confirm with Enter or Escape
+
+#### Library `markdown-crm` (bundled)
+- **Nested ObjectProperty reload fixed**: `ObjectProperty` and `MultiFileProperty` now store their container reference (`containerElement`) for reliable reload in nested structures (e.g. actions → financeurs → contacts)
+- **Empty selection logging**: `MultiFileProperty.addProperty` logs a warning and returns early when no file resolves, instead of failing silently
+
 ## [1.0.0] - 2026-01-01
 
 ### 🎉 First Major Release

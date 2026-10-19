@@ -8,6 +8,7 @@ import { Classe } from 'markdown-crm';
 export class MultiFileSearchModal extends FileSearchModal {
     private selectedItems: TFile[] = [];
     private onChooseMulti: (files: (TFile | string)[]) => void;
+    private boundOnKeyDown: (evt: KeyboardEvent) => void;
 
     constructor(
         app: App,
@@ -23,15 +24,18 @@ export class MultiFileSearchModal extends FileSearchModal {
     ) {
         // Set default hint for multi-select if not provided
         if (!args.hint) {
-            args.hint = "Search files (Ctrl+Space to select, Enter to confirm)";
+            args.hint = "Search files (Enter to select, Ctrl+Space for multi-select)";
         }
         super(app, vault, () => {}, classes, args);
         this.onChooseMulti = onChooseMulti;
+        // Bind once so addEventListener/removeEventListener use the same reference
+        this.boundOnKeyDown = this.onKeyDown.bind(this);
     }
 
     onOpen(): void {
         super.onOpen();
-        this.inputEl?.addEventListener("keydown", this.onKeyDown.bind(this));
+        console.log(`🔍 [MultiFileSearchModal] onOpen - attaching keydown listener, inputEl: ${this.inputEl ? 'found' : 'MISSING'}`);
+        this.inputEl?.addEventListener("keydown", this.boundOnKeyDown);
     }
 
     getItems(): (TFile | string)[] {
@@ -40,38 +44,80 @@ export class MultiFileSearchModal extends FileSearchModal {
     }
 
     onChooseItem(item: TFile | string, evt: MouseEvent | KeyboardEvent): void {
-        // Store the chosen item so it can be added in onClose
-        this.choosed = item;
+        console.log(`✅ [MultiFileSearchModal] onChooseItem called - item: ${item instanceof TFile ? item.path : item}`);
+        // Add the chosen item directly to the selection (Enter or mouse click)
+        // so it is always part of finalSelection in onClose
+        this.addItemToSelection(item);
         // Close the modal
         this.close();
     }
 
-    async onKeyDown(evt: KeyboardEvent): Promise<void> {
-        // Use Ctrl+Space for selection to avoid conflict with typing spaces in Create options
-        if (evt.code === "Space" && evt.ctrlKey) {
-            evt.preventDefault();
-            const activeItem = this.resultContainerEl?.querySelector(".suggestion-item.is-selected");
+    /**
+     * Add an item to the selection (idempotent - no duplicates)
+     */
+    private addItemToSelection(item: TFile | string): void {
+        if (item instanceof TFile) {
+            if (!this.selectedItems.includes(item)) {
+                this.selectedItems.push(item);
+            }
+        } else if (typeof item === 'string' && item.startsWith('Create: ')) {
+            this.choosed = item;
+        }
+    }
 
+    /**
+     * Get the currently active suggestion item (the highlighted one)
+     */
+    private getActiveSuggestion(): TFile | string | null {
+        const activeItem = this.resultContainerEl?.querySelector(".suggestion-item.is-selected");
+        if (!activeItem) return null;
+        const index = Array.from(this.resultContainerEl?.children ?? []).indexOf(activeItem);
+        const suggestions = this.getSuggestions(this.inputEl?.value ?? "");
+        const fuzzyMatch = suggestions[index];
+        return fuzzyMatch?.item ?? null;
+    }
+
+    async onKeyDown(evt: KeyboardEvent): Promise<void> {
+        // Enter: select the active item and validate (close) directly
+        if (evt.key === "Enter" || evt.code === "Enter" || evt.code === "NumpadEnter") {
+            console.log(`⌨️ [MultiFileSearchModal] Enter detected`);
+            evt.preventDefault();
+            evt.stopPropagation();
+            const activeItem = this.getActiveSuggestion();
             if (activeItem) {
-                const index = Array.from(this.resultContainerEl?.children ?? []).indexOf(activeItem);
-                const suggestions = this.getSuggestions(this.inputEl?.value ?? "");
-                const fuzzyMatch = suggestions[index];
-                
-                if (fuzzyMatch?.item) {
-                    if (fuzzyMatch.item instanceof TFile) {
-                        // Handle TFile selection
-                        const file = fuzzyMatch.item;
-                        if (this.selectedItems.includes(file)) {
-                            this.selectedItems = this.selectedItems.filter(f => f !== file);
-                        } else {
-                            this.selectedItems.push(file);
-                        }
-                    } else if (typeof fuzzyMatch.item === 'string' && fuzzyMatch.item.startsWith('Create: ')) {
-                        // Handle Create option - store it for later processing
-                        this.choosed = fuzzyMatch.item;
+                console.log(`⌨️ [MultiFileSearchModal] Enter - selecting active item: ${activeItem instanceof TFile ? activeItem.path : activeItem}`);
+                this.addItemToSelection(activeItem);
+            } else {
+                console.warn(`⌨️ [MultiFileSearchModal] Enter - no active item found`);
+            }
+            this.close();
+            return;
+        }
+
+        // Use Ctrl+Space to toggle selection without closing (multi-select)
+        if (evt.code === "Space" && evt.ctrlKey) {
+            console.log(`⌨️ [MultiFileSearchModal] Ctrl+Space detected`);
+            evt.preventDefault();
+            const activeItem = this.getActiveSuggestion();
+
+            if (activeItem !== null) {
+                if (activeItem instanceof TFile) {
+                    const file = activeItem;
+                    if (this.selectedItems.includes(file)) {
+                        this.selectedItems = this.selectedItems.filter(f => f !== file);
+                        console.log(`⌨️ [MultiFileSearchModal] deselected: ${file.path} (selected: ${this.selectedItems.length})`);
+                    } else {
+                        this.selectedItems.push(file);
+                        console.log(`⌨️ [MultiFileSearchModal] selected: ${file.path} (selected: ${this.selectedItems.length})`);
                     }
+                } else if (typeof activeItem === 'string' && activeItem.startsWith('Create: ')) {
+                    // Handle Create option - store it for later processing
+                    this.choosed = activeItem;
+                    console.log(`⌨️ [MultiFileSearchModal] Create option chosen: ${activeItem}`);
                 }
                 this.renderAllSuggestions();
+            } else {
+                console.warn(`⌨️ [MultiFileSearchModal] Ctrl+Space: no active suggestion item found`);
             }
         }
     }
@@ -118,28 +164,34 @@ export class MultiFileSearchModal extends FileSearchModal {
     }
 
     onClose(): void {
-        this.inputEl?.removeEventListener("keydown", this.onKeyDown.bind(this));
+        this.inputEl?.removeEventListener("keydown", this.boundOnKeyDown);
         super.onClose();
         
-        // Prepare the final selection list
-        const finalSelection: (TFile | string)[] = [...this.selectedItems];
-        
-        // Add the chosen item (from Enter key or click) if it exists
-        if (this.choosed) {
-            if (this.choosed instanceof TFile) {
-                // Only add if not already in selection
-                if (!this.selectedItems.includes(this.choosed)) {
+        // IMPORTANT: Obsidian calls close() BEFORE onChooseItem (Enter/click flow).
+        // So the selection state (selectedItems / choosed) is NOT final yet here.
+        // Build finalSelection inside the timeout, after onChooseItem has run.
+        setTimeout(() => {
+            const finalSelection: (TFile | string)[] = [...this.selectedItems];
+            
+            if (this.choosed) {
+                if (this.choosed instanceof TFile) {
+                    // Only add if not already in selection
+                    if (!this.selectedItems.includes(this.choosed)) {
+                        finalSelection.push(this.choosed);
+                    }
+                } else if (typeof this.choosed === 'string' && this.choosed.startsWith('Create: ')) {
+                    // Add Create option to selection
                     finalSelection.push(this.choosed);
                 }
-            } else if (typeof this.choosed === 'string' && this.choosed.startsWith('Create: ')) {
-                // Add Create option to selection
-                finalSelection.push(this.choosed);
             }
-        }
-        
-        setTimeout(() => {
+            
+            console.log(`📤 [MultiFileSearchModal] onChooseMulti check - selectedItems: ${this.selectedItems.length}, choosed: ${this.choosed ? (this.choosed instanceof TFile ? this.choosed.path : this.choosed) : 'null'}, finalSelection: ${finalSelection.length}`);
+            
             if (finalSelection.length > 0) {
+                console.log(`📤 [MultiFileSearchModal] calling onChooseMulti with ${finalSelection.length} item(s)`);
                 this.onChooseMulti(finalSelection);
+            } else {
+                console.warn(`📤 [MultiFileSearchModal] EMPTY selection - onChooseMulti NOT called (select with Enter or Ctrl+Space)`);
             }
         }, 100);
     }
