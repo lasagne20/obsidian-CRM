@@ -5,6 +5,28 @@ All notable changes to the Obsidian CRM Plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2026-10-19
+
+### ✨ Added
+
+#### Number display
+- **New visual variants** (`display:` option): `plain` (big bold number, no circle - e.g. totals), `bar` (horizontal progress bar) and `ring` (default, unchanged)
+- **prefix / suffix** options around the number (e.g. `prefix: "≈ "`, `suffix: " HT"`)
+- **Thousands separator** on number displays, defaulting to a space (`1 234 567`); set `thousandsSeparator: ""` to disable
+- **Automatic "% unit"** for the percent formula when no unit is configured
+
+#### Library `markdown-crm` (bundled)
+- **Date conditions on dateRange properties**: comparisons (greaterThan, lessThan, ...) now resolve RangeDateProperty values by the start of the range instead of comparing only the year
+- **Relative date keywords**: `today`, `yesterday`, `tomorrow` accepted as condition values (e.g. `date >= today` for "Prochaines actions")
+- **`groups` object form normalized**: the YAML shorthand `groups:\n  conditions:` (without the list dash) now applies the filter instead of being silently ignored
+- **NumberDisplay calculations fall back to property.read()**: sum/avg/count on FormulaProperty (e.g. Action.montant) now compute the formula instead of returning 0
+- **NumberDisplay ring fill fixed**: percent values keep percentage mode (max 100) and other formulas use the resolved max, instead of always falling back to value/100
+- **Collect mode for countDistinct**: paths like `financeurs.financeur.parent,clients.client.parent` now gather ALL values (flattened arrays, `parent` keyword after links) instead of discarding multi-element arrays
+- **`parent` keyword after links**: `financeurs.financeur.parent` now resolves the parent of the linked institution (previously undefined)
+- **updateParentFolder verifies placement when parent value is unchanged**: misplaced files are re-sorted (lightweight check, no vault scan when already in place)
+- **Classe.update() re-sorts the file**: the "Rafraichir l'objet" context menu now fixes files in the wrong folder
+- **MultiFileProperty empty selection logging** and robust error handling in selectMultipleFile
+
 ## [1.0.4] - 2026-10-19
 
 ### 🐛 Fixed

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-crm-plugin",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Advanced CRM plugin with dynamic classes, external data integration, and intelligent search. Manage contacts, institutions, locations with hierarchical organization.",
   "main": "main.js",
   "scripts": {

@@ -55,6 +55,10 @@ export default class CRM extends Plugin {
 
   async onload() {
     console.log("🚀 Plugin CRM - Loading...");
+    // Build marker: proves which main.js build is actually loaded.
+    // If this timestamp does not match the latest build, Obsidian is
+    // running a stale or different main.js.
+    console.log(`📦 obsidian-CRM build loaded: ${process.env.BUILD_TIME}`);
     
     // Load settings first
     await this.loadSettings();
