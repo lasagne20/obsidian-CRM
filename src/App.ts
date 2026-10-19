@@ -1,6 +1,6 @@
 import { App, Notice, TFile, TFolder, setIcon } from 'obsidian';
 import { IApp, IFile, IFolder, ISettings } from 'markdown-crm';
-import { FileSearchModal, MediaSearchModal, MultiFileSearchModal, SelectFromListModal, MultiSelectFromListModal } from './Modals';
+import { FileSearchModal, MediaSearchModal, MultiFileSearchModal, SelectFromListModal, MultiSelectFromListModal } from './Modals/index';
 
 /**
  * ObsidianApp - Adapter implementing IApp interface from markdown-crm library
@@ -212,8 +212,7 @@ export class ObsidianApp implements IApp {
     }
 
     getAbsolutePath(relativePath: string): string {
-        // @ts-ignore - getBasePath exists but not in types
-        return this.app.vault.adapter.getBasePath() + '/' + relativePath;
+        return (this.app.vault.adapter as any).getBasePath() + '/' + relativePath;
     }
 
     getName(): string {
@@ -289,19 +288,19 @@ export class ObsidianApp implements IApp {
     // Converter helpers - made public so they can be used by the plugin
     public toIFile(tfile: TFile, includeRelations: boolean = true): IFile {
         const parent = (includeRelations && tfile.parent) 
-            ? this.toIFolderShallow(tfile.parent) 
+            ? this.toIFolderShallow(tfile.parent as TFolder) 
             : undefined;
         
         // Get children if this is a folder-file (e.g., MyFile/MyFile.md)
         const children: (IFile | IFolder)[] = [];
         if (includeRelations && tfile.parent) {
-            const folderName = tfile.parent.name;
+            const folderName = (tfile.parent as TFolder).name;
             const fileBasename = tfile.basename;
             
             // Check if file is in a folder with the same name (folder-file pattern)
             if (folderName === fileBasename) {
                 // Get all children in the parent folder (recursively including subfolders)
-                this.collectChildrenRecursive(tfile.parent, tfile.path, children);
+                this.collectChildrenRecursive(tfile.parent as TFolder, tfile.path, children);
             }
         }
         
@@ -335,7 +334,7 @@ export class ObsidianApp implements IApp {
 
     // Shallow folder conversion - only basic info + parent, no deep children
     private toIFolderShallow(tfolder: TFolder): IFolder {
-        const parent = tfolder.parent ? this.toIFolderShallow(tfolder.parent) : undefined;
+        const parent = tfolder.parent ? this.toIFolderShallow(tfolder.parent as TFolder) : undefined;
         
         return {
             path: tfolder.path,
@@ -346,7 +345,7 @@ export class ObsidianApp implements IApp {
     }
 
     public toIFolder(tfolder: TFolder, includeChildren: boolean = true): IFolder {
-        const parent = tfolder.parent ? this.toIFolderShallow(tfolder.parent) : undefined;
+        const parent = tfolder.parent ? this.toIFolderShallow(tfolder.parent as TFolder) : undefined;
         
         const children: (IFile | IFolder)[] = [];
         if (includeChildren) {
@@ -434,8 +433,7 @@ export class ObsidianApp implements IApp {
     async showInFolder(file: IFile): Promise<void> {
         const tfile = this.app.vault.getAbstractFileByPath(file.path);
         if (tfile instanceof TFile) {
-            // @ts-ignore
-            this.app.workspace.revealInFolder?.(tfile);
+            (this.app.workspace as any).revealInFolder?.(tfile);
         }
     }
 
@@ -527,7 +525,7 @@ export class ObsidianApp implements IApp {
         });
     }
 
-    async selectMultipleFile(vault: any, classes: string[], options: any): Promise<any[]> {
+    async selectMultipleFile(vault: any, classes: string[], options: any): Promise<(IFile | undefined)[]> {
         return new Promise((resolve) => {
             const modal = new MultiFileSearchModal(
                 this.app,
@@ -567,7 +565,7 @@ export class ObsidianApp implements IApp {
                                 return createdFile;
                             } catch (error) {
                                 console.error('Error creating file:', error);
-                                this.sendNotice(`Error creating file: ${error.message}`);
+                                this.sendNotice(`Error creating file: ${(error as Error).message}`);
                                 return undefined;
                             }
                         }
@@ -586,7 +584,7 @@ export class ObsidianApp implements IApp {
         });
     }
 
-    async selectFile(vault: any, classes: string[], options: any): Promise<any> {
+    async selectFile(vault: any, classes: string[], options: any): Promise<IFile | null> {
         // Import ClassFileModals dynamically to avoid circular dependencies
         const { ClassFileModals } = await import('./Modals/Modals');
         return new Promise((resolve) => {

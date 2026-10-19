@@ -11,6 +11,9 @@
 		},
 		{
 			"path": "../../../Outils/Obsidian/Templates"
+		},
+		{
+			"path": "../../../../Markdown CRM"
 		}
 	],
 	"settings": {}

@@ -4,33 +4,33 @@
     "inlineSourceMap": true,
     "inlineSources": true,
     "module": "ESNext",
-    "target": "ES6",
+    "target": "ES2020",
     "allowJs": true,
+    "strict": true,
     "noImplicitAny": true,
     "moduleResolution": "node",
     "importHelpers": true,
     "isolatedModules": true,
-    "strictNullChecks": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "paths": {
-      "Utils/*": ["Utils/*"]
-    },
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "types": ["jest", "node"],
     "lib": [
       "DOM",
-      "ES5",
-      "ES6",
-      "ES7"
+      "ES2020"
     ]
   },
   "include": [
-    "**/*.ts"
+    "src/**/*",
+    "main.ts"
   ],
   "exclude": [
     "node_modules/**/*",
-    "Old files/**/*",
-    "__tests__/**/*",
-    "validate-config.ts",
-    "dist/**/*"
+    "dist/**/*",
+    "coverage/**/*",
+    "**/*.test.ts",
+    "**/*.spec.ts"
   ]
 }
