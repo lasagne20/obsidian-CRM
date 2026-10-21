@@ -270,14 +270,19 @@ export class ObsidianApp implements IApp {
         if (!metadataCache || typeof metadataCache.on !== 'function') {
             return Promise.resolve();
         }
+        const timingStart = Date.now();
         return new Promise<void>((resolve) => {
             let settled = false;
             let timeout: ReturnType<typeof setTimeout> | undefined;
+            let timedOut = false;
             const finish = () => {
                 if (settled) return;
                 settled = true;
                 if (timeout !== undefined) clearTimeout(timeout);
                 try { metadataCache.off('changed', handler); } catch (e) { /* noop */ }
+                // TEMPORARY timing diagnostics (prefix ⏱️ CRM) - remove once
+                // the first-edit delay is identified
+                console.log(`⏱️ CRM-cache ${filePath}: waited=${Date.now() - timingStart}ms (${timedOut ? "timeout" : "event"})`);
                 resolve();
             };
             const handler = (file: any) => {
@@ -286,7 +291,7 @@ export class ObsidianApp implements IApp {
                     finish();
                 }
             };
-            timeout = setTimeout(finish, timeoutMs);
+            timeout = setTimeout(() => { timedOut = true; finish(); }, timeoutMs);
             metadataCache.on('changed', handler);
         });
     }
