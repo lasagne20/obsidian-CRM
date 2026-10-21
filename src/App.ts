@@ -215,6 +215,19 @@ export class ObsidianApp implements IApp {
         return (this.app.vault.adapter as any).getBasePath() + '/' + relativePath;
     }
 
+    getResourceUrl(relativePath: string): string {
+        const adapter = this.app.vault.adapter as any;
+        if (adapter.getResourcePath) {
+            return adapter.getResourcePath(relativePath);
+        }
+        return this.getAbsolutePath(relativePath);
+    }
+
+    async openExternal(relativePath: string): Promise<void> {
+        const { shell } = require('electron');
+        await shell.openPath(this.getAbsolutePath(relativePath));
+    }
+
     getName(): string {
         return this.app.vault.getName();
     }

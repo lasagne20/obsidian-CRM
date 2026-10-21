@@ -13,13 +13,13 @@ node_modules
 coverage/
 dynamic-fields/*
 Old files/*
-
 # Don't include the compiled main.js file in the repo.
 # They should be uploaded to GitHub releases instead.
 main.js
 
 # Exclude sourcemaps
 *.map
+
 
 # obsidian
 data.json
@@ -29,3 +29,4 @@ data/
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
 Classes/old/
+Creation-obsidian-CRM.code-workspace
