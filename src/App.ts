@@ -242,11 +242,52 @@ export class ObsidianApp implements IApp {
             throw new Error(`File not found: ${file.path}`);
         }
 
+        // Register the cache-change listener BEFORE writing: Obsidian's
+        // metadataCache re-parses the file asynchronously after the write, so
+        // without waiting, the next getMetadata() would return the PREVIOUS
+        // frontmatter (renames and derived properties one edit behind).
+        const cacheChanged = this.waitForMetadataCacheChanged(file.path);
+
         await this.app.fileManager.processFrontMatter(tfile, (frontmatter) => {
             // Merge new metadata with existing instead of replacing all
             // This preserves properties not included in the metadata parameter
             Object.assign(frontmatter, metadata);
             console.log("✅ Frontmatter updated:", frontmatter);
+        });
+
+        await cacheChanged;
+    }
+
+    /**
+     * Resolve when Obsidian's metadataCache has re-indexed the given file
+     * ('changed' event), so subsequent getMetadata() calls return fresh data.
+     * Falls back to a safety timeout (1s) if the event never fires (no-op
+     * write, cache unavailable), and resolves immediately when there is no
+     * metadataCache (test environments).
+     */
+    private waitForMetadataCacheChanged(filePath: string, timeoutMs: number = 1000): Promise<void> {
+        const metadataCache = (this.app as any).metadataCache;
+        if (!metadataCache || typeof metadataCache.on !== 'function') {
+            return Promise.resolve();
+        }
+        return new Promise<void>((resolve) => {
+            let settled = false;
+            let timeout: ReturnType<typeof setTimeout> | undefined;
+            const finish = () => {
+                if (settled) return;
+                settled = true;
+                if (timeout !== undefined) clearTimeout(timeout);
+                try { metadataCache.off('changed', handler); } catch (e) { /* noop */ }
+                resolve();
+            };
+            const handler = (file: any) => {
+                const changedPath = typeof file === 'string' ? file : file?.path;
+                if (changedPath === filePath) {
+                    finish();
+                }
+            };
+            timeout = setTimeout(finish, timeoutMs);
+            metadataCache.on('changed', handler);
         });
     }
 
