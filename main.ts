@@ -218,7 +218,7 @@ export default class CRM extends Plugin {
 
     console.log("✅ Plugin CRM - Loaded successfully");
   }
-  async replaceMetadataContainer(force: boolean = false) {
+  async replaceMetadataContainer() {
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (!activeView) return;
 
@@ -229,11 +229,11 @@ export default class CRM extends Plugin {
     if (this.currentFilePath === file.path) {
       const view = activeView.contentEl;
       const existingDisplay = view.querySelector('.crm-custom-display');
-      if (existingDisplay && !force) {
+      if (existingDisplay) {
         console.log("✅ Same file, keeping existing display");
         return;
       }
-      console.log(force ? "🔄 Forced display refresh..." : "🔄 Same file but display missing, recreating...");
+      console.log("🔄 Same file but display missing, recreating...");
     }
 
     // Set the current file path immediately to prevent race conditions
@@ -311,27 +311,6 @@ export default class CRM extends Plugin {
       this.currentFilePath = file.path;
 
       console.log("✅ Metadata container replaced with custom display");
-
-      // One-shot delayed rebuild ("faux refresh"): the display can be built
-      // while the metadataCache has not finished resolving the file (startup
-      // indexing, recent write/rename), leaving the first render stale.
-      // Rebuilding once shortly after settles it. Skipped when this build was
-      // itself forced (avoids an infinite refresh loop) and when the user
-      // has moved to another file meanwhile.
-      if (!force) {
-        const displayFilePath = file.path;
-        setTimeout(() => {
-          try {
-            const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-            if (view && view.file && view.file.path === displayFilePath) {
-              console.log("⏱️ CRM-pseudo-refresh: rebuilding display after initial render");
-              this.replaceMetadataContainer(true);
-            }
-          } catch (error) {
-            console.error("❌ Error during delayed display refresh:", error);
-          }
-        }, 400);
-      }
     } catch (error) {
       console.error("❌ Error replacing metadata container:", error);
       this.currentFilePath = null;
