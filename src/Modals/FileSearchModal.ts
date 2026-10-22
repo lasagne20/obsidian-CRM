@@ -1,6 +1,23 @@
 import { Classe } from 'markdown-crm';
 import { App, TFile, FuzzySuggestModal, FuzzyMatch, prepareFuzzySearch, setIcon } from 'obsidian';
 
+/** Chip de propriété affichée sur la ligne d'un résultat de recherche */
+export interface SearchChip {
+    name: string;                                        // Property name
+    icon?: string;                                       // Lucide icon
+    color?: string;                                      // Explicit CSS color (overrides select option color)
+    type?: string;                                       // 'date' | 'dateRange' -> French short format
+    options?: Array<{ name: string; color?: string }>;   // SelectProperty options (color by value)
+}
+
+/** Search modal customization resolved from the class config `search` section */
+export interface SearchModalConfig {
+    properties?: SearchChip[];
+    sort?: string;
+    sortDirection?: 'asc' | 'desc';
+    titleTemplate?: string;
+}
+
 /**
  * Modal to search and select a file in Obsidian
  */
@@ -20,6 +37,12 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
     private stringItemTextCache: Map<string, string> = new Map();
     // Index dataItems by name for O(1) lookup instead of O(n) find
     private dataItemsByName: Map<string, any> = new Map();
+    // Search customization (chips, sort, title cleanup)
+    private searchConfig?: SearchModalConfig;
+    // Property values per file for chips and sorting (built by preloadSearchValues)
+    private searchValues: Map<TFile, Record<string, any>> = new Map();
+    // Regex stripping the rename-template prefix from displayed titles
+    private titleStripRegex: RegExp | null = null;
 
     constructor(
         app: App,
@@ -31,19 +54,56 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
             optionalFilter?: (file: Classe) => boolean;
             dataItems?: any[];
             classIcons?: Record<string, string>;
+            searchConfig?: SearchModalConfig;
         } = {}
     ) {
         super(app);
-        this.onChoose = onChoose; 
+        this.onChoose = onChoose;
         this.classes = classes;
         this.hint = args.hint || "Search for a file or create a new one";
         this.optionalFilter = args.optionalFilter;
         this.dataItems = args.dataItems || [];
         this.vault = vault;
         this.classIcons = args.classIcons || {};
-        
+        this.searchConfig = args.searchConfig;
+        this.titleStripRegex = this.buildTitleStripRegex(this.searchConfig?.titleTemplate);
+
         // Build index for fast dataItem lookup
         this.buildDataItemsIndex();
+    }
+
+    /**
+     * Build the regex stripping the rename-template prefix from titles.
+     * The part of titleTemplate BEFORE {current} is the generated prefix
+     * (e.g. "{animations[0].date} - Action - "): placeholders become
+     * non-greedy wildcards, literal parts are matched exactly.
+     */
+    private buildTitleStripRegex(titleTemplate?: string): RegExp | null {
+        if (!titleTemplate) return null;
+        const markerIndex = titleTemplate.indexOf('{current}');
+        if (markerIndex <= 0) return null;
+        const prefix = titleTemplate.slice(0, markerIndex);
+        const literalParts = prefix.split(/\{[^}]*\}/);
+        const pattern = '^' + literalParts
+            .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+            .join('.*?');
+        try {
+            return new RegExp(pattern);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    /**
+     * Title displayed for a file: the basename stripped of the rename-template
+     * prefix when it matches, the full basename otherwise.
+     */
+    private getDisplayTitle(basename: string): string {
+        if (this.titleStripRegex) {
+            const stripped = basename.replace(this.titleStripRegex, '');
+            if (stripped) return stripped;
+        }
+        return basename;
     }
     
     /**
@@ -75,6 +135,64 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         // Preload items asynchronously if we have an optional filter
         if (this.optionalFilter) {
             this.preloadItems();
+        }
+
+        // Preload property values for chips and sorting
+        if (this.searchConfig) {
+            this.preloadSearchValues();
+        }
+    }
+
+    /**
+     * Preload the property values used by chips and sorting for every
+     * class-filtered file. Computed values (derived dates, formulas) are
+     * resolved through the property's read(); the map is used synchronously
+     * afterwards by renderSuggestion and getSuggestions.
+     */
+    async preloadSearchValues(): Promise<void> {
+        if (!this.searchConfig) return;
+        const chipNames = (this.searchConfig.properties || []).map(chip => chip.name);
+        const propNames = [...new Set([...chipNames, ...(this.searchConfig.sort ? [this.searchConfig.sort] : [])])];
+        if (propNames.length === 0) return;
+
+        const files = this.getItems().filter(item => typeof item !== 'string') as TFile[];
+        const values = new Map<TFile, Record<string, any>>();
+
+        for (const file of files) {
+            try {
+                const iFile = {
+                    path: file.path,
+                    basename: file.basename,
+                    extension: file.extension,
+                    name: file.name
+                };
+                const classe = await this.vault.getFromFile(iFile);
+                if (!classe) continue;
+
+                const record: Record<string, any> = {};
+                for (const propName of propNames) {
+                    try {
+                        const property = classe.getProperty?.(propName);
+                        record[propName] = property
+                            ? await property.read(classe)
+                            : await classe.getPropertyValue(propName);
+                    } catch (error) {
+                        // Value stays undefined; chips skip it, sort puts it last
+                    }
+                }
+                values.set(file, record);
+            } catch (error) {
+                console.warn(`Error loading search values for ${file.path}:`, error);
+            }
+        }
+
+        this.searchValues = values;
+
+        // Refresh the displayed suggestions if the modal is already open
+        try {
+            this.inputEl?.dispatchEvent(new Event('input'));
+        } catch (error) {
+            // Noop: not attached yet
         }
     }
     
@@ -298,32 +416,53 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
      */
     getSuggestions(query: string): FuzzyMatch<TFile | string>[] {
         // Normalize query to remove accents for matching
-        const normalizedQuery = this.normalizeText(query);
-        // Call parent's getSuggestions which will use our getItemText() for matching
-        return super.getSuggestions(normalizedQuery);
+        const suggestions = super.getSuggestions(this.normalizeText(query));
+
+        // Config-driven sort applies only when the query is empty (the
+        // initial list); while typing, the fuzzy score takes over.
+        if (!query.trim() && this.searchConfig?.sort && this.searchValues) {
+            const sortProperty = this.searchConfig.sort;
+            const descending = this.searchConfig.sortDirection === 'desc';
+            const valueOf = (item: TFile | string): string | null => {
+                if (typeof item === 'string') return null;
+                return this.searchValues.get(item)?.[sortProperty] ?? null;
+            };
+            suggestions.sort((a, b) => {
+                const va = valueOf(a.item);
+                const vb = valueOf(b.item);
+                // Missing values always last, in both directions
+                if (va === null && vb === null) return 0;
+                if (va === null) return 1;
+                if (vb === null) return -1;
+                const comparison = String(va).localeCompare(String(vb));
+                return descending ? -comparison : comparison;
+            });
+        }
+
+        return suggestions;
     }
 
     renderSuggestion(item: FuzzyMatch<TFile | string>, el: HTMLElement): void {
         const content = el.createDiv({ cls: "suggestion-content" });
-        
-        // Get class name and icon
+
+        // Class icon on the left, always visible for class items
         let className = '';
         let iconName = '';
         let displayText = '';
-        
+
         if (typeof item.item === "string") {
             // For "Create: XXX" items
             if (item.item.startsWith("Create: ") && this.dataItems && this.dataItems.length > 0) {
                 const itemName = item.item.substring("Create: ".length);
                 // Use index for O(1) lookup instead of O(n) find
                 const dataItem = this.dataItemsByName.get(itemName);
-                
+
                 if (dataItem) {
                     className = dataItem._className || '';
                     const title = itemName;
                     displayText = `Create: ${title}`;
-                    
-                    if (this.classes.length > 1 && className) {
+
+                    if (className) {
                         iconName = this.classIcons[className] || 'folder';
                     }
                 } else {
@@ -331,17 +470,22 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
                 }
             } else {
                 displayText = item.item;
+                iconName = 'file-plus';
             }
         } else {
-            // For TFile items
-            displayText = item.item.basename;
-            
-            if (this.classes.length > 1) {
+            // For TFile items: strip the rename-template prefix from the title
+            displayText = this.getDisplayTitle(item.item.basename);
+
+            // Class icon is always visible; for a single class no metadata read is needed
+            if (this.classes.length === 1) {
+                className = this.classes[0];
+                iconName = this.classIcons[className] || 'folder';
+            } else {
                 const cache = this.app.metadataCache.getFileCache(item.item);
                 const settings = this.vault?.app?.getSettings() || {};
                 const classePropertyName = settings.classePropertyName || 'Classe';
                 const classePropertyAliases = settings.classePropertyAliases || ['Classe'];
-                
+
                 className = cache?.frontmatter?.[classePropertyName];
                 if (!className) {
                     for (const alias of classePropertyAliases) {
@@ -349,27 +493,94 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
                         if (className) break;
                     }
                 }
-                
+
                 if (className) {
                     iconName = this.classIcons[className] || 'folder';
                 }
             }
+
+            // Property chips (date, state...) on the same line, right side
+            this.renderChips(item.item, content);
         }
-        
+
+        // Class icon on the left of the line
+        if (iconName) {
+            const classIconEl = content.createSpan({ cls: "suggestion-class-icon" });
+            setIcon(classIconEl, iconName);
+        }
+
         // Add the main text (bold)
         const textEl = content.createSpan({ cls: "suggestion-title" });
         textEl.textContent = displayText;
-        
-        // Add class info on the right if we have one
-        if (iconName && this.classes.length > 1) {
+
+        // Add class info on the right for multi-class searches
+        if (className && this.classes.length > 1) {
             const classContainer = content.createSpan({ cls: "suggestion-class-container" });
-            
-            const iconEl = classContainer.createSpan({ cls: "suggestion-icon" });
-            setIcon(iconEl, iconName);
-            
+
             const classNameEl = classContainer.createSpan({ cls: "suggestion-class-name" });
             classNameEl.textContent = className;
         }
+    }
+
+    /**
+     * Render the configured property chips (icon + colored value) for a file.
+     * Colors: explicit chip color, otherwise the SelectProperty option color.
+     * Date-type values are formatted in short French ("15 nov. 2026").
+     */
+    private renderChips(file: TFile, content: HTMLElement): void {
+        const chips = this.searchConfig?.properties;
+        if (!chips || chips.length === 0) return;
+        const values = this.searchValues.get(file);
+        if (!values) return;
+
+        const chipsEl = content.createDiv({ cls: "suggestion-chips" });
+        for (const chip of chips) {
+            const raw = values[chip.name];
+            if (raw === null || raw === undefined || raw === '') continue;
+
+            const chipEl = chipsEl.createSpan({ cls: "suggestion-chip" });
+
+            // Color: explicit override, otherwise the select option color
+            let color = chip.color;
+            if (!color && chip.options) {
+                const option = chip.options.find(opt => opt.name === String(raw));
+                if (option?.color) {
+                    color = option.color;
+                }
+            }
+            if (color) {
+                chipEl.style.color = color;
+            }
+
+            if (chip.icon) {
+                const iconEl = chipEl.createSpan({ cls: "suggestion-chip-icon" });
+                setIcon(iconEl, chip.icon);
+            }
+
+            const valueEl = chipEl.createSpan({ cls: "suggestion-chip-value" });
+            valueEl.textContent = this.formatChipValue(raw, chip.type);
+        }
+    }
+
+    /**
+     * Format a chip value: dates in short French, ranges as "A → B"
+     */
+    private formatChipValue(raw: any, type?: string): string {
+        const text = String(raw);
+        if (type === 'date' || type === 'dateRange') {
+            if (text.includes(' to ')) {
+                const [start, end] = text.split(' to ');
+                return `${this.formatShortDate(start)} → ${this.formatShortDate(end)}`;
+            }
+            return this.formatShortDate(text);
+        }
+        return text;
+    }
+
+    private formatShortDate(value: string): string {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return value;
+        return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
     }
 
     /**

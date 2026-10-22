@@ -80,16 +80,38 @@ export class ClassFileModals {
             // Check if classes have data sources and aggregate all data items
             let dataItems: any[] = [];
             const classIcons: Record<string, string> = {};
+            // Search modal customization (chips, sort, title) from the first
+            // class that defines a `search` section
+            let searchConfig: any = null;
             const factory = this.vault.getDynamicClassFactory();
             if (factory) {
                 const configManager = (factory as any).configManager;
                 for (const cn of expandedClassNames) {
                     try {
                         const config = await configManager.getClassConfig(cn);
-                        
+
                         // Store the class icon for later use
                         classIcons[cn] = config.classIcon || 'folder';
-                        
+
+                        if (!searchConfig && config.search) {
+                            // Enrich the chips with the property definitions
+                            // (icon, select options, date formatting)
+                            searchConfig = {
+                                ...config.search,
+                                properties: (config.search.properties || []).map((chip: any) => {
+                                    const propertyConfig = config.properties?.[chip.name] || {};
+                                    const isDate = propertyConfig.type === 'DateProperty' || propertyConfig.type === 'RangeDateProperty';
+                                    return {
+                                        name: chip.name,
+                                        color: chip.color,
+                                        icon: chip.icon || propertyConfig.icon,
+                                        options: propertyConfig.options,
+                                        type: isDate ? 'date' : chip.type
+                                    };
+                                })
+                            };
+                        }
+
                         if (config.data && config.data.length > 0) {
                             console.log(`📥 Class "${cn}" has data sources, loading...`);
                             const classData = await configManager.loadClassData(cn);
@@ -106,7 +128,7 @@ export class ClassFileModals {
             
             // Show suggester with create option and data items
             console.log(`🚀 Showing file suggester for classes: ${expandedClassNames.join(', ')}`);
-            this.showClassFileSuggester(expandedClassNames, ClassConstructor, dataItems, classIcons, onFileSelected, options);
+            this.showClassFileSuggester(expandedClassNames, ClassConstructor, dataItems, classIcons, onFileSelected, options, searchConfig);
         } catch (error) {
             console.error(`Error opening file suggester for ${classNames.join(', ')}:`, error);
             this.obsidianApp.sendNotice(`Erreur lors de l'ouverture du suggester pour ${classNames.join(', ')}`);
@@ -116,7 +138,7 @@ export class ClassFileModals {
     /**
      * Show file suggester for selecting or creating a class file
      */
-    showClassFileSuggester(classNames: string[], ClassConstructor: any, dataItems: any[] = [], classIcons: Record<string, string> = {}, onFileSelected?: (file: any) => void, options?: any) {
+    showClassFileSuggester(classNames: string[], ClassConstructor: any, dataItems: any[] = [], classIcons: Record<string, string> = {}, onFileSelected?: (file: any) => void, options?: any, searchConfig?: any) {
         new FileSearchModal(
             this.app,
             this.vault,

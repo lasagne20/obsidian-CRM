@@ -365,6 +365,49 @@ button.mod-cta:active {
     flex: 1;
 }
 
+.suggestion-class-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.suggestion-class-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Chips de propriétés (date, état...) sur la ligne d'un résultat */
+.suggestion-chips {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.suggestion-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+    font-size: 0.85em;
+}
+
+.suggestion-chip-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.suggestion-chip-icon svg {
+    width: 13px;
+    height: 13px;
+}
+
 .suggestion-class-container {
     display: flex;
     align-items: center;
