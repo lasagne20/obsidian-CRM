@@ -380,11 +380,13 @@ button.mod-cta:active {
     height: 14px;
 }
 
-/* Chips de propriétés (date, état...) sur la ligne d'un résultat */
+/* Chips de propriétés (date, état...) sur la ligne d'un résultat :
+   style pastille bordée ; largeur fixe pour aligner les colonnes entre
+   les lignes et faciliter le balayage visuel */
 .suggestion-chips {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex-shrink: 0;
     margin-left: auto;
 }
@@ -392,20 +394,37 @@ button.mod-cta:active {
 .suggestion-chip {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    justify-content: center;
+    gap: 4px;
+    width: 104px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    /* Teinte légère dérivée de la couleur du chip ; retombe sur
+       transparent si color-mix n'est pas supporté */
+    background: color-mix(in srgb, currentColor 12%, transparent);
     white-space: nowrap;
+    flex-shrink: 0;
     font-size: 0.85em;
+    font-weight: 500;
 }
 
 .suggestion-chip-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .suggestion-chip-icon svg {
     width: 13px;
     height: 13px;
+}
+
+.suggestion-chip-value {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .suggestion-class-container {
