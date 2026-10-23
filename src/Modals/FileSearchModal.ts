@@ -529,15 +529,18 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
                     iconName = this.classIcons[className] || 'folder';
                 }
             }
-
-            // Property chips (date, state...) on the same line, right side
-            this.renderChips(item.item, content);
         }
 
         // Class icon on the left of the line
         if (iconName) {
             const classIconEl = content.createSpan({ cls: "suggestion-class-icon" });
             setIcon(classIconEl, iconName);
+        }
+
+        // Property columns (date, state dot...) BEFORE the title, so the date
+        // forms a fixed, aligned column at the left edge for easy scanning
+        if (typeof item.item !== 'string') {
+            this.renderChips(item.item, content);
         }
 
         // Add the main text (bold)
@@ -554,9 +557,10 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
     }
 
     /**
-     * Render the configured property chips (icon + colored value) for a file.
-     * Colors: explicit chip color, otherwise the SelectProperty option color.
-     * Date-type values are formatted in short French ("15 nov. 2026").
+     * Render the configured property columns for a file:
+     * - chips with a select options list (state) render as a COLOR DOT only,
+     *   the label is available in the tooltip;
+     * - other chips (date) render as icon + value, theme-mapped color.
      */
     private renderChips(file: TFile, content: HTMLElement): void {
         const chips = this.searchConfig?.properties;
@@ -569,8 +573,6 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
             const raw = values[chip.name];
             if (raw === null || raw === undefined || raw === '') continue;
 
-            const chipEl = chipsEl.createSpan({ cls: "suggestion-chip" });
-
             // Color: explicit override, otherwise the select option color.
             // Names are mapped to Obsidian theme variables when known.
             // Set as a custom property: CSS consumes it via var(--chip-color).
@@ -581,8 +583,21 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
                     color = option.color;
                 }
             }
-            if (color) {
-                chipEl.style.setProperty('--chip-color', OBSIDIAN_COLOR_MAP[color.toLowerCase()] ?? color);
+            const resolvedColor = color ? (OBSIDIAN_COLOR_MAP[color.toLowerCase()] ?? color) : undefined;
+
+            // Select-like chips (options defined): color dot only, label in tooltip
+            if (chip.options && chip.options.length > 0) {
+                const dotEl = chipsEl.createSpan({ cls: "suggestion-chip-dot" });
+                dotEl.title = this.formatChipValue(raw, chip.type);
+                if (resolvedColor) {
+                    dotEl.style.setProperty('--chip-color', resolvedColor);
+                }
+                continue;
+            }
+
+            const chipEl = chipsEl.createSpan({ cls: "suggestion-chip" });
+            if (resolvedColor) {
+                chipEl.style.setProperty('--chip-color', resolvedColor);
             }
 
             if (chip.icon) {
@@ -596,14 +611,14 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
     }
 
     /**
-     * Format a chip value: dates in short French, ranges as "A → B"
+     * Format a chip value: dates in short French, ranges compact ("14 → 16 nov. 2026")
      */
     private formatChipValue(raw: any, type?: string): string {
         const text = String(raw);
         if (type === 'date' || type === 'dateRange') {
             if (text.includes(' to ')) {
                 const [start, end] = text.split(' to ');
-                return `${this.formatShortDate(start)} → ${this.formatShortDate(end)}`;
+                return this.formatShortDateRange(start, end);
             }
             return this.formatShortDate(text);
         }
@@ -614,6 +629,21 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         const date = new Date(value);
         if (isNaN(date.getTime())) return value;
         return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    /**
+     * Compact short range: start day then the full short end date,
+     * e.g. "14 → 16 nov. 2026" - fits the chip width without truncation
+     */
+    private formatShortDateRange(start: string, end: string): string {
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            return `${start} → ${end}`;
+        }
+        const startDay = startDate.toLocaleDateString('fr-FR', { day: 'numeric' });
+        const endFull = endDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+        return `${startDay} → ${endFull}`;
     }
 
     /**

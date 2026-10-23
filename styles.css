@@ -363,6 +363,7 @@ button.mod-cta:active {
 
 .suggestion-title {
     flex: 1;
+    font-weight: 600;
 }
 
 .suggestion-class-icon {
@@ -380,31 +381,24 @@ button.mod-cta:active {
     height: 14px;
 }
 
-/* Chips de propriétés (date, état...) sur la ligne d'un résultat :
-   pastille bordée sur fond transparent (discrète sur la ligne sélectionnée),
-   largeur fixe suffisante pour les dates complètes et colonnes alignées */
+/* Colonnes de propriétés à gauche du titre (date en 1re colonne fixe,
+   état en point coloré) : balayage vertical facile sur la colonne date */
 .suggestion-chips {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     flex-shrink: 0;
-    margin-left: auto;
 }
 
 .suggestion-chip {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     gap: 4px;
-    width: 132px;
-    padding: 2px 10px;
-    border-radius: 999px;
-    border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
-    color: var(--chip-color, var(--text-normal));
+    width: 138px;
     white-space: nowrap;
     flex-shrink: 0;
+    color: var(--chip-color, var(--text-muted));
     font-size: 0.85em;
-    font-weight: 500;
 }
 
 .suggestion-chip-icon {
@@ -423,6 +417,15 @@ button.mod-cta:active {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* État : point de couleur seule (libellé en info-bulle) */
+.suggestion-chip-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--chip-color, var(--text-faint));
 }
 
 .suggestion-class-container {

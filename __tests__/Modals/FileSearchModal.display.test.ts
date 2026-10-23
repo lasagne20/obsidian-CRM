@@ -164,8 +164,8 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
         });
     });
 
-    describe('Chips de propriétés sur la ligne', () => {
-        it('PLANTE : date et etat affichés avec leur valeur formatée', async () => {
+    describe('Chips de propriétés sur la ligne (option 1 : date à gauche, état en point)', () => {
+        it('PLANTE : la date s\'affiche formatée en première colonne, l\'état en point coloré sans libellé', async () => {
             const file = createMockFile('Actions/2026-11-15 - Action - Saint didier ITW.md', '2026-11-15 - Action - Saint didier ITW');
             mockApp.vault.getMarkdownFiles.mockReturnValue([file]);
             mockVault.getFromFile.mockResolvedValue(makeClasse({
@@ -181,16 +181,20 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
             const el = document.createElement('div');
             modal.renderSuggestion({ item: file, match: { score: 0, matches: [] } }, el);
 
-            const chips = el.querySelectorAll('.suggestion-chip');
-            expect(chips.length).toBe(2);
+            // Date : chip avec valeur formatée en français court
+            const dateChip = el.querySelector('.suggestion-chip') as HTMLElement;
+            expect(dateChip).toBeTruthy();
+            expect(dateChip.textContent).toContain('15 nov. 2026');
 
-            // Chip date : valeur formatée en français court
-            expect(el.textContent).toContain('15 nov. 2026');
-            // Chip etat : valeur de l'état
-            expect(el.textContent).toContain('Payé');
+            // État : point coloré SANS libellé
+            const dot = el.querySelector('.suggestion-chip-dot') as HTMLElement;
+            expect(dot).toBeTruthy();
+            expect(el.textContent).not.toContain('Payé');
+            // Le libellé reste disponible en info-bulle
+            expect(dot.title).toBe('Payé');
         });
 
-        it('PLANTE : la couleur du chip etat vient de l\'option (Payé -> gold)', async () => {
+        it('PLANTE : le point d\'état prend la couleur de l\'option mappée sur le thème (Payé -> yellow)', async () => {
             const file = createMockFile('Actions/2026-11-15 - Action - Saint didier ITW.md', '2026-11-15 - Action - Saint didier ITW');
             mockApp.vault.getMarkdownFiles.mockReturnValue([file]);
             mockVault.getFromFile.mockResolvedValue(makeClasse({
@@ -206,14 +210,12 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
             const el = document.createElement('div');
             modal.renderSuggestion({ item: file, match: { score: 0, matches: [] } }, el);
 
-            const etatChip = Array.from(el.querySelectorAll('.suggestion-chip'))
-                .find(chip => chip.textContent?.includes('Payé')) as HTMLElement;
-            expect(etatChip).toBeTruthy();
-            // Couleur de l'option mappée sur la variable de thème Obsidian (gold -> yellow)
-            expect(etatChip.style.getPropertyValue('--chip-color')).toBe('rgb(var(--color-yellow, 244, 226, 141))');
+            const dot = el.querySelector('.suggestion-chip-dot') as HTMLElement;
+            expect(dot).toBeTruthy();
+            expect(dot.style.getPropertyValue('--chip-color')).toBe('rgb(var(--color-yellow, 244, 226, 141))');
         });
 
-        it('la couleur explicite du chip date est appliquée', async () => {
+        it('la couleur explicite de la chip date est appliquée (thème rouge)', async () => {
             const file = createMockFile('Actions/2026-11-15 - Action - Saint didier ITW.md', '2026-11-15 - Action - Saint didier ITW');
             mockApp.vault.getMarkdownFiles.mockReturnValue([file]);
             mockVault.getFromFile.mockResolvedValue(makeClasse({
@@ -229,10 +231,29 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
             const el = document.createElement('div');
             modal.renderSuggestion({ item: file, match: { score: 0, matches: [] } }, el);
 
-            const dateChip = Array.from(el.querySelectorAll('.suggestion-chip'))
-                .find(chip => chip.textContent?.includes('15 nov.')) as HTMLElement;
+            const dateChip = el.querySelector('.suggestion-chip') as HTMLElement;
             expect(dateChip).toBeTruthy();
             expect(dateChip.style.getPropertyValue('--chip-color')).toBe('rgb(var(--color-red, 185, 93, 93))');
+        });
+
+        it('PLANTE : une plage de dates s\'affiche en format compact "14 → 16 nov. 2026"', async () => {
+            const file = createMockFile('Actions/2026-11-14 - Action - Plage.md', '2026-11-14 - Action - Plage');
+            mockApp.vault.getMarkdownFiles.mockReturnValue([file]);
+            mockVault.getFromFile.mockResolvedValue(makeClasse({
+                date: '2026-11-14 to 2026-11-16',
+                etat: 'Piste'
+            }));
+
+            const modal = new FileSearchModal(mockApp, mockVault, mockOnChoose, ['Action'], {
+                searchConfig: SEARCH_CONFIG
+            });
+            await (modal as any).preloadSearchValues();
+
+            const el = document.createElement('div');
+            modal.renderSuggestion({ item: file, match: { score: 0, matches: [] } }, el);
+
+            const dateChip = el.querySelector('.suggestion-chip') as HTMLElement;
+            expect(dateChip.textContent).toContain('14 → 16 nov. 2026');
         });
     });
 
