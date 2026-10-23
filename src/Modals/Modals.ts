@@ -137,9 +137,11 @@ export class ClassFileModals {
 
     /**
      * Show file suggester for selecting or creating a class file
+     * Async: property values for chips/sorting are preloaded BEFORE the modal
+     * opens, so the first render already shows them (no async race).
      */
-    showClassFileSuggester(classNames: string[], ClassConstructor: any, dataItems: any[] = [], classIcons: Record<string, string> = {}, onFileSelected?: (file: any) => void, options?: any, searchConfig?: any) {
-        new FileSearchModal(
+    async showClassFileSuggester(classNames: string[], ClassConstructor: any, dataItems: any[] = [], classIcons: Record<string, string> = {}, onFileSelected?: (file: any) => void, options?: any, searchConfig?: any) {
+        const modal = new FileSearchModal(
             this.app,
             this.vault,
             async (result) => {
@@ -233,6 +235,11 @@ export class ClassFileModals {
                 dataItems: dataItems, // Pass data items to modal
                 classIcons: classIcons, // Pass class icons to modal
             }
-        ).open();
+        );
+
+        // Property values must be ready before the first render, otherwise
+        // chips are skipped and the config sort never applies
+        await modal.preloadSearchValues();
+        modal.open();
     }
 }

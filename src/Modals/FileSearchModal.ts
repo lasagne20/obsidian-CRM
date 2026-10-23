@@ -151,6 +151,8 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
      */
     async preloadSearchValues(): Promise<void> {
         if (!this.searchConfig) return;
+        // Already preloaded (showClassFileSuggester awaits before opening)
+        if (this.searchValues.size > 0) return;
         const chipNames = (this.searchConfig.properties || []).map(chip => chip.name);
         const propNames = [...new Set([...chipNames, ...(this.searchConfig.sort ? [this.searchConfig.sort] : [])])];
         if (propNames.length === 0) return;
@@ -188,11 +190,20 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
 
         this.searchValues = values;
 
-        // Refresh the displayed suggestions if the modal is already open
-        try {
-            this.inputEl?.dispatchEvent(new Event('input'));
-        } catch (error) {
-            // Noop: not attached yet
+        // If the modal is already open, refresh the displayed suggestions.
+        // Obsidian's HTMLElement.trigger works in the plugin runtime;
+        // dispatchEvent is the standard fallback.
+        if (this.inputEl) {
+            try {
+                (this.inputEl as any).trigger?.('input');
+            } catch (error) {
+                // Noop
+            }
+            try {
+                this.inputEl.dispatchEvent(new Event('input'));
+            } catch (error) {
+                // Noop
+            }
         }
     }
     
