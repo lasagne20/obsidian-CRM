@@ -69,8 +69,8 @@ function createMockFile(path: string, basename: string, frontmatter: any = {}): 
 
 const SEARCH_CONFIG = {
     properties: [
-        { name: 'date', icon: 'calendar', color: 'red', type: 'date' },
-        { name: 'etat', icon: 'clipboard-list', options: [
+        { name: 'date', icon: 'calendar', type: 'date', derivedFrom: 'animations.date' },
+        { name: 'etat', icon: 'clipboard-list', display: 'dot' as const, options: [
             { name: 'Piste', color: 'gray' },
             { name: 'Payé', color: 'gold' },
             { name: 'Devis envoyé', color: 'orange' }
@@ -215,7 +215,7 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
             expect(dot.style.getPropertyValue('--chip-color')).toBe('rgb(var(--color-yellow, 244, 226, 141))');
         });
 
-        it('la couleur explicite de la chip date est appliquée (thème rouge)', async () => {
+        it('la couleur explicite d\'une chip est appliquée quand la config en fournit une', async () => {
             const file = createMockFile('Actions/2026-11-15 - Action - Saint didier ITW.md', '2026-11-15 - Action - Saint didier ITW');
             mockApp.vault.getMarkdownFiles.mockReturnValue([file]);
             mockVault.getFromFile.mockResolvedValue(makeClasse({
@@ -223,8 +223,15 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
                 etat: 'Piste'
             }));
 
+            const configWithColor = {
+                ...SEARCH_CONFIG,
+                properties: [
+                    { ...SEARCH_CONFIG.properties[0], color: 'red' },
+                    SEARCH_CONFIG.properties[1]
+                ]
+            };
             const modal = new FileSearchModal(mockApp, mockVault, mockOnChoose, ['Action'], {
-                searchConfig: SEARCH_CONFIG
+                searchConfig: configWithColor
             });
             await (modal as any).preloadSearchValues();
 
@@ -254,6 +261,75 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
 
             const dateChip = el.querySelector('.suggestion-chip') as HTMLElement;
             expect(dateChip.textContent).toContain('14 → 16 nov. 2026');
+        });
+    });
+
+    describe('Chemin rapide : valeurs lues depuis le metadataCache d\'Obsidian', () => {
+        it('PLANTE : la date dérivée et l\'état sont calculés depuis le frontmatter, sans instancier de Classe', async () => {
+            const file = createMockFile('Actions/2026-11-15 - Action - Saint didier ITW.md', '2026-11-15 - Action - Saint didier ITW');
+            mockApp.vault.getMarkdownFiles.mockReturnValue([file]);
+            // Le frontmatter contient animations (date dérivée) et etat directement
+            mockApp.metadataCache.getFileCache.mockReturnValue({
+                frontmatter: {
+                    classe: 'Action',
+                    etat: 'Payé',
+                    animations: [{ date: '2026-11-15' }]
+                }
+            });
+            mockVault.getFromFile.mockImplementation(async () => {
+                throw new Error('getFromFile ne doit pas être appelé sur le chemin rapide');
+            });
+
+            const modal = new FileSearchModal(mockApp, mockVault, mockOnChoose, ['Action'], {
+                searchConfig: SEARCH_CONFIG
+            });
+            await (modal as any).preloadSearchValues();
+
+            const el = document.createElement('div');
+            modal.renderSuggestion({ item: file, match: { score: 0, matches: [] } }, el);
+
+            // Date dérivée calculée depuis animations.date
+            const dateChip = el.querySelector('.suggestion-chip') as HTMLElement;
+            expect(dateChip).toBeTruthy();
+            expect(dateChip.textContent).toContain('15 nov. 2026');
+
+            // État : point doré (Payé -> yellow)
+            const dot = el.querySelector('.suggestion-chip-dot') as HTMLElement;
+            expect(dot).toBeTruthy();
+            expect(dot.style.getPropertyValue('--chip-color')).toBe('rgb(var(--color-yellow, 244, 226, 141))');
+        });
+
+        it('PLANTE : display: "value" force le libellé pour un chip select', async () => {
+            const file = createMockFile('Actions/2026-11-15 - Action - Saint didier ITW.md', '2026-11-15 - Action - Saint didier ITW');
+            mockApp.vault.getMarkdownFiles.mockReturnValue([file]);
+            mockApp.metadataCache.getFileCache.mockReturnValue({
+                frontmatter: {
+                    classe: 'Action',
+                    etat: 'Payé'
+                }
+            });
+
+            const configWithValue = {
+                ...SEARCH_CONFIG,
+                properties: [
+                    SEARCH_CONFIG.properties[0],
+                    { ...SEARCH_CONFIG.properties[1], display: 'value' as const }
+                ]
+            };
+            const modal = new FileSearchModal(mockApp, mockVault, mockOnChoose, ['Action'], {
+                searchConfig: configWithValue
+            });
+            await (modal as any).preloadSearchValues();
+
+            const el = document.createElement('div');
+            modal.renderSuggestion({ item: file, match: { score: 0, matches: [] } }, el);
+
+            // display: value -> pas de point, le libellé est affiché
+            expect(el.querySelector('.suggestion-chip-dot')).toBeNull();
+            const etatChip = Array.from(el.querySelectorAll('.suggestion-chip'))
+                .find(chip => chip.textContent?.includes('Payé')) as HTMLElement;
+            expect(etatChip).toBeTruthy();
+            expect(etatChip.style.getPropertyValue('--chip-color')).toBe('rgb(var(--color-yellow, 244, 226, 141))');
         });
     });
 

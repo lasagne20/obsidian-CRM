@@ -1,4 +1,4 @@
-import { Classe } from 'markdown-crm';
+import { Classe, RangeDateProperty } from 'markdown-crm';
 import { App, TFile, FuzzySuggestModal, FuzzyMatch, prepareFuzzySearch, setIcon } from 'obsidian';
 
 /** Chip de propriété affichée sur la ligne d'un résultat de recherche */
@@ -8,6 +8,8 @@ export interface SearchChip {
     color?: string;                                      // Explicit CSS color (overrides select option color)
     type?: string;                                       // 'date' | 'dateRange' -> French short format
     options?: Array<{ name: string; color?: string }>;   // SelectProperty options (color by value)
+    derivedFrom?: string;                                // Derived property path (e.g. "animations.date"), resolved from frontmatter
+    display?: 'dot' | 'value';                           // Select chips default to dot; 'value' forces the label
 }
 
 /** Search modal customization resolved from the class config `search` section */
@@ -165,47 +167,89 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
 
     /**
      * Preload the property values used by chips and sorting for every
-     * class-filtered file. Computed values (derived dates, formulas) are
-     * resolved through the property's read(); the map is used synchronously
-     * afterwards by renderSuggestion and getSuggestions.
+     * class-filtered file.
+     *
+     * Fast path: values are read straight from Obsidian's metadata cache
+     * (frontmatter), including derived dates (resolved from the source
+     * array, e.g. animations.date) - NO Classe instantiation, so no
+     * onCreate side effects and an instant open even on large classes.
+     *
+     * Slow path (only for values the frontmatter cannot provide, like
+     * formulas): instantiate the Classe WITHOUT onCreate (createClasse
+     * with onCreate = false) and read through the property, then drop
+     * the temporary cache entry to preserve the vault's onCreate semantics.
      */
     async preloadSearchValues(): Promise<void> {
         if (!this.searchConfig) return;
         // Already preloaded (showClassFileSuggester awaits before opening)
         if (this.searchValues.size > 0) return;
-        const chipNames = (this.searchConfig.properties || []).map(chip => chip.name);
+        const chips = this.searchConfig.properties || [];
+        const chipNames = chips.map(chip => chip.name);
         const propNames = [...new Set([...chipNames, ...(this.searchConfig.sort ? [this.searchConfig.sort] : [])])];
         if (propNames.length === 0) return;
 
         const files = this.getItems().filter(item => typeof item !== 'string') as TFile[];
         const values = new Map<TFile, Record<string, any>>();
+        const chipsByName = new Map(chips.map(chip => [chip.name, chip]));
 
         for (const file of files) {
-            try {
-                const iFile = {
-                    path: file.path,
-                    basename: file.basename,
-                    extension: file.extension,
-                    name: file.name
-                };
-                const classe = await this.vault.getFromFile(iFile);
-                if (!classe) continue;
+            const record: Record<string, any> = {};
 
-                const record: Record<string, any> = {};
-                for (const propName of propNames) {
-                    try {
-                        const property = classe.getProperty?.(propName);
-                        record[propName] = property
-                            ? await property.read(classe)
-                            : await classe.getPropertyValue(propName);
-                    } catch (error) {
-                        // Value stays undefined; chips skip it, sort puts it last
+            // Fast path: Obsidian's metadata cache only
+            const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+            const missing: string[] = [];
+            for (const propName of propNames) {
+                let value = frontmatter?.[propName];
+                if (value === null || value === undefined || value === '') {
+                    const derivedFrom = chipsByName.get(propName)?.derivedFrom;
+                    if (derivedFrom) {
+                        value = this.resolveDerivedFromFrontmatter(frontmatter, derivedFrom);
                     }
                 }
-                values.set(file, record);
-            } catch (error) {
-                console.warn(`Error loading search values for ${file.path}:`, error);
+                if (value === null || value === undefined || value === '') {
+                    missing.push(propName);
+                } else {
+                    record[propName] = value;
+                }
             }
+
+            // Slow path: computed values only (formulas, complex derived)
+            if (missing.length > 0) {
+                try {
+                    const iFile = {
+                        path: file.path,
+                        basename: file.basename,
+                        extension: file.extension,
+                        name: file.name
+                    };
+                    const vaultFiles: Record<string, any> | undefined = this.vault.files;
+                    const wasCached = vaultFiles?.[file.path] !== undefined;
+                    const classe = typeof this.vault.createClasse === 'function'
+                        ? await this.vault.createClasse(iFile, false)
+                        : await this.vault.getFromFile(iFile);
+                    if (classe) {
+                        for (const propName of missing) {
+                            try {
+                                const property = classe.getProperty?.(propName);
+                                record[propName] = property
+                                    ? await property.read(classe)
+                                    : await classe.getPropertyValue(propName);
+                            } catch (error) {
+                                // Value stays undefined; chips skip it, sort puts it last
+                            }
+                        }
+                    }
+                    // Drop the temporary cache entry so a later getFromFile
+                    // still runs onCreate for this file
+                    if (!wasCached && vaultFiles && vaultFiles[file.path] === classe) {
+                        delete vaultFiles[file.path];
+                    }
+                } catch (error) {
+                    console.warn(`Error loading search values for ${file.path}:`, error);
+                }
+            }
+
+            values.set(file, record);
         }
 
         this.searchValues = values;
@@ -585,8 +629,11 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
             }
             const resolvedColor = color ? (OBSIDIAN_COLOR_MAP[color.toLowerCase()] ?? color) : undefined;
 
-            // Select-like chips (options defined): color dot only, label in tooltip
-            if (chip.options && chip.options.length > 0) {
+            // Select chips default to a color dot (label in tooltip);
+            // display: 'value' forces the label, display: 'dot' forces the dot
+            const isDot = chip.display === 'dot'
+                || (chip.display !== 'value' && chip.options && chip.options.length > 0);
+            if (isDot) {
                 const dotEl = chipsEl.createSpan({ cls: "suggestion-chip-dot" });
                 dotEl.title = this.formatChipValue(raw, chip.type);
                 if (resolvedColor) {
@@ -629,6 +676,37 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         const date = new Date(value);
         if (isNaN(date.getTime())) return value;
         return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    /**
+     * Resolve a derivedFrom path (e.g. "animations.date") directly from the
+     * frontmatter: collect the sub-property values across the array entries
+     * and compute the min/max date range - the same output as
+     * RangeDateProperty.read(), without instantiating a Classe.
+     */
+    private resolveDerivedFromFrontmatter(frontmatter: any, derivedFrom: string): any {
+        const pathParts = derivedFrom.split('.');
+        if (pathParts.length < 2) return undefined;
+        const [arrayProp, subProp] = pathParts;
+        const array = frontmatter?.[arrayProp];
+        if (!Array.isArray(array)) return undefined;
+
+        const timestamps: number[] = [];
+        for (const item of array) {
+            const value = item?.[subProp];
+            if (value === null || value === undefined || value === '') continue;
+            const parsed = RangeDateProperty.parseDateValue(value);
+            if (parsed) {
+                timestamps.push(parsed[0], parsed[1]);
+            }
+        }
+        if (timestamps.length === 0) return undefined;
+        const min = Math.min(...timestamps);
+        const max = Math.max(...timestamps);
+        if (min === max) {
+            return RangeDateProperty.formatTimestamp(min);
+        }
+        return `${RangeDateProperty.formatTimestamp(min)} to ${RangeDateProperty.formatTimestamp(max)}`;
     }
 
     /**

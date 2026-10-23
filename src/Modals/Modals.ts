@@ -95,7 +95,7 @@ export class ClassFileModals {
 
                         if (!searchConfig && config.search) {
                             // Enrich the chips with the property definitions
-                            // (icon, select options, date formatting)
+                            // (icon, select options, date formatting, derived path)
                             searchConfig = {
                                 ...config.search,
                                 properties: (config.search.properties || []).map((chip: any) => {
@@ -106,7 +106,9 @@ export class ClassFileModals {
                                         color: chip.color,
                                         icon: chip.icon || propertyConfig.icon,
                                         options: propertyConfig.options,
-                                        type: isDate ? 'date' : chip.type
+                                        type: isDate ? 'date' : chip.type,
+                                        derivedFrom: propertyConfig.derivedFrom,
+                                        display: chip.display
                                     };
                                 })
                             };
