@@ -212,7 +212,7 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
 
             const dot = el.querySelector('.suggestion-chip-dot') as HTMLElement;
             expect(dot).toBeTruthy();
-            expect(dot.style.getPropertyValue('--chip-color')).toBe('rgb(var(--color-yellow, 244, 226, 141))');
+            expect(dot.style.getPropertyValue('--chip-color')).toBe('var(--color-yellow, rgb(244, 226, 141))');
         });
 
         it('la couleur explicite d\'une chip est appliquée quand la config en fournit une', async () => {
@@ -240,7 +240,7 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
 
             const dateChip = el.querySelector('.suggestion-chip') as HTMLElement;
             expect(dateChip).toBeTruthy();
-            expect(dateChip.style.getPropertyValue('--chip-color')).toBe('rgb(var(--color-red, 185, 93, 93))');
+            expect(dateChip.style.getPropertyValue('--chip-color')).toBe('var(--color-red, rgb(185, 93, 93))');
         });
 
         it('PLANTE : une plage de dates s\'affiche en format compact "14 → 16 nov. 2026"', async () => {
@@ -296,7 +296,7 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
             // État : point doré (Payé -> yellow)
             const dot = el.querySelector('.suggestion-chip-dot') as HTMLElement;
             expect(dot).toBeTruthy();
-            expect(dot.style.getPropertyValue('--chip-color')).toBe('rgb(var(--color-yellow, 244, 226, 141))');
+            expect(dot.style.getPropertyValue('--chip-color')).toBe('var(--color-yellow, rgb(244, 226, 141))');
         });
 
         it('PLANTE : display: "value" force le libellé pour un chip select', async () => {
@@ -329,7 +329,7 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
             const etatChip = Array.from(el.querySelectorAll('.suggestion-chip'))
                 .find(chip => chip.textContent?.includes('Payé')) as HTMLElement;
             expect(etatChip).toBeTruthy();
-            expect(etatChip.style.getPropertyValue('--chip-color')).toBe('rgb(var(--color-yellow, 244, 226, 141))');
+            expect(etatChip.style.getPropertyValue('--chip-color')).toBe('var(--color-yellow, rgb(244, 226, 141))');
         });
     });
 

@@ -22,22 +22,23 @@ export interface SearchModalConfig {
 
 /**
  * Map config color names to Obsidian theme variables so chips follow the
- * active theme instead of raw CSS colors. Obsidian exposes color accents
- * as RGB triplets (use with rgb()); unknown names fall back to raw value.
+ * active theme instead of raw CSS colors. Obsidian defines --color-red
+ * etc. as FULL COLORS (not RGB triplets): use them directly, with a
+ * concrete fallback color. Unknown names fall back to the raw value.
  */
 const OBSIDIAN_COLOR_MAP: Record<string, string> = {
-    red: 'rgb(var(--color-red, 185, 93, 93))',
-    orange: 'rgb(var(--color-orange, 231, 160, 55))',
-    yellow: 'rgb(var(--color-yellow, 244, 226, 141))',
-    gold: 'rgb(var(--color-yellow, 244, 226, 141))',
-    green: 'rgb(var(--color-green, 110, 160, 120))',
-    cyan: 'rgb(var(--color-cyan, 90, 190, 200))',
-    blue: 'rgb(var(--color-blue, 90, 150, 220))',
-    purple: 'rgb(var(--color-purple, 160, 120, 220))',
-    pink: 'rgb(var(--color-pink, 220, 120, 180))',
-    gray: 'var(--text-muted, gray)',
-    grey: 'var(--text-muted, gray)',
-    black: 'var(--text-normal, black)'
+    red: 'var(--color-red, rgb(185, 93, 93))',
+    orange: 'var(--color-orange, rgb(231, 160, 55))',
+    yellow: 'var(--color-yellow, rgb(244, 226, 141))',
+    gold: 'var(--color-yellow, rgb(244, 226, 141))',
+    green: 'var(--color-green, rgb(110, 160, 120))',
+    cyan: 'var(--color-cyan, rgb(90, 190, 200))',
+    blue: 'var(--color-blue, rgb(90, 150, 220))',
+    purple: 'var(--color-purple, rgb(160, 120, 220))',
+    pink: 'var(--color-pink, rgb(220, 120, 180))',
+    gray: 'var(--text-muted)',
+    grey: 'var(--text-muted)',
+    black: 'var(--text-normal)'
 };
 
 /**
