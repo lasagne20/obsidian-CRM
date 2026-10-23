@@ -143,10 +143,49 @@ describe('ClassFileModals', () => {
       
       // Verify callback was captured
       expect(capturedCallback).toBeDefined();
-      
+
       // Simulate modal being closed without selection
       // Should not throw even when onFileSelected is undefined
       expect(() => capturedCallback(null)).not.toThrow();
+    });
+  });
+
+  describe('showClassFileSuggester - passage de la searchConfig', () => {
+    beforeEach(() => {
+      jest.spyOn(console, 'log').mockImplementation();
+      jest.spyOn(console, 'warn').mockImplementation();
+    });
+
+    it('passe la searchConfig résolue dans les args du FileSearchModal', async () => {
+      // Régression : la config était perdue entre showClassFileSuggester et le
+      // constructeur du modal (absente de l'objet args -> chips jamais rendues)
+      const searchConfig = {
+        properties: [{ name: 'etat', icon: 'clipboard-list' }],
+        sort: 'date',
+        sortDirection: 'desc',
+        titleTemplate: '{date} - Action - {current}'
+      };
+
+      await classFileModals.showClassFileSuggester(
+        ['Action'], null, [], { Action: 'smile-plus' }, undefined, undefined, searchConfig
+      );
+
+      expect(FileSearchModal).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        ['Action'],
+        expect.objectContaining({ searchConfig })
+      );
+    });
+
+    it('sans searchConfig, les args n\'en contiennent pas', async () => {
+      await classFileModals.showClassFileSuggester(
+        ['Action'], null, [], { Action: 'smile-plus' }, undefined, undefined, undefined
+      );
+
+      const call = (FileSearchModal as jest.Mock).mock.calls.at(-1);
+      expect(call[4].searchConfig).toBeUndefined();
     });
   });
 });

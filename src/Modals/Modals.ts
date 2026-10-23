@@ -90,6 +90,9 @@ export class ClassFileModals {
                     try {
                         const config = await configManager.getClassConfig(cn);
 
+                        // TEMPORARY diagnostics (prefix 🔍 CRM-search) - remove once chips render
+                        console.log(`🔍 CRM-search config loaded for "${cn}": search=${JSON.stringify(config.search)?.slice(0, 200)}`);
+
                         // Store the class icon for later use
                         classIcons[cn] = config.classIcon || 'folder';
 
@@ -128,6 +131,9 @@ export class ClassFileModals {
             
             // Show suggester with create option and data items
             console.log(`🚀 Showing file suggester for classes: ${expandedClassNames.join(', ')}`);
+            // TEMPORARY diagnostics (prefix 🔍 CRM-search) - remove once chips render
+            console.log(`🔍 CRM-search factory present: ${!!factory}`);
+            console.log(`🔍 CRM-search resolved searchConfig: ${JSON.stringify(searchConfig)?.slice(0, 300)}`);
             this.showClassFileSuggester(expandedClassNames, ClassConstructor, dataItems, classIcons, onFileSelected, options, searchConfig);
         } catch (error) {
             console.error(`Error opening file suggester for ${classNames.join(', ')}:`, error);
@@ -234,6 +240,7 @@ export class ClassFileModals {
                 optionalFilter: options?.validationFunction,
                 dataItems: dataItems, // Pass data items to modal
                 classIcons: classIcons, // Pass class icons to modal
+                searchConfig: searchConfig, // Chips, sort and title customization
             }
         );
 
