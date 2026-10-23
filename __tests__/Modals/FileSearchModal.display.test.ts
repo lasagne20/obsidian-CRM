@@ -209,8 +209,8 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
             const etatChip = Array.from(el.querySelectorAll('.suggestion-chip'))
                 .find(chip => chip.textContent?.includes('Payé')) as HTMLElement;
             expect(etatChip).toBeTruthy();
-            // Couleur de l'option appliquée au chip (icône + texte)
-            expect(etatChip.style.color).toBe('gold');
+            // Couleur de l'option mappée sur la variable de thème Obsidian (gold -> yellow)
+            expect(etatChip.style.getPropertyValue('--chip-color')).toBe('rgb(var(--color-yellow, 244, 226, 141))');
         });
 
         it('la couleur explicite du chip date est appliquée', async () => {
@@ -232,7 +232,7 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
             const dateChip = Array.from(el.querySelectorAll('.suggestion-chip'))
                 .find(chip => chip.textContent?.includes('15 nov.')) as HTMLElement;
             expect(dateChip).toBeTruthy();
-            expect(dateChip.style.color).toBe('red');
+            expect(dateChip.style.getPropertyValue('--chip-color')).toBe('rgb(var(--color-red, 185, 93, 93))');
         });
     });
 

@@ -19,6 +19,26 @@ export interface SearchModalConfig {
 }
 
 /**
+ * Map config color names to Obsidian theme variables so chips follow the
+ * active theme instead of raw CSS colors. Obsidian exposes color accents
+ * as RGB triplets (use with rgb()); unknown names fall back to raw value.
+ */
+const OBSIDIAN_COLOR_MAP: Record<string, string> = {
+    red: 'rgb(var(--color-red, 185, 93, 93))',
+    orange: 'rgb(var(--color-orange, 231, 160, 55))',
+    yellow: 'rgb(var(--color-yellow, 244, 226, 141))',
+    gold: 'rgb(var(--color-yellow, 244, 226, 141))',
+    green: 'rgb(var(--color-green, 110, 160, 120))',
+    cyan: 'rgb(var(--color-cyan, 90, 190, 200))',
+    blue: 'rgb(var(--color-blue, 90, 150, 220))',
+    purple: 'rgb(var(--color-purple, 160, 120, 220))',
+    pink: 'rgb(var(--color-pink, 220, 120, 180))',
+    gray: 'var(--text-muted, gray)',
+    grey: 'var(--text-muted, gray)',
+    black: 'var(--text-normal, black)'
+};
+
+/**
  * Modal to search and select a file in Obsidian
  */
 export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
@@ -551,7 +571,9 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
 
             const chipEl = chipsEl.createSpan({ cls: "suggestion-chip" });
 
-            // Color: explicit override, otherwise the select option color
+            // Color: explicit override, otherwise the select option color.
+            // Names are mapped to Obsidian theme variables when known.
+            // Set as a custom property: CSS consumes it via var(--chip-color).
             let color = chip.color;
             if (!color && chip.options) {
                 const option = chip.options.find(opt => opt.name === String(raw));
@@ -560,7 +582,7 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
                 }
             }
             if (color) {
-                chipEl.style.color = color;
+                chipEl.style.setProperty('--chip-color', OBSIDIAN_COLOR_MAP[color.toLowerCase()] ?? color);
             }
 
             if (chip.icon) {
