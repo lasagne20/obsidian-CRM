@@ -390,5 +390,61 @@ describe('FileSearchModal - affichage personnalisé (config search)', () => {
             expect(files[0].basename).toBe('2026-07-01 - Action - Jul');
             expect(files[files.length - 1].basename).toBe('Action sans date');
         });
+
+        it('PLANTE : le tri par date s\'applique AUSSI pendant la frappe (plus récents en haut)', async () => {
+            const fileNov = createMockFile('Actions/2026-11-15 - Action - Nov.md', '2026-11-15 - Action - Nov');
+            const fileJul = createMockFile('Actions/2026-07-01 - Action - Jul.md', '2026-07-01 - Action - Jul');
+            const fileMar = createMockFile('Actions/2026-03-31 - Action - Mar.md', '2026-03-31 - Action - Mar');
+            mockApp.vault.getMarkdownFiles.mockReturnValue([fileMar, fileNov, fileJul]);
+            mockApp.metadataCache.getFileCache.mockImplementation((file: any) => ({
+                frontmatter: {
+                    classe: 'Action',
+                    etat: 'Piste',
+                    animations: [{ date: file.basename.split(' - ')[0] }]
+                }
+            }));
+
+            const modal = new FileSearchModal(mockApp, mockVault, mockOnChoose, ['Action'], {
+                searchConfig: SEARCH_CONFIG
+            });
+            await (modal as any).preloadSearchValues();
+
+            // Requête non vide : le fuzzy filtre, mais l'ordre reste la date desc
+            const suggestions = modal.getSuggestions('action');
+            const files = suggestions
+                .map(s => s.item)
+                .filter((i): i is TFile => typeof i !== 'string');
+
+            expect(files.map(f => f.basename)).toEqual([
+                '2026-11-15 - Action - Nov',
+                '2026-07-01 - Action - Jul',
+                '2026-03-31 - Action - Mar'
+            ]);
+        });
+
+        it('les entrées "Create:" restent épinglées en tête pendant la frappe', async () => {
+            const fileNov = createMockFile('Actions/2026-11-15 - Action - Nov.md', '2026-11-15 - Action - Nov');
+            mockApp.vault.getMarkdownFiles.mockReturnValue([fileNov]);
+            mockApp.metadataCache.getFileCache.mockImplementation((file: any) => ({
+                frontmatter: {
+                    classe: 'Action',
+                    etat: 'Piste',
+                    animations: [{ date: '2026-11-15' }]
+                }
+            }));
+
+            const modal = new FileSearchModal(mockApp, mockVault, mockOnChoose, ['Action'], {
+                searchConfig: SEARCH_CONFIG
+            });
+            await (modal as any).preloadSearchValues();
+
+            // Simule une requête tapée : le fuzzy mock retourne tout + Create en premier
+            (modal as any).inputEl = { value: 'nov' } as any;
+            const suggestions = modal.getSuggestions('nov');
+
+            const firstItem = suggestions[0]?.item;
+            expect(typeof firstItem).toBe('string');
+            expect(String(firstItem)).toContain('Create');
+        });
     });
 });

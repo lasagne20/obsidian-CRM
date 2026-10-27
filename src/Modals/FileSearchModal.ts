@@ -494,16 +494,21 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         // Normalize query to remove accents for matching
         const suggestions = super.getSuggestions(this.normalizeText(query));
 
-        // Config-driven sort applies only when the query is empty (the
-        // initial list); while typing, the fuzzy score takes over.
-        if (!query.trim() && this.searchConfig?.sort && this.searchValues) {
+        // The configured sort ALWAYS applies (most recent on top): the fuzzy
+        // score still FILTERS while typing, but the display order stays the
+        // configured date order. "Create:" entries stay pinned on top.
+        if (this.searchConfig?.sort && this.searchValues) {
             const sortProperty = this.searchConfig.sort;
             const descending = this.searchConfig.sortDirection === 'desc';
             const valueOf = (item: TFile | string): string | null => {
                 if (typeof item === 'string') return null;
                 return this.searchValues.get(item)?.[sortProperty] ?? null;
             };
-            suggestions.sort((a, b) => {
+
+            const stringSuggestions = suggestions.filter(s => typeof s.item === 'string');
+            const fileSuggestions = suggestions.filter(s => typeof s.item !== 'string');
+
+            fileSuggestions.sort((a, b) => {
                 const va = valueOf(a.item);
                 const vb = valueOf(b.item);
                 // Missing values always last, in both directions
@@ -513,6 +518,8 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
                 const comparison = String(va).localeCompare(String(vb));
                 return descending ? -comparison : comparison;
             });
+
+            return [...stringSuggestions, ...fileSuggestions];
         }
 
         return suggestions;
