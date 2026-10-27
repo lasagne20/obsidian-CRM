@@ -5,6 +5,35 @@ All notable changes to the Obsidian CRM Plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2026-10-27
+
+### ✨ Added
+
+#### Search modal (enriched results)
+- **`search` section in class config**: `chips` (properties shown as colored pills), `sort`, and `titleTemplate` (clean result titles, e.g. date + lieu instead of the raw file name)
+- **Date column pinned at left** of the results, and state shown as a color dot (`display: dot`) instead of text
+- **Config sort always active** (even while typing), most recent on top, `Create` pinned first
+- **Chip values preloaded from Obsidian's metadata cache**: results render immediately without reading every file
+- **Theme-aware chip colors** mapped to Obsidian CSS variables (readable in light and dark themes)
+
+#### Library `markdown-crm` (bundled)
+- **Relative date keywords in conditions**: `today`, `yesterday`, `tomorrow`, plus `startOfYear` / `endOfYear` / `startOfMonth` / `endOfMonth` with `+N` / `-N` offsets (e.g. `date >= startOfMonth - 7`)
+- **Table columns sorted by option order**: SelectProperty tables now list values in the configuration order, not alphabetically
+- **Computed properties re-render targeted**: refreshing only the widgets whose sources changed, and a one-shot delayed display rebuild after the initial render
+- **UI refresh before slow processes**: `onPropertyChanged` fires before `onPropertyChange` processes (renames, folder moves), so the display updates immediately
+
+### 🐛 Fixed
+
+#### Infinite update loop (critical)
+- **Editing an animation date no longer starts an endless write/render cycle**: updates with unchanged values are skipped at every level (widget `updateObject`, `Classe.updatePropertyValue`), and add/remove operations no longer mutate the live metadata cache in place
+- **Cache poisoning on edit**: `ObjectProperty.updateObject` works on a deep copy, so the metadata cache is never mutated by a widget
+- **Vault cache out of sync on rename**: the class cache entry follows the file when a process renames it
+- **flatpickr `onClose` no longer wipes the selected date** (the "date pas mise à jour" erratic behavior)
+- **Read-only date properties can no longer be edited by clicking** them
+- **Table totals parse formatted values** from file data ("1 000 €", French/US number formats)
+- **Waits for Obsidian's `metadataCache` `changed` event after frontmatter writes** (no more stale reads on quick successive edits)
+- **State dots visible in all themes** (previously invisible except black)
+
 ## [1.0.5] - 2026-10-19
 
 ### ✨ Added

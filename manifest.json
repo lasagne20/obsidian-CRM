@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-CRM",
 	"name": "CRM",
-	"version": "1.0.5",
+	"version": "1.0.6",
 	"minAppVersion": "0.15.0",
 	"description": "Advanced CRM plugin with dynamic classes, external data integration, and intelligent search. Manage contacts, institutions, locations with hierarchical organization.",
 	"author": "Léo Dupont",
