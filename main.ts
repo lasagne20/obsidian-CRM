@@ -1,9 +1,13 @@
 import { MarkdownView, Menu, Notice, Plugin, TAbstractFile, TFile, TFolder } from 'obsidian';
+import * as L from 'leaflet';
 import { Vault, ISettings } from 'markdown-crm';
 import { ObsidianApp } from 'src/App';
 import { CRMSettingTab } from 'settings';
 import { FileFolderManager } from 'src/FileFolderManager';
 import { ClassFileModals } from 'src/Modals/Modals';
+
+// The CRM map display (DynamicMap) expects Leaflet as a global `L`
+(window as any).L = L;
 
 interface Settings extends ISettings {
   templateFolder: string;
