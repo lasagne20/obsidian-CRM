@@ -286,7 +286,9 @@ export default class CRM extends Plugin {
       console.log("📦 Classe retrieved for file:", file.path, "->", classe.constructor.name);
 
       // Generate custom display
+      const __perfDisplayStart = Date.now(); // [PERF] instrumentation temporaire
       const customDisplay = await (classe as any).getDisplay();
+      console.log(`[PERF] getDisplay(${file.path}): ${Date.now() - __perfDisplayStart}ms`);
       
       // Check again if we've been invalidated during display generation
       if (myGeneration !== this.currentDisplayGeneration) {
