@@ -24,7 +24,6 @@ export class FileFolderManager {
      * Initialize the folder note manager
      */
     initialize() {
-        console.log("📁 FileFolderManager: Initializing with settings:", this.settings);
         
         if (this.settings.enabled) {
             this.applyStyles();
@@ -40,9 +39,7 @@ export class FileFolderManager {
             // Setup breadcrumb click handlers
             this.setupBreadcrumbHandlers();
             
-            console.log("✅ FileFolderManager: Initialized");
         } else {
-            console.log("⚠️ FileFolderManager: Disabled in settings");
         }
     }
 
@@ -130,7 +127,6 @@ export class FileFolderManager {
                 attributes: false
             });
 
-            console.log("✅ FileFolderManager: DOM observer setup");
         };
 
         checkFileExplorer();
@@ -175,7 +171,6 @@ export class FileFolderManager {
         if (css) {
             this.styleEl.textContent = css;
             document.head.appendChild(this.styleEl);
-            console.log("✅ FileFolderManager: CSS styles applied");
         }
     }
 
@@ -318,7 +313,6 @@ export class FileFolderManager {
             });
             
             if (foldersWithNotes > 0 || hiddenFiles > 0) {
-                console.log(`📁 Found ${foldersWithNotes} folders with notes and ${hiddenFiles} folder notes to hide`);
             }
         }, 100);
     }
@@ -516,12 +510,10 @@ export class FileFolderManager {
             const oldFileName = oldPath.split('/').pop()?.replace(/\.md$/, '') || '';
             const newFileName = file.basename;
             
-            console.log(`📁 File renamed from "${oldFileName}" to "${newFileName}"`);
             
             // Check if this was a folder note using the old file name
             const folder = this.getFolderForNoteByName(oldPath, oldFileName);
             
-            console.log(`Associated folder:`, folder);
             if (folder && oldFileName !== newFileName) {
                 // Add delay to let Obsidian finish its automatic link updates first
                 setTimeout(async () => {
@@ -529,7 +521,6 @@ export class FileFolderManager {
                         // Calculate new folder path
                         const newFolderPath = folder.path.replace(new RegExp(`/${folder.name}$`), `/${newFileName}`);
                         
-                        console.log(`📁 Renaming folder from "${folder.path}" to "${newFolderPath}" to match renamed file "${file.name}"`);
                         
                         // Rename the folder to match the new file name
                         await this.app.vault.rename(folder, newFolderPath);

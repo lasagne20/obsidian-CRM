@@ -58,15 +58,12 @@ export default class CRM extends Plugin {
   public loadedClassNames: string[] = [];
 
   async onload() {
-    console.log("🚀 Plugin CRM - Loading...");
     // Build marker: proves which main.js build is actually loaded.
     // If this timestamp does not match the latest build, Obsidian is
     // running a stale or different main.js.
-    console.log(`📦 obsidian-CRM build loaded: ${process.env.BUILD_TIME}`);
     
     // Load settings first
     await this.loadSettings();
-    console.log("✅ Settings loaded:", this.settings);
     
     // Add settings tab once
     this.addSettingTab(new CRMSettingTab(this.app, this));
@@ -78,18 +75,15 @@ export default class CRM extends Plugin {
   }
 
   async initializePlugin() {
-    console.log("✅ Vault layout ready");
     
     // Show loading notice
     const loadingNotice = new Notice("🔄 Chargement de markdown-crm en cours...", 0);
     
     // Initialize the ObsidianApp adapter with settings
     this.obsidianApp = new ObsidianApp(this.app, this.settings);
-    console.log("✅ ObsidianApp adapter initialized with settings");
     
     // Register display refresh callback
     this.obsidianApp.setDisplayRefreshCallback(() => {
-      console.log("🔄 Display refresh requested");
       
       // Force removal of existing display before refresh
       const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -98,7 +92,6 @@ export default class CRM extends Plugin {
         const existingCustomDisplays = view.querySelectorAll('.crm-custom-display');
         if (existingCustomDisplays.length > 0) {
           existingCustomDisplays.forEach(display => display.remove());
-          console.log(`🧹 Forced removal of ${existingCustomDisplays.length} display(s) before refresh`);
         }
       }
       
@@ -110,7 +103,6 @@ export default class CRM extends Plugin {
     // Initialize Vault.classes if not already initialized (library bug fix)
     if (!(Vault as any).classes) {
       (Vault as any).classes = {};
-      console.log("🔧 Initialized Vault.classes");
     }
     
     // Initialize the Vault with the adapter
@@ -119,21 +111,17 @@ export default class CRM extends Plugin {
       personalName: this.settings.personalName,
       configPath: this.settings.configPath
     });
-    console.log("✅ Vault initialized");
 
     // Load class names from YAML config files
     const knownClasses = await this.loadClassNamesFromConfig();
     this.loadedClassNames = knownClasses; // Store for settings display
-    console.log("📋 Registering commands for classes from config:", knownClasses);
     
     for (const className of knownClasses) {
       this.addCommand({
         id: `open-${className.toLowerCase()}`,
         name: `Ouvrir/Créer: ${className}`,
         callback: async () => {
-          console.log(`🚀 Command executed: ${className}`);
           await this.classFileModals?.openClassFileSuggester(className, async (file) => {
-            console.log(`📂 Opening file for class ${className}:`, file);
             if (file) {
               const filePath = file.getPath ? file.getPath() : file.path;
               const tFile = this.app.vault.getAbstractFileByPath(filePath);
@@ -144,10 +132,8 @@ export default class CRM extends Plugin {
           });
         }
       });
-      console.log(`✅ Registered command: Ouvrir/Créer: ${className}`);
     }
     
-    console.log("✅ All commands registered");
 
     // Register right-click menu
     this.registerEvent(
@@ -220,7 +206,6 @@ export default class CRM extends Plugin {
     // Hide loading notice and show ready notice
     loadingNotice.hide();
 
-    console.log("✅ Plugin CRM - Loaded successfully");
   }
   async replaceMetadataContainer() {
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -234,10 +219,8 @@ export default class CRM extends Plugin {
       const view = activeView.contentEl;
       const existingDisplay = view.querySelector('.crm-custom-display');
       if (existingDisplay) {
-        console.log("✅ Same file, keeping existing display");
         return;
       }
-      console.log("🔄 Same file but display missing, recreating...");
     }
 
     // Set the current file path immediately to prevent race conditions
@@ -252,7 +235,6 @@ export default class CRM extends Plugin {
       const metadataContainer = view.querySelector('.metadata-container');
       
       if (!metadataContainer) {
-        console.log("⚠️ No metadata container found");
         return;
       }
 
@@ -260,7 +242,6 @@ export default class CRM extends Plugin {
       const existingCustomDisplays = view.querySelectorAll('.crm-custom-display');
       if (existingCustomDisplays.length > 0) {
         existingCustomDisplays.forEach(display => display.remove());
-        console.log(`🧹 Removed ${existingCustomDisplays.length} existing custom display(s)`);
       }
 
       // Show the original metadata container (in case it was hidden)
@@ -268,34 +249,27 @@ export default class CRM extends Plugin {
 
       // Get the classe instance
       const iFile = this.obsidianApp.toIFile(file);
-      console.log("📄 IFile created for file:", file.path, iFile);
       const classe = await this.vault.getFromFile(iFile);
-      console.log("📦 Classe retrieved for file:", file.path, classe ? classe.constructor.name : "null");
       
       // Check if we've been invalidated during the async operation
       if (myGeneration !== this.currentDisplayGeneration) {
-        console.log("🚫 Display generation invalidated, aborting");
         return;
       }
       
       if (!classe) {
-        console.log("⚠️ No classe found for file:", file.path);
         this.currentFilePath = null;
         return;
       }
-      console.log("📦 Classe retrieved for file:", file.path, "->", classe.constructor.name);
 
       // Generate custom display
       const customDisplay = await (classe as any).getDisplay();
       
       // Check again if we've been invalidated during display generation
       if (myGeneration !== this.currentDisplayGeneration) {
-        console.log("🚫 Display generation invalidated after getDisplay, aborting");
         return;
       }
       
       if (!customDisplay) {
-        console.log("⚠️ No custom display generated");
         this.currentFilePath = null;
         return;
       }
@@ -314,7 +288,6 @@ export default class CRM extends Plugin {
       // Remember the current file path
       this.currentFilePath = file.path;
 
-      console.log("✅ Metadata container replaced with custom display");
     } catch (error) {
       console.error("❌ Error replacing metadata container:", error);
       this.currentFilePath = null;
@@ -329,30 +302,23 @@ export default class CRM extends Plugin {
         .setIcon("refresh-ccw")
         .onClick(async () => {
           if (!file || !(file instanceof TFile)) {
-            console.log("❌ No file selected or file is not a TFile");
             return;
           } 
           
-          console.log("🔄 Refreshing file:", file.path);
           
           try {
             // Get the classe instance from the vault
             const iFile = this.obsidianApp.toIFile(file);
-            console.log("📄 IFile created:", iFile);
             
             const classe = await this.vault.getFromFile(iFile);
-            console.log("📦 Classe retrieved:", classe ? classe.constructor.name : "null");
             
             if (classe) {
-              console.log("🔧 Updating classe...");
               await classe.update();
-              console.log("✅ Classe updated successfully");
               this.obsidianApp.sendNotice("Objet rafraîchi avec succès");
               
               // Log display if available
               const display = await classe.getDisplay();
               if (display) {
-                console.log("🎨 Display generated:", display);
               }
             } else {
               console.warn("⚠️ No classe found for file:", file.path);
@@ -408,7 +374,6 @@ export default class CRM extends Plugin {
         }
       }
       
-      console.log(`📂 Found ${classNames.length} class configs in ${configPath}:`, classNames);
       return classNames;
     } catch (error) {
       console.error('❌ Error loading class names from config:', error);
@@ -420,8 +385,6 @@ export default class CRM extends Plugin {
    * Register keyboard shortcuts for creating and searching each class
    */
   registerClassCommands(classes: any) {
-    console.log("🎹 registerClassCommands called");
-    console.log("📦 Classes object:", classes);
     
     if (!classes) {
       console.error("❌ Classes is null or undefined");
@@ -429,39 +392,32 @@ export default class CRM extends Plugin {
     }
     
     const classNames = Object.keys(classes);
-    console.log("📋 Class names:", classNames);
     
     if (classNames.length === 0) {
       console.warn("⚠️ No classes found for command registration");
       return;
     }
     
-    console.log(`🎹 Registering ${classNames.length} commands for classes:`, classNames);
     
     for (const className of classNames) {
       // Single command to search or create
       const commandId = `open-${className.toLowerCase()}`;
       const commandName = `Ouvrir/Créer: ${className}`;
       
-      console.log(`📝 Adding command: ${commandId} - ${commandName}`);
       
       this.addCommand({
         id: commandId,
         name: commandName,
         callback: async () => {
-          console.log(`🚀 Command executed: ${commandName}`);
           await this.classFileModals?.openClassFileSuggester(className);
         }
       });
       
-      console.log(`✅ Registered command: ${commandName}`);
     }
     
-    console.log("✅ All commands registered successfully");
   }
 
   onunload() {
-    console.log("Plugin CRM - Unloaded");
     
     // Cleanup folder manager
     if (this.folderManager) {

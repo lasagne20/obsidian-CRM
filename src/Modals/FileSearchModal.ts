@@ -276,14 +276,12 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         if (this.isLoadingItems || this.cachedItems) return;
         
         this.isLoadingItems = true;
-        console.log("🔄 Preloading items with optionalFilter...");
         
         try {
             const items = await this.getItemsAsync();
             this.cachedItems = items;
             // Clear cache when items change
             this.clearItemTextCache();
-            console.log(`✅ Preloaded ${items.length} items`);
         } catch (error) {
             console.error("❌ Error preloading items:", error);
         } finally {
@@ -325,11 +323,9 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
                 return this.classes.includes(className);
             });
         }
-        console.log("Files after class filtering: ", files.length);
         
         // Apply optional filter if present - convert TFile to Classe first
         if (this.optionalFilter) {
-            console.log("Applying optionalFilter to files...");
             const filteredFiles: TFile[] = [];
             
             for (const file of files) {
@@ -344,7 +340,6 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
                     
                     // Get Classe instance from vault
                     const classe = await this.vault.getFromFile(iFile);
-                    console.log(`Filtering file: ${file.path}`, classe);
                     // Apply filter
                     if (classe && this.optionalFilter(classe)) {
                         filteredFiles.push(file);
@@ -355,7 +350,6 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
             }
             
             files = filteredFiles;
-            console.log(`Filtered files count: ${files.length}`);
         }
         
         // Add existing files to items
@@ -366,7 +360,6 @@ export class FileSearchModal extends FuzzySuggestModal<TFile | string> {
         if (this.dataItems && this.dataItems.length > 0) {
             // Get existing file names (with .md) for comparison
             const existingNames = new Set(files.map(f => f.name));
-            console.log("Existing file names:", existingNames);
             
             for (const dataItem of this.dataItems) {
                 const itemName = dataItem.nom || dataItem.name || dataItem.title || 'Unknown';

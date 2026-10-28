@@ -27,7 +27,6 @@ export class ObsidianApp implements IApp {
      * Trigger display refresh
      */
     needDisplayRefresh(): void {
-        console.log("🔄 needDisplayRefresh called");
         if (this.displayRefreshCallback) {
             this.displayRefreshCallback();
         } else {
@@ -74,7 +73,6 @@ export class ObsidianApp implements IApp {
                     await this.app.vault.createFolder(folderPath);
                 } catch (error) {
                     // Folder might already exist or be created by concurrent operation
-                    console.log(`Note: Could not create folder ${folderPath}:`, error);
                 }
             }
         }
@@ -104,16 +102,13 @@ export class ObsidianApp implements IApp {
             throw new Error(`File or folder not found: ${fileOrFolder.path}`);
         }
         
-        console.log(`Moving ${fileOrFolder.path} to ${newPath}`);
         
         try {
             if (abstractFile instanceof TFolder) {
                 // Pour les dossiers, vérifier s'il est non vide
                 const children = abstractFile.children;
-                console.log(`Folder has ${children.length} children`);
                 
                 if (children.length > 0) {
-                    console.log(`Moving non-empty folder with ${children.length} items`);
                 }
                 
                 // Obsidian peut gérer le déplacement de dossiers non vides avec rename
@@ -124,11 +119,9 @@ export class ObsidianApp implements IApp {
                 if (!movedFolder) {
                     throw new Error(`Failed to move folder: destination not found at ${newPath}`);
                 }
-                console.log(`Folder successfully moved to ${newPath}`);
             } else {
                 // Pour les fichiers, utiliser rename normalement
                 await this.app.vault.rename(abstractFile, newPath);
-                console.log(`File successfully moved to ${newPath}`);
             }
         } catch (error) {
             console.error(`Error moving ${fileOrFolder.path} to ${newPath}:`, error);
@@ -166,8 +159,6 @@ export class ObsidianApp implements IApp {
                 folders.push(this.toIFolder(tfolder));
             }
         }
-        console.log(`Found ${folders.length} folders${folder ? ` in folder ${folder.path}` : ''}`);
-        console.log(folders);
         return folders;
     }
 
@@ -235,7 +226,6 @@ export class ObsidianApp implements IApp {
     }
 
     async updateMetadata(file: IFile, metadata: any): Promise<void> {
-        console.log("📝 updateMetadata called for:", file.path, "with data:", metadata);
         const tfile = this.app.vault.getAbstractFileByPath(file.path);
         if (!(tfile instanceof TFile)) {
             console.error("❌ File not found:", file.path);
@@ -252,7 +242,6 @@ export class ObsidianApp implements IApp {
             // Merge new metadata with existing instead of replacing all
             // This preserves properties not included in the metadata parameter
             Object.assign(frontmatter, metadata);
-            console.log("✅ Frontmatter updated:", frontmatter);
         });
 
         await cacheChanged;
@@ -567,13 +556,11 @@ export class ObsidianApp implements IApp {
     }
 
     async selectMultipleFile(vault: any, classes: string[], options: any): Promise<(IFile | undefined)[]> {
-        console.log(`🔍 [ObsidianApp] selectMultipleFile called - classes: [${classes.join(', ')}]`);
         return new Promise((resolve) => {
             const modal = new MultiFileSearchModal(
                 this.app,
                 vault,
                 async (files) => {
-                    console.log(`📥 MultiFileSearch: processing ${files.length} selected item(s)`);
                     // Handle both TFile instances and Create options
                     const resultPromises = files.map(async (f) => {
                         if (f instanceof TFile) {
@@ -593,7 +580,6 @@ export class ObsidianApp implements IApp {
                         } else if (typeof f === 'string' && f.startsWith('Create: ')) {
                             // Handle Create option - replicate the creation logic from openClassFileSuggester
                             const name = f.substring('Create: '.length);
-                            console.log(`🆕 Creating new file: ${name}`);
                             
                             try {
                                 // Get the class constructor
@@ -612,7 +598,6 @@ export class ObsidianApp implements IApp {
                                 }
                                 
                                 // Manual creation without data (for now)
-                                console.log(`📝 Creating ${classes[0]} manually: ${name}`);
                                 const createdFile = await vault.createFile(ClassConstructor, name);
                                 
                                 return createdFile;
@@ -626,7 +611,6 @@ export class ObsidianApp implements IApp {
                     });
                     const results = await Promise.all(resultPromises);
                     const validResults = results.filter(r => r !== undefined);
-                    console.log(`✅ MultiFileSearch: ${validResults.length}/${files.length} item(s) resolved to File objects`);
                     resolve(validResults);
                 },
                 classes,

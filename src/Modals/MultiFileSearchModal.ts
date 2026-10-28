@@ -34,7 +34,6 @@ export class MultiFileSearchModal extends FileSearchModal {
 
     onOpen(): void {
         super.onOpen();
-        console.log(`🔍 [MultiFileSearchModal] onOpen - attaching keydown listener, inputEl: ${this.inputEl ? 'found' : 'MISSING'}`);
         this.inputEl?.addEventListener("keydown", this.boundOnKeyDown);
     }
 
@@ -44,7 +43,6 @@ export class MultiFileSearchModal extends FileSearchModal {
     }
 
     onChooseItem(item: TFile | string, evt: MouseEvent | KeyboardEvent): void {
-        console.log(`✅ [MultiFileSearchModal] onChooseItem called - item: ${item instanceof TFile ? item.path : item}`);
         // Add the chosen item directly to the selection (Enter or mouse click)
         // so it is always part of finalSelection in onClose
         this.addItemToSelection(item);
@@ -80,12 +78,10 @@ export class MultiFileSearchModal extends FileSearchModal {
     async onKeyDown(evt: KeyboardEvent): Promise<void> {
         // Enter: select the active item and validate (close) directly
         if (evt.key === "Enter" || evt.code === "Enter" || evt.code === "NumpadEnter") {
-            console.log(`⌨️ [MultiFileSearchModal] Enter detected`);
             evt.preventDefault();
             evt.stopPropagation();
             const activeItem = this.getActiveSuggestion();
             if (activeItem) {
-                console.log(`⌨️ [MultiFileSearchModal] Enter - selecting active item: ${activeItem instanceof TFile ? activeItem.path : activeItem}`);
                 this.addItemToSelection(activeItem);
             } else {
                 console.warn(`⌨️ [MultiFileSearchModal] Enter - no active item found`);
@@ -96,7 +92,6 @@ export class MultiFileSearchModal extends FileSearchModal {
 
         // Use Ctrl+Space to toggle selection without closing (multi-select)
         if (evt.code === "Space" && evt.ctrlKey) {
-            console.log(`⌨️ [MultiFileSearchModal] Ctrl+Space detected`);
             evt.preventDefault();
             const activeItem = this.getActiveSuggestion();
 
@@ -105,15 +100,12 @@ export class MultiFileSearchModal extends FileSearchModal {
                     const file = activeItem;
                     if (this.selectedItems.includes(file)) {
                         this.selectedItems = this.selectedItems.filter(f => f !== file);
-                        console.log(`⌨️ [MultiFileSearchModal] deselected: ${file.path} (selected: ${this.selectedItems.length})`);
                     } else {
                         this.selectedItems.push(file);
-                        console.log(`⌨️ [MultiFileSearchModal] selected: ${file.path} (selected: ${this.selectedItems.length})`);
                     }
                 } else if (typeof activeItem === 'string' && activeItem.startsWith('Create: ')) {
                     // Handle Create option - store it for later processing
                     this.choosed = activeItem;
-                    console.log(`⌨️ [MultiFileSearchModal] Create option chosen: ${activeItem}`);
                 }
                 this.renderAllSuggestions();
             } else {
@@ -185,10 +177,8 @@ export class MultiFileSearchModal extends FileSearchModal {
                 }
             }
             
-            console.log(`📤 [MultiFileSearchModal] onChooseMulti check - selectedItems: ${this.selectedItems.length}, choosed: ${this.choosed ? (this.choosed instanceof TFile ? this.choosed.path : this.choosed) : 'null'}, finalSelection: ${finalSelection.length}`);
             
             if (finalSelection.length > 0) {
-                console.log(`📤 [MultiFileSearchModal] calling onChooseMulti with ${finalSelection.length} item(s)`);
                 this.onChooseMulti(finalSelection);
             } else {
                 console.warn(`📤 [MultiFileSearchModal] EMPTY selection - onChooseMulti NOT called (select with Enter or Ctrl+Space)`);

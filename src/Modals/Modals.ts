@@ -32,15 +32,12 @@ export class ClassFileModals {
      */
     async openClassFileSuggester(className: string | string[], onFileSelected?: (file: any) => void, options?: any) {
         const classNames = Array.isArray(className) ? className : [className];
-        console.log(`🔍 Opening suggester for ${classNames.join(', ')}...`);
         
         try {
             // Get extended classes (classes that inherit from requested classes)
             const expandedClassNames = await this.vault.getExtendedClasses(classNames);
-            console.log(`🔍 Expanded classes: ${expandedClassNames.join(', ')}`);
             
             if (expandedClassNames.length > classNames.length) {
-                console.log(`🔗 Extended classes found: ${expandedClassNames.join(', ')}`);
             }
             
             // Load class constructor
@@ -60,7 +57,6 @@ export class ClassFileModals {
                     for (const cn of expandedClassNames) {
                         try {
                             ClassConstructor = await factory.getClass(cn);
-                            console.log(`✅ Constructor loaded from YAML config for: ${cn}`);
                             break;
                         } catch (e) {
                             console.warn(`Could not load class ${cn} from YAML:`, e);
@@ -115,12 +111,10 @@ export class ClassFileModals {
                         }
 
                         if (config.data && config.data.length > 0) {
-                            console.log(`📥 Class "${cn}" has data sources, loading...`);
                             const classData = await configManager.loadClassData(cn);
                             // Tag each data item with its class name for later use
                             classData.forEach((item: any) => item._className = cn);
                             dataItems.push(...classData);
-                            console.log(`✅ Loaded ${classData.length} data items for "${cn}"`);
                         }
                     } catch (error) {
                         console.warn(`Could not load data for ${cn}:`, error);
@@ -129,7 +123,6 @@ export class ClassFileModals {
             }
             
             // Show suggester with create option and data items
-            console.log(`🚀 Showing file suggester for classes: ${expandedClassNames.join(', ')}`);
             this.showClassFileSuggester(expandedClassNames, ClassConstructor, dataItems, classIcons, onFileSelected, options, searchConfig);
         } catch (error) {
             console.error(`Error opening file suggester for ${classNames.join(', ')}:`, error);
@@ -158,7 +151,6 @@ export class ClassFileModals {
                 if (typeof result === 'string' && result.startsWith('Create: ')) {
                     // Extract the name from "Create: XXX"
                     const name = result.substring('Create: '.length);
-                    console.log(`🆕 Creating new file: ${name}`);
                     
                     // Check if this name comes from data items
                     const dataItem = dataItems.find(item => {
@@ -171,11 +163,8 @@ export class ClassFileModals {
                     
                     try {
                         let createdFile: any = null;
-                        console.log(`🚀 Creating instance of ${className}...`);
-                        console.log(`🔧 data :`, dataItem);
                         if (dataItem) {
                             // Create from data using DynamicClassFactory
-                            console.log(`📦 Creating ${className} from data:`, dataItem);
                             const factory = this.vault.getDynamicClassFactory();
                             
                             if (factory) {
@@ -190,7 +179,6 @@ export class ClassFileModals {
                                 if (instance) {
                                     createdFile = instance.getFile();
                                     const filePath = createdFile.getPath ? createdFile.getPath() : createdFile.path;
-                                    console.log(`✅ Created ${className} from data at:`, filePath);
                                     this.obsidianApp.sendNotice(`${className} créé: ${dataItem.title || dataItem.nom || name}`);
                                     
                                     // Call callback with created file
@@ -205,7 +193,6 @@ export class ClassFileModals {
                             }
                         } else {
                             // Manual creation without data
-                            console.log(`📝 Creating ${className} manually: ${name}`);
                             createdFile = await this.vault.createFile(ClassConstructor, name);
                             
                             if (createdFile) {
