@@ -269,7 +269,9 @@ export default class CRM extends Plugin {
       // Get the classe instance
       const iFile = this.obsidianApp.toIFile(file);
       console.log("📄 IFile created for file:", file.path, iFile);
+      const __perfClasseStart = Date.now(); // [PERF] instrumentation temporaire
       const classe = await this.vault.getFromFile(iFile);
+      console.log(`[PERF] getFromFile(${file.path}): ${Date.now() - __perfClasseStart}ms`);
       console.log("📦 Classe retrieved for file:", file.path, classe ? classe.constructor.name : "null");
       
       // Check if we've been invalidated during the async operation
