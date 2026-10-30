@@ -13,6 +13,8 @@ interface Settings extends ISettings {
   templateFolder: string;
   dataFile: string;
   personalName: string;
+  defaultCommercial: string;
+  defaultAnimateur: string;
   additionalFiles: string[];
   configPath: string;
   enableFolderNotes: boolean;
@@ -29,6 +31,8 @@ const DEFAULT_SETTINGS: Settings = {
   templateFolder: "Outils/Obsidian/Templates",
   dataFile: "Outils/Obsidian/Data/geo.json",
   personalName: "Léo",
+  defaultCommercial: "",
+  defaultAnimateur: "",
   tooltipType: "aria-label",
   additionalFiles: [],
   configPath: "Outils/Obsidian/Config",
@@ -109,6 +113,8 @@ export default class CRM extends Plugin {
     this.vault = new Vault(this.obsidianApp, {
       templateFolder: this.settings.templateFolder,
       personalName: this.settings.personalName,
+      defaultCommercial: this.settings.defaultCommercial,
+      defaultAnimateur: this.settings.defaultAnimateur,
       configPath: this.settings.configPath
     });
 

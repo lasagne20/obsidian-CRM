@@ -76,6 +76,66 @@ export class CRMSettingTab extends PluginSettingTab {
         });
       });
 
+    // Helper : dropdown listant dynamiquement les fichiers d'une classe
+    const addClassDropdown = (
+      settingName: string,
+      className: string,
+      value: string,
+      onChange: (value: string) => Promise<void>
+    ) => {
+      new Setting(containerEl)
+        .setName(settingName)
+        .setDesc(`Sélectionner le fichier par défaut parmi les ${className}s du vault. Utilisé par les champs configurés avec default: "default${className}".`)
+        .addDropdown((dropdown) => {
+          // Option courante immédiatement (si le vault n'est pas prêt)
+          dropdown.addOption("", "— aucun —");
+          if (value) {
+            dropdown.addOption(value, value);
+          }
+          dropdown.setValue(value);
+          dropdown.onChange(onChange);
+
+          // Puis la vraie liste depuis le vault
+          const vault = this.plugin.vault;
+          const factory = vault?.getDynamicClassFactory?.();
+          if (factory) {
+            factory.getAllInstancesForClass(className, vault)
+              .then((instances: any[]) => {
+                const names = instances
+                  .map((instance: any) => instance?.getName?.())
+                  .filter((name: any): name is string => Boolean(name));
+                dropdown.selectEl.empty();
+                dropdown.addOption("", "— aucun —");
+                names.forEach((name) => dropdown.addOption(name, name));
+                dropdown.setValue(value);
+              })
+              .catch(() => {
+                // Vault non prêt : on garde l'option courante
+              });
+          }
+        });
+    };
+
+    addClassDropdown(
+      "Commercial par défaut",
+      "Commercial",
+      this.plugin.settings.defaultCommercial,
+      async (value) => {
+        this.plugin.settings.defaultCommercial = value;
+        await this.plugin.saveSettings();
+      }
+    );
+
+    addClassDropdown(
+      "Animateur par défaut",
+      "Animateur",
+      this.plugin.settings.defaultAnimateur,
+      async (value) => {
+        this.plugin.settings.defaultAnimateur = value;
+        await this.plugin.saveSettings();
+      }
+    );
+
     // Dossier des templates
     new Setting(containerEl)
       .setName("Dossier des templates")
