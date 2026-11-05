@@ -5,6 +5,7 @@ import { ObsidianApp } from 'src/App';
 import { CRMSettingTab } from 'settings';
 import { FileFolderManager } from 'src/FileFolderManager';
 import { ClassFileModals } from 'src/Modals/Modals';
+import { EmailCaptureModal } from 'src/Modals/EmailCaptureModal';
 
 // The CRM map display (DynamicMap) expects Leaflet as a global `L`
 (window as any).L = L;
@@ -140,6 +141,16 @@ export default class CRM extends Plugin {
       });
     }
     
+
+    // Capture d'emails : coller un fil de mails et l'enregistrer dans la
+    // propriété `suivie` du fichier correspondant du vault
+    this.addCommand({
+      id: 'capture-emails',
+      name: 'CRM: Enregistrer des emails',
+      callback: () => {
+        new EmailCaptureModal(this.app, this.vault, this.settings).open();
+      }
+    });
 
     // Register right-click menu
     this.registerEvent(
