@@ -72,6 +72,10 @@ export class CRMSettingTab extends PluginSettingTab {
         });
         dropdown.setValue(this.plugin.settings.personalName).onChange(async (value) => {
           this.plugin.settings.personalName = value;
+          // Le vault a reçu une copie des réglages au démarrage : le tenir à jour
+          if (this.plugin.vault) {
+            this.plugin.vault.settings.personalName = value;
+          }
           await this.plugin.saveSettings();
         });
       });
@@ -122,6 +126,10 @@ export class CRMSettingTab extends PluginSettingTab {
       this.plugin.settings.defaultCommercial,
       async (value) => {
         this.plugin.settings.defaultCommercial = value;
+        // Le vault a reçu une copie des réglages au démarrage : le tenir à jour
+        if (this.plugin.vault) {
+          this.plugin.vault.settings.defaultCommercial = value;
+        }
         await this.plugin.saveSettings();
       }
     );
@@ -132,6 +140,10 @@ export class CRMSettingTab extends PluginSettingTab {
       this.plugin.settings.defaultAnimateur,
       async (value) => {
         this.plugin.settings.defaultAnimateur = value;
+        // Le vault a reçu une copie des réglages au démarrage : le tenir à jour
+        if (this.plugin.vault) {
+          this.plugin.vault.settings.defaultAnimateur = value;
+        }
         await this.plugin.saveSettings();
       }
     );
