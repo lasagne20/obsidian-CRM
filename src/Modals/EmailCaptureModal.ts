@@ -90,6 +90,21 @@ export class EmailCaptureModal extends Modal {
                 if (!targets.has(key)) { targets.set(key, file); }
             }
         }
+        // Repli par nom : les fils réels citent souvent l'auteur sans adresse
+        // ("Le 28/01/2026 à 07:49, école du Village a écrit :")
+        const names = new Set<string>();
+        for (const email of this.emails) {
+            if (email.fromName) { names.add(email.fromName); }
+        }
+        for (const name of names) {
+            const isOwn = await service.isOwnName(name);
+            if (isOwn) { continue; }
+            const files = await service.findFilesByName(name);
+            for (const file of files) {
+                const key = file.getPath?.() ?? file.getName?.();
+                if (!targets.has(key)) { targets.set(key, file); }
+            }
+        }
         this.targets = [...targets.values()];
         this.includedFlags = this.emails.map(() => true);
 
