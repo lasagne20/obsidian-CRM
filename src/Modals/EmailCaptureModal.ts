@@ -1,13 +1,17 @@
 import { App, Modal, Notice, Setting, TextAreaComponent, ToggleComponent } from 'obsidian';
 import { EmailThreadParser, EmailIngestionService, ParsedEmail, Vault } from 'markdown-crm';
+import { ClassFileModals } from './Modals';
+import { ObsidianApp } from '../App';
 
 /**
  * Modal de capture d'emails :
  *   1. Coller le contenu brut d'un fil (un ou plusieurs mails, citations comprises)
- *   2. "Analyser" : le fil est segmenté, les adresses sont rattachées aux
- *      fichiers du vault (Personne / Commune / Institution - une adresse d'un
- *      Commercial est ignorée pour la cible, c'est "nous") ; ambiguïté ->
- *      choix ; aucune correspondance -> création d'une Personne proposée AVEC
+ *   2. "Analyser" : le fil est segmenté, les adresses ET les noms sont
+ *      rattachés aux fichiers du vault (Personne / Commune / Institution -
+ *      une adresse ou un nom de Commercial est ignoré pour la cible, c'est
+ *      "nous") ; le choix manuel d'une fiche reste toujours possible
+ *      (rapprochement auto impossible quand le nom diffère ou que la fiche
+ *      n'a pas d'email) ; aucune correspondance -> création proposée AVEC
  *      validation
  *   3. Prévisualisation (date, expéditeur, description, cases à cocher) puis
  *      "Enregistrer" : entrées `suivie` fusionnées, triées, dédupliquées et
@@ -23,7 +27,8 @@ export class EmailCaptureModal extends Modal {
     constructor(
         app: App,
         private vault: Vault,
-        private settings: any
+        private settings: any,
+        private obsidianApp: ObsidianApp
     ) {
         super(app);
     }
@@ -39,7 +44,7 @@ export class EmailCaptureModal extends Modal {
 
         new Setting(contentEl)
             .setName('Contenu du fil')
-            .setDesc("Collez le contenu brut du ou des mails (citations comprises). Formats reconnus : entêtes From/Date/Subject, citations Gmail FR/EN, messages transférés.");
+            .setDesc("Collez le contenu brut du ou des mails (citations comprises). Formats reconnus : entêtes From/Date/Subject (Gmail, Thunderbird), citations Gmail FR/EN, messages transférés.");
 
         const textArea = new TextAreaComponent(contentEl);
         textArea.inputEl.style.width = '100%';
@@ -60,6 +65,8 @@ export class EmailCaptureModal extends Modal {
 
     private async analyze(raw: string): Promise<void> {
         this.emails = EmailThreadParser.parse(raw);
+        this.targets = [];
+        this.selectedTarget = null;
         const section = this.resultSection;
         if (!section) { return; }
         section.empty();
@@ -69,14 +76,13 @@ export class EmailCaptureModal extends Modal {
             return;
         }
 
-        // Rattachement : toutes les adresses du fil vers les fichiers du vault
+        // Rattachement automatique : adresses puis noms
         const service = new EmailIngestionService(this.vault as any);
         const addresses = new Set<string>();
         for (const email of this.emails) {
             if (email.fromEmail) { addresses.add(email.fromEmail); }
             for (const to of email.toEmails) { addresses.add(to); }
         }
-
         const targets = new Map<string, any[]>();
         for (const address of addresses) {
             const isOwn = await service.isOwnAddress(address);
@@ -108,88 +114,135 @@ export class EmailCaptureModal extends Modal {
         this.targets = [...targets.values()];
         this.includedFlags = this.emails.map(() => true);
 
+        this.renderAnalysis(section);
+    }
+
+    private renderAnalysis(section: HTMLElement): void {
+        section.empty();
+
         new Setting(section).setName(
             this.emails.length === 1 ? '1 mail détecté.' : `${this.emails.length} mails détectés.`
         );
 
         if (this.targets.length === 0) {
-            await this.offerPersonneCreation(section);
-            return;
+            this.offerPersonneCreation(section);
         }
 
-        if (this.targets.length === 1) {
+        this.renderTargetSelector(section);
+        this.renderEmailList(section);
+        this.renderSaveButton(section);
+    }
+
+    /**
+     * Aucune adresse/nom du fil ne correspond à une fiche : proposer la
+     * création d'une Personne à partir de l'expéditeur, AVEC validation
+     * explicite. Le sélecteur manuel ci-dessous reste la porte de sortie.
+     */
+    private offerPersonneCreation(section: HTMLElement): void {
+        const sender = this.emails.find((e) => e.fromEmail) ?? this.emails[0];
+        const name = sender?.fromName || sender?.fromEmail || 'Nouveau contact';
+
+        new Setting(section)
+            .setName('Aucune fiche trouvée automatiquement')
+            .setDesc(`Aucune adresse/nom du fil ne correspond à une fiche. Créer « ${name} » (${sender?.fromEmail ?? 'sans adresse'}) ? Sinon, choisissez une fiche existante ci-dessous.`)
+            .addButton((button) => {
+                button
+                    .setButtonText('Créer la personne')
+                    .setCta()
+                    .onClick(async () => {
+                        try {
+                            const personneClasse = (this.vault as any).getClasseFromName?.('Personne');
+                            const createdFile = await (this.vault as any).createFile(
+                                personneClasse ?? null,
+                                name,
+                                { properties: { email: sender?.fromEmail ?? '' } }
+                            );
+                            if (!createdFile?.file) {
+                                new Notice('Création annulée.');
+                                return;
+                            }
+                            const classe = await (this.vault as any).getFromFile(createdFile.file as any);
+                            if (!classe) {
+                                new Notice("La personne a été créée mais n'a pas pu être chargée.");
+                                return;
+                            }
+                            this.targets = [classe];
+                            this.selectedTarget = classe;
+                            this.renderAnalysis(section);
+                        } catch (error) {
+                            new Notice(`Erreur lors de la création : ${error instanceof Error ? error.message : error}`);
+                        }
+                    });
+            });
+    }
+
+    /**
+     * Cible : détectée automatiquement (choix par dropdown si plusieurs),
+     * et toujours corrigeable via le sélecteur manuel.
+     */
+    private renderTargetSelector(container: HTMLElement): void {
+        if (this.selectedTarget && !this.targets.includes(this.selectedTarget)) {
+            this.targets = [this.selectedTarget, ...this.targets];
+        }
+        if (!this.selectedTarget && this.targets.length > 0) {
             this.selectedTarget = this.targets[0];
-            new Setting(section)
-                .setName('Fichier cible')
-                .setDesc(`${this.selectedTarget.getName()} (${this.selectedTarget.getClassName?.() ?? ''})`);
+        }
+
+        const setting = new Setting(container).setName('Fichier cible');
+        if (this.selectedTarget) {
+            setting.setDesc(`${this.selectedTarget.getName()} (${this.selectedTarget.getClassName?.() ?? ''})`);
         } else {
-            this.selectedTarget = this.targets[0];
-            const setting = new Setting(section)
-                .setName('Fichier cible')
-                .setDesc('Plusieurs fichiers correspondent aux adresses du fil.');
+            setting.setDesc('Choisissez la fiche sur laquelle enregistrer le fil.');
+        }
+
+        if (this.targets.length > 1) {
             const dropdown = setting.controlEl.createEl('select');
             this.targets.forEach((target, index) => {
                 const option = dropdown.createEl('option');
                 option.value = String(index);
                 option.textContent = `${target.getName()} (${target.getClassName?.() ?? ''})`;
             });
+            dropdown.value = String(this.targets.indexOf(this.selectedTarget));
             dropdown.addEventListener('change', () => {
                 this.selectedTarget = this.targets[Number(dropdown.value)];
             });
         }
 
-        this.renderEmailList(section);
-        this.renderSaveButton(section);
+        setting.addButton((button) => {
+            button
+                .setButtonText('Choisir une fiche...')
+                .onClick(async () => {
+                    await this.pickTargetManually();
+                });
+        });
     }
 
     /**
-     * Aucune adresse du fil ne correspond à un fichier : proposer la création
-     * d'une Personne à partir de l'expéditeur, AVEC validation explicite.
+     * Recherche manuelle d'une fiche (toutes classes de suivi) : le repli
+     * universel quand le rapprochement automatique échoue.
      */
-    private async offerPersonneCreation(section: HTMLElement): Promise<void> {
-        const sender = this.emails.find((e) => e.fromEmail);
-        const name = sender?.fromName || sender?.fromEmail || 'Nouveau contact';
-
-        const confirmSetting = new Setting(section)
-            .setName('Créer une nouvelle personne ?')
-            .setDesc(`Aucun de vos Personnes/Communes/Institutions ne correspond aux adresses du fil. Créer « ${name} » (${sender?.fromEmail ?? 'sans adresse'}) puis enregistrer le fil sur sa fiche ?`);
-        confirmSetting.addButton((button) => {
-            button
-                .setButtonText('Créer et enregistrer')
-                .setCta()
-                .onClick(async () => {
-                    try {
-                        const personneClasse = (this.vault as any).getClasseFromName?.('Personne');
-                        const createdFile = await (this.vault as any).createFile(
-                            personneClasse ?? null,
-                            name,
-                            { properties: { email: sender?.fromEmail ?? '' } }
-                        );
-                        if (!createdFile?.file) {
-                            new Notice('Création annulée.');
-                            return;
-                        }
-                        const classe = await (this.vault as any).getFromFile(createdFile.file as any);
-                        if (!classe) {
-                            new Notice("La personne a été créée mais n'a pas pu être chargée.");
-                            return;
-                        }
-                        this.selectedTarget = classe;
-                        section.empty();
-                        this.renderEmailList(section);
-                        this.renderSaveButton(section);
-                    } catch (error) {
-                        new Notice(`Erreur lors de la création : ${error instanceof Error ? error.message : error}`);
-                    }
-                });
-        });
-        confirmSetting.addButton((button) => {
-            button
-                .setButtonText('Ne pas créer')
-                .onClick(() => {
-                    this.renderEmailList(section);
-                });
-        });
+    private async pickTargetManually(): Promise<void> {
+        const section = this.resultSection;
+        if (!section) { return; }
+        const modals = new ClassFileModals(
+            this.app as any,
+            this.vault as any,
+            this.obsidianApp,
+            async () => {}
+        );
+        await modals.openClassFileSuggester(
+            ['Personne', 'Commune', 'Institution'],
+            async (file: any) => {
+                if (!file) { return; }
+                const classe = await (this.vault as any).getFromFile(file);
+                if (!classe) {
+                    new Notice("La fiche sélectionnée n'a pas pu être chargée.");
+                    return;
+                }
+                this.selectedTarget = classe;
+                this.renderAnalysis(section);
+            }
+        );
     }
 
     private renderEmailList(section: HTMLElement): void {

@@ -148,7 +148,7 @@ export default class CRM extends Plugin {
       id: 'capture-emails',
       name: 'CRM: Enregistrer des emails',
       callback: () => {
-        new EmailCaptureModal(this.app, this.vault, this.settings).open();
+        new EmailCaptureModal(this.app, this.vault, this.settings, this.obsidianApp).open();
       }
     });
 
